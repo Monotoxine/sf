@@ -1,0 +1,99 @@
+<template>
+    <c-l-D-C-T-Generic-Screens-Component grid-size="lds-col slds-gutters slds-size_4-of-12" badge-label="Creation of a new Speaker" object-api-name="LDCT_Speaker__c" block-count="2">
+        <!-- Block 1 -->
+        <div class="padding" slot="form-block-1">
+            <label class="column-title">Personal Details</label>
+            <div class="line"></div>
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">First Name</label>
+                <lightning-input type="text" value={firstName} onchange={handleInputChange} name="FirstName" field-name="FirstName"></lightning-input>
+            </div>
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Last Name</label>
+                <lightning-input type="text" value={lastName} onchange={handleInputChange} name="LastName" field-name="LastName"></lightning-input>
+                <lightning-helptext content="Please do not add any specific titles after the last name (ie. CFA)." class="info-icn"></lightning-helptext>
+            </div>
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Year began Investment Career</label>
+                <lightning-input type="number" value={yearBeganInvestmentCareer} onchange={handleInputChange} name="YearBeganInvestmentCareer" field-name="YearBeganInvestmentCareer"></lightning-input>
+                <lightning-helptext content="Please indicate the year from which the Speaker started working in the field of Market Finance or Asset Management. Example: 2003" class="info-icn"></lightning-helptext>
+            </div>
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Year Joined the Group</label>
+                <lightning-input type="number" value={yearJoinedTheGroup} onchange={handleInputChange} name="YearJoinedTheGroup" field-name="YearJoinedTheGroup"></lightning-input>
+                <lightning-helptext content="Please indicate the year from which the Speaker joined Natixis (and subsidiaries) or BPCE. Example: 2006	" class="info-icn"></lightning-helptext>
+            </div>
+            <div class="slds-form__row">
+                <c-custom-radio-group label="CFA Chartholder" group-name="CFAchartholder" class="justify-left" onradiochange={handleInputChange} selected-value={cfaChartHolder} name="CFAchartholder" field-name="CFAchartholder"></c-custom-radio-group>
+                <lightning-helptext content="Please check the YES box, if the Speaker is a CFA holder." class="info-icn"></lightning-helptext>
+            </div>
+            <div class="slds-form__row">
+                <c-custom-radio-group label="CEFA holder" group-name="CefaHolder"  class="justify-left" onradiochange={handleInputChange} selected-value={cefaHolder} name="CefaHolder" field-name="CefaHolder"></c-custom-radio-group>
+                <lightning-helptext content="Please check the YES box, if the Speaker is a CEFA holder.	" class="info-icn"></lightning-helptext>
+            </div>
+           <div class="slds-form__row">
+                <c-custom-radio-group label="Phd" group-name="Phd" class="justify-left" onradiochange={handleInputChange} selected-value={pHd} field-name="Phd" name="Phd"></c-custom-radio-group>
+                <lightning-helptext content="Please check the YES box, if the Speaker is a PhD holder." class="info-icn"></lightning-helptext>
+            </div>
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Email</label>
+                <lightning-input value={email}  onchange={handleInputChange} type="text" name="Email" field-name="Email"></lightning-input>
+            </div>
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Phone</label>
+                <lightning-input value={phone} onchange={handleInputChange} type="text" name="Phone" field-name="Phone"></lightning-input>
+            </div>
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Title EN</label>
+                <lightning-textarea value={titleEN} onchange={handleInputChange} type="textarea" name="TitleEn" field-name="TitleEn"></lightning-textarea>
+                <lightning-helptext content="Please specify the position of the Speaker within the company. Do not mention specific Portfolio Names. However, strategies may be referenced." class="info-icn"></lightning-helptext>
+            </div>
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Education EN</label>
+                <lightning-textarea value={educationEN} onchange={handleInputChange} type="textarea" name="EducationEn" field-name="EducationEn"></lightning-textarea>
+                <lightning-helptext content="Required Format : Degree, University, Country
+Degree : Specify the full and formal name of the highest degree obtained. Abbreviations are permitted.
+University : Provide the complete and official name of the university or institution that awarded the degree.
+Country : Indicate the country where the university is geographically located. Use the full country name (e.g. United States, United Kingdom, Canada).
+" class="info-icn"></lightning-helptext>
+            </div>
+        </div>
+        <!-- Block 2 -->
+        <div class="padding" slot="form-block-2">
+            <label class="column-title">Biography and Experience</label>
+            <div class="line"></div>
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Biography EN</label>
+                <lightning-textarea value={biographyEN} onchange={handleInputChange} type="textarea" name="BiographyEn" field-name="BiographyEn"></lightning-textarea>
+                <lightning-helptext content="The biography provides the most comprehensive narrative description of the speaker&apos;s professional background. For Portfolio Managers, these biographies are displayed on the Natixis IM website, associated with the funds they manage. To ensure consistency and clarity, all biographies must adhere to the following structure and guidelines. Overall Structure Biographies should consist of three distinct paragraphs, each focusing on a specific aspect of the speaker&apos;s background. Paragraph 1: Current Role and Affiliation (Mandatory Opening) Begin with a concise statement of the speaker&apos;s current title and affiliation. The first sentence of the biography must follow this exact format: &quot;[First Name] [Last Name] is [Current Title] at [Company].&quot; This paragraph should provide a brief overview of the speaker&apos;s current responsibilities. Do not reference any specific funds or a fixed number of years (i.e., responsible for Credit Strategies since 10 years). However, strategies may be referenced. Paragraph 2: Professional Experience (Key Roles and Responsibilities) Detail the speaker&apos;s relevant professional experience, focusing on previous roles and responsibilities. Present the information chronologically, starting with earlier roles and progressing to more recent ones. Information already included in the &apos;Experience&apos; section may be used with the appropriate modifications to ensure fluidity in the text. Paragraph 3: Education (Academic Credentials) End with a concise statement of the speaker&apos;s educational background. Specify the highest degree obtained, the awarding university, and the country. Example: &quot;He/She holds a [Degree Name] from [University Name] in [City, Country].&quot; CFA and CAIA may be referenced here." class="info-icn"></lightning-helptext>
+            </div>
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Expérience EN</label>
+                <lightning-textarea value={experienceEN} onchange={handleInputChange} type="textarea" name="ExperienceEn" field-name="ExperienceEn"></lightning-textarea>
+                <lightning-helptext content="To maintain a consistent and accurate record of the speaker&apos;s professional history, please adhere strictly to the following format when providing information about their previous experience. Required Structure: Initiation Statement: Begin each experience entry with the mandatory phrase: &quot;First Name Last Name began his/her career as...[Role and Company]&quot;. Subsequent Roles (If Applicable): For each subsequent role within different companies, the following structure may be used : &quot;After [Number] years/months at [Previous Company Name], he/she joined [Company Name] as [Role] in [City, Country].&quot; Last Role before current job : Begin with &quot;Prior to joining [Company Name] as [Role], he/she served at [Previous Company Name] as [Role] for [Number] years/months. Avoid referencing a fixed number of years (i.e., 20 years of industry experience) as this will require frequent update." class="info-icn"></lightning-helptext>
+            </div>
+
+            <label class="column-title">Pictures</label>
+            <div class="line"></div>
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Ipad Picture</label>
+                <lightning-input value={publicPicture} onchange={handleInputChange} type="text" name="IpadPicture" field-name="IpadPicture"></lightning-input>
+            </div>
+            
+        </div>
+    </c-l-D-C-T-Generic-Screens-Component>
+
+    <div class="slds-grid">
+        <div class="lds-col slds-size_1-of-4 slds-p-around_x-small">
+            <button onclick={home} class="slds-button slds-button_brand slds-button_stretch" title="Back">Home</button>
+        </div>
+
+        <div class="lds-col slds-size_1-of-4 slds-p-around_x-small">
+            <button onclick={validate} class="slds-button slds-button_brand slds-button_stretch" title="Back">Validate</button>
+        </div>
+
+        <div class="lds-col slds-size_1-of-4 slds-p-around_x-small">
+            <button onclick={saveDraft} class="slds-button slds-button_brand slds-button_stretch" title="Back">Save Draft</button>
+        </div>
+    </div>
+</template>

@@ -1,0 +1,34 @@
+<template>
+    <c-l-D-C-T-Generic-Screens-Component badge-label={welcomeMessage} block-count="2">
+        <!-- Block 1 -->
+        <div slot="form-block-1">
+            <div class="slds-form__row">
+                <c-l-D-C-T-organization-speakers class="slds-m-around_small"></c-l-D-C-T-organization-speakers>
+            </div>
+        </div>
+        <!-- Block 2 -->
+        <div slot="form-block-2">
+            <div class="slds-form__row">
+                <c-l-D-C-T-organisation-funds class="slds-m-around_small"></c-l-D-C-T-organisation-funds>
+            </div>
+        </div>
+    </c-l-D-C-T-Generic-Screens-Component>
+
+    <div class="slds-grid">
+        <div class="lds-col slds-size_1-of-5 slds-p-around_x-small">
+            <button onclick={backEvent} class="slds-button slds-button_brand slds-button_stretch" title="Back">Back</button>
+        </div>
+        <div class="lds-col slds-size_1-of-5 slds-p-around_x-small">
+            <button class="slds-button slds-button_brand slds-button_stretch" title="View Drafts &amp; History">View Drafts &amp; History</button>
+        </div>
+        <div class="lds-col slds-size_1-of-5 slds-p-around_x-small">
+            <button onclick={createAnewSpeaker} class="slds-button slds-button_brand slds-button_stretch" title="Create a New Speaker">Create a New Speaker</button>
+        </div>
+        <div class="lds-col slds-size_1-of-5 slds-p-around_x-small">
+            <button onclick={navigateToScreen4_1} class="slds-button slds-button_brand slds-button_stretch" title="Navigate Screen 4.1">Navigate Screen 4.1</button>
+        </div> 
+        <div class="lds-col slds-size_1-of-5 slds-p-around_x-small">
+            <button onclick={updateAffiliateXDataEvent} class="slds-button slds-button_brand slds-button_stretch" title={updateAffiliateXDataText}>{updateAffiliateXDataText}</button>
+        </div> 
+    </div>
+</template>

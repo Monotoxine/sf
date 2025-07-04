@@ -1,0 +1,12 @@
+<template>
+    <lightning-card title="Speakers Belonging to your organisation">
+        <lightning-datatable
+            key-field="Id"
+            data={speakers}
+            columns={columns}
+            sorted-by={sortedBy}
+            sorted-direction={sortedDirection}
+            onsort={handleSort}>
+        </lightning-datatable>
+    </lightning-card>
+</template>

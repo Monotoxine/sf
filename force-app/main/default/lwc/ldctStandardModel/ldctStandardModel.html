@@ -1,0 +1,8 @@
+<template>
+    <lightning-modal-header label={headerTitle}></lightning-modal-header>
+    <lightning-modal-body class="text">{content}</lightning-modal-body>
+    <lightning-modal-footer>
+        <lightning-button label="Yes" onclick={handleYes}></lightning-button>
+        <lightning-button label="No" onclick={handleNo}></lightning-button>
+    </lightning-modal-footer>
+</template>

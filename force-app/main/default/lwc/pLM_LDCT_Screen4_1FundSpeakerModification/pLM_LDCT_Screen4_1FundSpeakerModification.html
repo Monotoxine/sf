@@ -1,0 +1,30 @@
+<template>
+    <c-l-D-C-T-Generic-Screens-Component grid-size="lds-col slds-gutters slds-size_4-of-12" object-api-name="LDCT_speaker_and_product__c"  block-count="1">
+        <div class="padding" slot="form-block-1">
+   
+            <lightning-card title="Speakers Belonging to your organisation">
+                    <div class="verticalSizeCap">
+                        <lightning-datatable
+                            key-field="Id"
+                            data={SpeakerProducts}
+                            columns={columns}
+                            hide-checkbox-column="true">
+                        </lightning-datatable>
+                    </div>
+                </lightning-card>        
+        </div>
+</c-l-D-C-T-Generic-Screens-Component>
+<div class="slds-grid">
+    <div class="lds-col slds-size_1-of-4 slds-p-around_x-small">
+        <button onclick={home} class="slds-button slds-button_brand slds-button_stretch" title="Back">Home</button>
+    </div>
+
+    <div class="lds-col slds-size_1-of-4 slds-p-around_x-small">
+        <button onclick={validate} class="slds-button slds-button_brand slds-button_stretch" title="Back">Validate</button>
+    </div>
+
+    <div class="lds-col slds-size_1-of-4 slds-p-around_x-small">
+        <button onclick={saveDraft} class="slds-button slds-button_brand slds-button_stretch" title="Back">Save Draft</button>
+    </div>
+</div>
+</template>

@@ -1,0 +1,11 @@
+<aura:component implements="flexipage:availableForRecordHome,force:hasRecordId,lightning:actionOverride" access="global">
+    <aura:attribute name="url" type="String"/>
+    <aura:attribute name="pageReference" type="Object"/>
+    <aura:attribute name="recordId" type="String" />
+    <lightning:navigation aura:id="navService"/>
+    <aura:handler name="init" value="{!this}" action="{!c.init}"/>
+        <!-- Modal/Popup Box starts here-->
+        <article class="slds-align_absolute-center slds-card slds-size_1-of-3">
+                <lightning:flow aura:id="flow" onstatuschange="{!c.handleStatusChange}" />
+        </article>
+</aura:component>

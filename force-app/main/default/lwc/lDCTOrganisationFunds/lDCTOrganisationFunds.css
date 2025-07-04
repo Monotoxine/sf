@@ -1,0 +1,11 @@
+.verticalSizeCap{
+    height: 200px!important;
+    overflow-y: auto;
+}
+
+.spinnerContainer{
+    position: relative;
+    display: inline-block;
+    width: 80px;
+    height: 80px;
+}

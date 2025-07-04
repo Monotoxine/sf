@@ -1,0 +1,23 @@
+<template>
+    <template if:true={isLoading}>
+        <div class="exampleHolder">
+            <lightning-spinner alternative-text="Loading" size="x-small"></lightning-spinner>
+        </div>    
+    </template>
+    <template if:false={isLoading}>
+        <lightning-card title="Funds belonging to your organization">
+            <div class="verticalSizeCap">
+                <lightning-datatable
+                    key-field="Id"
+                    data={funds}
+                    columns={columns}
+                    hide-checkbox-column="true"
+                    sorted-by={sortedBy}
+                    sorted-direction={sortedDirection}
+                    onsort={handleSort}>
+                </lightning-datatable>
+            </div>
+        </lightning-card>
+    </template>
+
+</template>

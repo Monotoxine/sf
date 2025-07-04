@@ -1,0 +1,40 @@
+<template>
+    <article class="slds-card">
+        <span class="slds-badge custom-badge">{badgeLabel}</span>
+        <lightning-record-edit-form object-api-name={objectApiName}>
+            
+                <!-- Block 1 -->
+                <div class="slds-grid">
+                    <template if:true={isBlock1Visible}>
+                        
+                            <div class={gridSize}>
+                                <div class ="slds-m-around_small">
+                                    <slot name="form-block-1"></slot>
+                                </div> 
+                            </div>
+                        
+                    </template>
+                    <!-- Block 2 -->
+                    <template if:true={isBlock2Visible}>
+                        
+                            <div class={gridSize}>
+                                <div class ="slds-m-around_small">
+                                    <slot name="form-block-2"></slot>
+                                </div> 
+                            </div>
+                        
+                    </template>
+                    <!-- Block 3 -->
+                    <template if:true={isBlock3Visible}>
+                        
+                            <div class="slds-col slds-size_2-of-12">
+                                <div class ="slds-m-around_small">
+                                    <slot name="form-block-3"></slot>
+                                </div> 
+                            </div>
+                        
+                    </template>
+                </div>
+        </lightning-record-edit-form>
+    </article>
+</template>

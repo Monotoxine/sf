@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Project_Type__c</fullName>
+    <label>Project Type</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Speaker Creation</fullName>
+                <default>false</default>
+                <label>Speaker Creation</label>
+            </value>
+            <value>
+                <fullName>Speaker Modification/Deletion</fullName>
+                <default>false</default>
+                <label>Speaker Modification/Deletion</label>
+            </value>
+            <value>
+                <fullName>Fund-Speaker Modification</fullName>
+                <default>false</default>
+                <label>Fund-Speaker Modification</label>
+            </value>
+            <value>
+                <fullName>Affiliate Modification</fullName>
+                <default>false</default>
+                <label>Affiliate Modification</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

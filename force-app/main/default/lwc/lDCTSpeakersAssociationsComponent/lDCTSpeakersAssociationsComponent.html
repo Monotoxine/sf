@@ -1,0 +1,16 @@
+<template>
+    <div class="slds-grid">
+        <div class="lds-col slds-size_1-of-4 slds-p-around_x-small">
+            <button onclick={backEvent} class="slds-button slds-button_brand slds-button_stretch" title="Back">Back</button>
+        </div>
+        <div class="lds-col slds-size_1-of-4 slds-p-around_x-small">
+            <button class="slds-button slds-button_brand slds-button_stretch" title="View Drafts &amp; History">View Drafts &amp; History</button>
+        </div>
+        <div class="lds-col slds-size_1-of-4 slds-p-around_x-small">
+            <button onclick={createAnewSpeaker} class="slds-button slds-button_brand slds-button_stretch" title="Create a New Speaker">Create a New Speaker</button>
+        </div> 
+        <div class="lds-col slds-size_1-of-4 slds-p-around_x-small">
+            <button onclick={updateAffiliateXDataEvent} class="slds-button slds-button_brand slds-button_stretch" title={updateAffiliateXDataText}>{updateAffiliateXDataText}</button>
+        </div> 
+    </div>
+</template>

@@ -1,0 +1,74 @@
+<template>
+    <c-l-D-C-T-Generic-Screens-Component badge-label="Affiliate Data Update" object-api-name="LDCT_Affiliate__c" block-count="2">
+        <!-- Block 1 -->
+        <div slot="form-block-1">
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Founding Year *</label>
+                <lightning-input type="text" pattern="[0-9]{4}" field-name="FoundingYear" name="FoundingYear" value={foundingYear} onchange={handleInputChange} required="true" variant="label-hidden"></lightning-input>
+            </div>
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Date of Entry *</label>
+                <lightning-input type="date" field-name="DateOfEntry" name="DateOfEntry" value={dateOfEntry} onchange={handleInputChange} required="true" variant="label-hidden"></lightning-input>
+                <lightning-helptext content="Please indicate the date of entry within the Natixis Group." class="info-icn"></lightning-helptext>
+            </div>
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Headquarters *</label>
+                <lightning-input type="text" field-name="Headquarters" name="Headquarters" value={headquarters} onchange={handleInputChange} required="true" variant="label-hidden"></lightning-input>
+                <lightning-helptext content="Indicate the headquarters in the following format : [City, Country]." class="info-icn"></lightning-helptext>
+            </div>
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Share Capital ($) *</label>
+                <lightning-input type="text" pattern="[0-9]{2}" field-name="ShareCapitalDol"  name="ShareCapitalDol" value={shareCapitalDol} onchange={handleInputChange} required="true" variant="label-hidden"></lightning-input>
+                <lightning-helptext content="Natixis Share Capital within the Affiliate" class="info-icn"></lightning-helptext>
+            </div>
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Share Capital (€) *</label>
+                <lightning-input type="text" pattern="[0-9]{2}" field-name="SharCapitalEur" name="SharCapitalEur" value={shareCapitalEur} onchange={handleInputChange} required="true" variant="label-hidden"></lightning-input>
+                <lightning-helptext content="Natixis Share Capital within the Affiliate" class="info-icn"></lightning-helptext>
+            </div>
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Share Capital Date *</label>
+                <lightning-input type="date" field-name="ShareCapitalDate" name="ShareCapitalDate" value={shareCapitalDate} onchange={handleInputChange} required="true" variant="label-hidden"></lightning-input>
+                <lightning-helptext content="Natixis Share Capital within the Affiliate" class="info-icn"></lightning-helptext>
+            </div>
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Legal Description EN *</label>
+                <lightning-textarea field-name="LegalDescriptionEn" name="LegalDescriptionEn" value={legalDescriptionEn} onchange={handleInputChange} required="true" variant="label-hidden"></lightning-textarea>
+                <lightning-helptext content="The legal description should follow the following format : Company, Name Affiliation, Regulatory Status (including Registration number : IARD, RCS, Registered Number), Headquarters address and Website" class="info-icn"></lightning-helptext>
+            </div>
+        </div>
+        <!-- Block 2 -->
+        <div slot="form-block-2">
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Long Description EN</label>
+                <lightning-textarea field-name="LongDescriptionEn" name="LongDescriptionEn" value={longDescriptionEn} onchange={handleInputChange}></lightning-textarea>
+            </div>
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Short Description EN</label>
+                <lightning-textarea field-name="ShortDescriptionEn" name="ShortDescriptionEn" value={shortDescriptionEn} onchange={handleInputChange}></lightning-textarea>
+            </div>
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Current Logo</label>
+            </div>
+            <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Logo</label>
+                <lightning-input type="file" field-name="Logo" name="Logo"></lightning-input>
+            </div>
+             <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Current Logo for Reporting</label>
+            </div>
+             <div class="slds-form__row">
+                <label class="slds-form-element__label slds-m-around_small">Reporting Logo</label>
+                <lightning-input type="file" field-name="ReportingLogo" name="ReportingLogo"></lightning-input>
+            </div>
+        </div>
+    </c-l-D-C-T-Generic-Screens-Component>
+    <div class="slds-grid">
+        <div class="lds-col slds-size_2-of-4 slds-p-around_x-small">
+            <button onclick={backEvent} class="slds-button slds-button_brand slds-button_stretch" title="Back">Back</button>
+        </div>
+        <div class="lds-col slds-size_2-of-4 slds-p-around_x-small">
+            <button onclick={saveEvent} class="slds-button slds-button_brand slds-button_stretch" title="Validate">Validate</button>
+        </div>
+    </div>
+</template>

@@ -1,0 +1,35 @@
+.slds-input{
+    background-color: #e4c9f0;
+}
+.slds-form-element__label{
+    color: #a57fb7;
+    text-align: right;
+}
+.custom-badge {
+    font-size: 1.25em; /* Increase font size */
+    padding: 0.5em 5em; /* Adjust padding for larger appearance */
+    color: white;
+    background-color: #bfbfbf;
+    text-align: left; /* Align text to the left */
+}
+lightning-input{
+    --slds-c-input-color-background: #e4c9f0;
+}
+lightning-textarea{
+    --slds-c-textarea-color-background: #e4c9f0;
+}
+.slds-form-element {
+    position: relative;
+    min-width: 65%;
+}
+.slds-form__row{
+    justify-content: right;
+}
+
+.padding{
+    padding: 15px;
+}
+
+.max_size button{
+    width: 100%;
+}
