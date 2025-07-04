@@ -1,0 +1,57 @@
+<template>
+    <lightning-card title="Affiliate Data" icon-name="standard:account">
+        <lightning-tabset variant="scoped">
+            <lightning-tab label="Legal Description">
+                <lightning-input
+                    name="Legal_Description_EN__c"
+                    label="Legal Description"
+                    value={affiliate.Legal_Description_EN__c}
+                    onchange={handleChange}
+                ></lightning-input>
+            </lightning-tab>
+            <lightning-tab label="Long Description">
+                <lightning-input
+                    name="Long_Description_EN__c"
+                    label="Long Description"
+                    value={affiliate.Long_Description_EN__c}
+                    onchange={handleChange}
+                ></lightning-input>
+            </lightning-tab>
+            <lightning-tab label="Short Description">
+                <lightning-input
+                    name="Short_Description_EN__c"
+                    label="Short Description"
+                    value={affiliate.Short_Description_EN__c}
+                    onchange={handleChange}
+                ></lightning-input>
+            </lightning-tab>
+        </lightning-tabset>
+
+        <div class="slds-m-top_medium">
+            <lightning-input
+                name="Share_capital_euro__c"
+                label="Share Capital"
+                value={affiliate.Share_capital_euro__c}
+                onchange={handleChange}
+                class={shareCapitalChanged ? 'changed' : ''}
+            ></lightning-input>
+            <lightning-input
+                type="date"
+                name="Share_capital_date__c"
+                label="Share Capital Date"
+                value={affiliate.Share_capital_date__c}
+                onchange={handleChange}
+                class={shareCapitalChanged ? 'changed' : ''}
+            ></lightning-input>
+        </div>
+
+        <div class="slds-m-top_medium">
+            <lightning-button label="Translate" onclick={openTranslate}></lightning-button>
+            <lightning-button variant="brand" label="Save" onclick={handleSave}></lightning-button>
+        </div>
+    </lightning-card>
+
+    <template if:true={showModal}>
+        <c-affiliate-translation-modal onclose={closeModal} descriptions={affiliate}></c-affiliate-translation-modal>
+    </template>
+</template>
