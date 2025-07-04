@@ -15,7 +15,7 @@ public with sharing class pLM_LDCT_OrganizationSpeakersHandler {
     @AuraEnabled(cacheable=true)
     public static LDCT_Speaker__c loadNarrativeProjectSpeaker(Id speakerId, Id projectId){
         try {
-            LDCT_Speaker__c speaker = [SELECT FirstName__c, Name, Began_Investment_Career__c, Joined_Firm__c, CFA_Charterholder__c, Caia__c, Phd__c, Email__c, Phone__c, Title_EN__c, Education__c, Bio_EN__c, Experience__c, Ipad_Picture_URL__c FROM LDCT_Speaker__c WHERE Speaker__c=:speakerId LIMIT 1]; 	
+            LDCT_Speaker__c speaker = [SELECT FirstName__c, Name, Began_Investment_Career__c, Joined_Firm__c, CFA_Charterholder__c, Caia__c, Phd__c, Email__c, Phone__c, Title_EN__c, Education_EN__c, Bio_EN__c, Experience_EN__c, Ipad_Picture_URL__c FROM LDCT_Speaker__c WHERE Speaker__c=:speakerId LIMIT 1]; 	
             return speaker; 
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
@@ -100,7 +100,7 @@ public with sharing class pLM_LDCT_OrganizationSpeakersHandler {
     @AuraEnabled
     public static void createSpeaker(String firstName, String lastName, Decimal yearBeganInvestmentCareer, 
                                        Decimal yearJoinedTheGroup, Boolean cfaChartHolder, Boolean cefaHolder, Boolean pHd,
-                                       String email, String phone, String titleEN, String educationEN, String biographyEN, String experienceEN, String publicPicture){
+                                       String email, String phone, String title, String education, String biography, String experience, String publicPicture,string projectLang){
 
                                         
         if(firstName == null){
@@ -124,13 +124,9 @@ public with sharing class pLM_LDCT_OrganizationSpeakersHandler {
                 Phd__c = pHd != null ? true : false,
                 Email__c = email, 
                 Phone__c = phone,
-                Title_EN__c = titleEN,
-                Education__c = educationEN,
-                Bio_EN__c = biographyEN,
-                Experience__c = experienceEN,
                 Ipad_Picture_URL__c	= publicPicture
             );
-
+            ldctSpeaker= BindTraductionLDCTSpeakerFields(ldctSpeaker,projectLang, title, education, biography, experience );
             insert ldctSpeaker;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
@@ -140,7 +136,7 @@ public with sharing class pLM_LDCT_OrganizationSpeakersHandler {
     @AuraEnabled
     public static void updateLDCTSpeaker(Id speakerId, String firstName, String lastName, Decimal yearBeganInvestmentCareer, 
                                        Decimal yearJoinedTheGroup, Boolean cfaChartHolder, Boolean cefaHolder, Boolean pHd,
-                                       String email, String phone, String titleEN, String educationEN, String biographyEN, String experienceEN, String publicPicture){
+                                       String email, String phone, String title, String education, String biography, String experience, String publicPicture,string projectLang){
         if(firstName == null){
             throw new AuraHandledException('First name is required.');
         } 
@@ -150,7 +146,9 @@ public with sharing class pLM_LDCT_OrganizationSpeakersHandler {
         } 
 
         try {
-            LDCT_Speaker__c ldctSpeaker = [SELECT FirstName__c, Name, Began_Investment_Career__c, Joined_Firm__c, CFA_Charterholder__c, Caia__c, Phd__c, Email__c, Phone__c, Title_EN__c, Education__c, Bio_EN__c, Experience__c, Ipad_Picture_URL__c FROM LDCT_Speaker__c WHERE Speaker__c = :speakerId LIMIT 1]; 
+            string query ='SELECT FirstName__c, Name, Began_Investment_Career__c, Joined_Firm__c, CFA_Charterholder__c, Caia__c, Phd__c, Email__c, Phone__c,{0}, Ipad_Picture_URL__c FROM LDCT_Speaker__c WHERE Speaker__c = :speakerId LIMIT 1';
+            query.replace('{0}', BuildTraductionLDCTSpeakerFields(projectLang));
+            LDCT_Speaker__c ldctSpeaker =  Database.query(query);
             ldctSpeaker.FirstName__c = firstName;
             ldctSpeaker.Name = lastName;
             ldctSpeaker.Began_Investment_Career__c = yearBeganInvestmentCareer; 
@@ -160,17 +158,30 @@ public with sharing class pLM_LDCT_OrganizationSpeakersHandler {
             ldctSpeaker.Phd__c = pHd; 
             ldctSpeaker.Email__c = email; 
             ldctSpeaker.Phone__c = phone; 
-            ldctSpeaker.Title_EN__c = titleEN; 
-            ldctSpeaker.Education__c = educationEN; 
-            ldctSpeaker.Bio_EN__c = biographyEN; 
-            ldctSpeaker.Experience__c = experienceEN; 
             ldctSpeaker.Ipad_Picture_URL__c	= publicPicture;
+            ldctSpeaker= BindTraductionLDCTSpeakerFields(ldctSpeaker,projectLang, title, education, biography, experience );
             update ldctSpeaker;
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
     }
+    private static LDCT_Speaker__c BindTraductionLDCTSpeakerFields(LDCT_Speaker__c ldctSpeaker,string projectLang,string title,string education,string biography,string experience )
+    {
+         if(projectLang != null)
+            {
+                ldctSpeaker.put('Title_'+projectLang+'__c',title);
+                ldctSpeaker.put('Education_'+projectLang+'__c',education);
+                ldctSpeaker.put('Bio_'+projectLang+'__c',biography);
+                ldctSpeaker.put('Experience_'+projectLang+'__c',experience);
+                
+            }
+            return ldctSpeaker;
+    }
+    private static string BuildTraductionLDCTSpeakerFields(string projectLang)
+    {       
+        return  'Title_'+projectLang+'__c,Education_'+projectLang+'__c,Bio_'+projectLang+'__c,Experience_'+projectLang+'__c';
 
+    }
     @AuraEnabled(cacheable=true)
     public static List<LDCT_speaker_and_product__c> loadSpeaker_ProductByProjectId(string projectId){
         try {
@@ -180,4 +191,5 @@ public with sharing class pLM_LDCT_OrganizationSpeakersHandler {
             throw new AuraHandledException(e.getMessage());
         }
     }
+    
 }

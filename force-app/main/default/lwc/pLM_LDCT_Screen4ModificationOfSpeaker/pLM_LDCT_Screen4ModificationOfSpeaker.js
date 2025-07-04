@@ -10,6 +10,7 @@ export default class PLM_LDCT_Screen4ModificationOfSpeaker extends NavigationMix
     @api error
     @api speakerId;
     @api projectId;
+    @api projectLang;
     @api firstName; 
     @api lastName; 
     @api yearBeganInvestmentCareer; 
@@ -19,22 +20,20 @@ export default class PLM_LDCT_Screen4ModificationOfSpeaker extends NavigationMix
     @api pHd;
     @api email; 
     @api phone;
-    @api titleEN; 
-    @api educationEN; 
-    @api biographyEN;
-    @api experienceEN;
+    @api title; 
+    @api education; 
+    @api biography;
+    @api experience;
     @api publicPicture;
 
     @track currentPageReference;
     @wire(CurrentPageReference)
     setCurrentPageReference(currentPageReference) {
         this.currentPageReference = currentPageReference;
+        this.projectId = this.currentPageReference.state.c__projectId;
+        this.projectLang= this.currentPageReference.state.c__ProjectLang;
     }
 
-    connectedCallback() {
-        this.speakerId = this.currentPageReference?.state?.c__speakerId; 
-        this.projectId = this.currentPageReference?.state?.c__projectId;
-    }
 
     handleInputChange(event) {
         let fieldName = event.target.name;
@@ -64,16 +63,16 @@ export default class PLM_LDCT_Screen4ModificationOfSpeaker extends NavigationMix
                 this.phone = event.target.value;
                 break;
             case "TitleEN":
-                this.titleEN = event.target.value;
+                this.title = event.target.value;
                 break;
             case "EducationEN":
-                this.educationEN = event.target.value;
+                this.education = event.target.value;
                 break;
             case "BiographyEN":
-                this.biographyEN = event.target.value;
+                this.biography = event.target.value;
                 break;
             case "ExperienceEN":
-                this.experienceEN = event.target.value;
+                this.experience = event.target.value;
                 break;
             case "IpadPicture":
                 this.publicPicture = event.target.value;
@@ -97,10 +96,10 @@ export default class PLM_LDCT_Screen4ModificationOfSpeaker extends NavigationMix
             this.pHd = data.Phd__c;
             this.email = data.Email__c;
             this.phone = data.Phone__c;
-            this.titleEN = data.Title_EN__c;
-            this.educationEN = data.Education__c;
-            this.biographyEN = data.Bio_EN__c;
-            this.experienceEN = data.Experience__c;
+            this.title = data.Title_EN__c;
+            this.education = data.Education_EN__c;
+            this.biography = data.Bio_EN__c;
+            this.experience = data.Experience_EN__c;
             this.publicPicture = data.Ipad_Picture_URL__c;
         } else if (error) {
             this.error = error; 
@@ -133,11 +132,12 @@ export default class PLM_LDCT_Screen4ModificationOfSpeaker extends NavigationMix
                     pHd: this.pHd,
                     email: this.email, 
                     phone: this.phone,
-                    titleEN: this.titleEN,
-                    educationEN: this.educationEN,
-                    biographyEN: this.biographyEN,
-                    experienceEN: this.experienceEN,
-                    publicPicture: this.publicPicture
+                    titleEN: this.title,
+                    educationEN: this.education,
+                    biographyEN: this.biography,
+                    experienceEN: this.experience,
+                    publicPicture: this.publicPicture,
+                    projectLang:this.projectLang
                 }).then(() => {
                         // Show a success toast message
                         const evt = new ShowToastEvent({

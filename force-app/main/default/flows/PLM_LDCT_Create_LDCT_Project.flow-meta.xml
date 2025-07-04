@@ -2,50 +2,34 @@
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <apiVersion>64.0</apiVersion>
     <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
+    <assignments>
+        <name>set_language</name>
+        <label>Set language</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>Lang</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>SetLang</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Update_Record_EN</targetReference>
+        </connector>
+    </assignments>
     <customProperties>
         <name>ScreenProgressIndicator</name>
         <value>
             <stringValue>{&quot;location&quot;:&quot;top&quot;,&quot;type&quot;:&quot;simple&quot;}</stringValue>
         </value>
     </customProperties>
-    <decisions>
-        <name>check_language</name>
-        <label>check language</label>
-        <locationX>0</locationX>
-        <locationY>0</locationY>
-        <defaultConnectorLabel>default outcome</defaultConnectorLabel>
-        <rules>
-            <name>en_selection</name>
-            <conditionLogic>and</conditionLogic>
-            <conditions>
-                <leftValueReference>English.renderNext</leftValueReference>
-                <operator>EqualTo</operator>
-                <rightValue>
-                    <booleanValue>true</booleanValue>
-                </rightValue>
-            </conditions>
-            <connector>
-                <targetReference>Update_Record_EN</targetReference>
-            </connector>
-            <label>en selection</label>
-        </rules>
-        <rules>
-            <name>fr_selection</name>
-            <conditionLogic>and</conditionLogic>
-            <conditions>
-                <leftValueReference>French.renderNext</leftValueReference>
-                <operator>EqualTo</operator>
-                <rightValue>
-                    <booleanValue>true</booleanValue>
-                </rightValue>
-            </conditions>
-            <connector>
-                <targetReference>Update_Record_FR</targetReference>
-            </connector>
-            <label>fr selection</label>
-        </rules>
-    </decisions>
     <environments>Default</environments>
+    <formulas>
+        <name>SetLang</name>
+        <dataType>String</dataType>
+        <expression>IF({!English.renderNext}==true, &apos;EN&apos;, &apos;FR&apos;)</expression>
+    </formulas>
     <interviewLabel>PLM - LDCT - Create LDCT Project {!$Flow.CurrentDateTime}</interviewLabel>
     <label>PLM - LDCT - Create LDCT Project</label>
     <processMetadataValues>
@@ -104,28 +88,7 @@
         <inputAssignments>
             <field>Language__c</field>
             <value>
-                <stringValue>EN</stringValue>
-            </value>
-        </inputAssignments>
-        <object>LDCT_Project__c</object>
-    </recordUpdates>
-    <recordUpdates>
-        <name>Update_Record_FR</name>
-        <label>Update Record FR</label>
-        <locationX>0</locationX>
-        <locationY>0</locationY>
-        <filterLogic>and</filterLogic>
-        <filters>
-            <field>Id</field>
-            <operator>EqualTo</operator>
-            <value>
-                <elementReference>recordId</elementReference>
-            </value>
-        </filters>
-        <inputAssignments>
-            <field>Language__c</field>
-            <value>
-                <stringValue>FR</stringValue>
+                <elementReference>Lang</elementReference>
             </value>
         </inputAssignments>
         <object>LDCT_Project__c</object>
@@ -139,7 +102,7 @@
         <allowFinish>true</allowFinish>
         <allowPause>true</allowPause>
         <connector>
-            <targetReference>check_language</targetReference>
+            <targetReference>set_language</targetReference>
         </connector>
         <fields>
             <name>en_description</name>
@@ -234,6 +197,13 @@
         </connector>
     </start>
     <status>Active</status>
+    <variables>
+        <name>Lang</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>true</isOutput>
+    </variables>
     <variables>
         <name>ldctRecordId</name>
         <dataType>String</dataType>

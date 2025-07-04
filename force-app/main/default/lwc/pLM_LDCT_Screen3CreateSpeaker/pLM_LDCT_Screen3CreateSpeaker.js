@@ -22,11 +22,14 @@ export default class PLM_LDCT_Screen3CreateSpeaker extends NavigationMixin(Light
     @track experience;
     @track publicPicture;
     @api projectId;
+    @api projectLang;
     @track currentPageReference;
     @wire(CurrentPageReference)
     getStateParameters(currentPageReference) {
         this.currentPageReference = currentPageReference;
         this.projectId = this.currentPageReference.state.c__projectId;
+        this.projectLang= this.currentPageReference.state.c__ProjectLang;
+        console.log('this.projectLang',this.projectLang);
     }
     
     handleInputChange(event) {
@@ -107,7 +110,8 @@ export default class PLM_LDCT_Screen3CreateSpeaker extends NavigationMixin(Light
                     education: this.education,
                     biography: this.biography,
                     experience: this.experience,
-                    publicPicture: this.publicPicture
+                    publicPicture: this.publicPicture,
+                    projectLang:this.projectLang
                 }).then(() => {
                         // Show a success toast message
                         const evt = new ShowToastEvent({

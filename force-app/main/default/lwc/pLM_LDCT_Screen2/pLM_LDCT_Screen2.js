@@ -8,6 +8,7 @@ import {CurrentPageReference, NavigationMixin } from 'lightning/navigation';
 export default class PLM_LDCT_Screen2 extends NavigationMixin(LightningElement){
     userId = Id;
     @api projectId;
+    @api projectLang;
     @track userName = "";
     @track companyName = ""; 
     @track updateAffiliateXDataText = ""; 
@@ -18,6 +19,7 @@ export default class PLM_LDCT_Screen2 extends NavigationMixin(LightningElement){
     getStateParameters(currentPageReference) {
         this.currentPageReference = currentPageReference;
         this.projectId = this.currentPageReference.state.c__projectId;
+        this.projectLang= this.currentPageReference.state.c__ProjectLang;
     }
 
   
@@ -60,7 +62,8 @@ export default class PLM_LDCT_Screen2 extends NavigationMixin(LightningElement){
                 componentName: customComponentName
             },
             state: {
-                c__projectId: this.projectId
+                c__projectId: this.projectId,
+                c__ProjectLang: this.projectLang
             },
         });
     }

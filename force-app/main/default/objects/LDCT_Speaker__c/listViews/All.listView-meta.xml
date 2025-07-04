@@ -9,7 +9,7 @@
     <columns>Caia__c</columns>
     <columns>Phd__c</columns>
     <columns>Bio_EN__c</columns>
-    <columns>Education__c</columns>
+    <columns>Education_EN__c</columns>
     <columns>Email__c</columns>
     <columns>Phone__c</columns>
     <columns>Picture__c</columns>

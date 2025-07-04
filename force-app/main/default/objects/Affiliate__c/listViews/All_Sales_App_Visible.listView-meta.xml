@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>All_Sales_App_Visible</fullName>
+    <columns>NAME</columns>
+    <columns>Active__c</columns>
+    <columns>Display_Order__c</columns>
+    <columns>Date_Of_Entry__c</columns>
+    <columns>Headquarters__c</columns>
+    <columns>Founding_Year__c</columns>
+    <columns>Expertise__c</columns>
+    <columns>AUM__c</columns>
+    <columns>Logo_URL__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Active__c</field>
+        <operation>equals</operation>
+        <value>1</value>
+    </filters>
+    <filters>
+        <field>Date_Of_Entry__c</field>
+        <operation>notEqual</operation>
+    </filters>
+    <label>All Sales App Visible</label>
+    <sharedTo>
+        <roleAndSubordinatesInternal>Management</roleAndSubordinatesInternal>
+    </sharedTo>
+</ListView>
