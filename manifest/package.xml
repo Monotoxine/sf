@@ -118,6 +118,11 @@
 		<name>CustomObject</name>
 	</types>
 	<types>
+		<members>PLM_LDCT_Create_LDCT_Project</members>
+		<members>PLM_LDCT_Menu</members>
+		<name>Flow</name>
+	</types>
+	<types>
 		<members>lDCTAffiliateComponent</members>
 		<members>lDCTGenericScreensComponent</members>
 		<members>lDCTOrganisationFunds</members>
