@@ -18,7 +18,8 @@ public class FormulaTokenizer {
         'ISBLANK', 'ISNUMBER', 'ISPICKVAL', 'TEXT', 'VALUE',
         'LEN', 'CONTAINS', 'BEGINS', 'IF', 'CASE', 'MOD',
         'ABS', 'CEILING', 'FLOOR', 'ROUND', 'UPPER', 'LOWER',
-        'LEFT', 'RIGHT', 'MID', 'TRIM', 'SUBSTITUTE', 'FIND'
+        'LEFT', 'RIGHT', 'MID', 'TRIM', 'SUBSTITUTE', 'FIND',
+        'TODAY', 'NOW'
     };
 
     /**
