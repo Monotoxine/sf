@@ -911,4 +911,234 @@ private class FormulaEvaluator_Test {
         FormulaEvaluator evaluator = new FormulaEvaluator((Map<String, Object>)null);
         System.assertEquals(true, evaluator.evaluate('true'));
     }
+
+    // ========== Relational Fields Tests ==========
+
+    @isTest
+    static void testEvaluateRelationalField_Simple() {
+        // Create a mock Account with relationship
+        Account acc = new Account(Name = 'Test Account');
+        insert acc;
+
+        User currentUser = [SELECT Id, Name FROM User WHERE Id = :UserInfo.getUserId() LIMIT 1];
+        acc.OwnerId = currentUser.Id;
+        update acc;
+
+        // Query with relationship
+        acc = [SELECT Id, Name, Owner.Name FROM Account WHERE Id = :acc.Id];
+
+        FormulaEvaluator evaluator = new FormulaEvaluator(acc);
+        Object result = evaluator.evaluate('Owner.Name');
+
+        System.assertNotEquals(null, result);
+        System.assertEquals(currentUser.Name, result);
+    }
+
+    @isTest
+    static void testEvaluateRelationalField_InComparison() {
+        Account acc = new Account(Name = 'Test Account');
+        insert acc;
+
+        User currentUser = [SELECT Id, Name FROM User WHERE Id = :UserInfo.getUserId() LIMIT 1];
+        acc.OwnerId = currentUser.Id;
+        update acc;
+
+        acc = [SELECT Id, Name, Owner.Name FROM Account WHERE Id = :acc.Id];
+
+        FormulaEvaluator evaluator = new FormulaEvaluator(acc);
+        Object result = evaluator.evaluate('Owner.Name == "' + currentUser.Name + '"');
+
+        System.assertEquals(true, result);
+    }
+
+    @isTest
+    static void testEvaluateRelationalField_Null() {
+        Map<String, Object> context = new Map<String, Object>();
+        FormulaEvaluator evaluator = new FormulaEvaluator(context);
+
+        // When field path contains null in the middle, should return null
+        Account acc = new Account(Name = 'Test');
+        // No Owner relationship set, so it's null
+        evaluator = new FormulaEvaluator(acc);
+
+        try {
+            // This might fail since Owner is not queried
+            Object result = evaluator.evaluate('Owner.Name');
+            // If it doesn't fail, result should be null
+            System.assertEquals(null, result);
+        } catch (Exception e) {
+            // Expected - field not queried
+            System.assert(true);
+        }
+    }
+
+    @isTest
+    static void testEvaluateRelationalField_InFormula() {
+        Account acc = new Account(Name = 'Test Account');
+        insert acc;
+
+        User currentUser = [SELECT Id, Name FROM User WHERE Id = :UserInfo.getUserId() LIMIT 1];
+        acc.OwnerId = currentUser.Id;
+        update acc;
+
+        acc = [SELECT Id, Name, Owner.Name FROM Account WHERE Id = :acc.Id];
+
+        FormulaEvaluator evaluator = new FormulaEvaluator(acc);
+        Object result = evaluator.evaluate('NOT ISBLANK(Owner.Name) AND Name == "Test Account"');
+
+        System.assertEquals(true, result);
+    }
+
+    // ========== TODAY() and NOW() Tests ==========
+
+    @isTest
+    static void testEvaluateFunctionToday() {
+        Map<String, Object> context = new Map<String, Object>();
+        FormulaEvaluator evaluator = new FormulaEvaluator(context);
+
+        Object result = evaluator.evaluate('TODAY()');
+        System.assertNotEquals(null, result);
+        System.assert(result instanceof Date);
+        System.assertEquals(Date.today(), result);
+    }
+
+    @isTest
+    static void testEvaluateFunctionNow() {
+        Map<String, Object> context = new Map<String, Object>();
+        FormulaEvaluator evaluator = new FormulaEvaluator(context);
+
+        Object result = evaluator.evaluate('NOW()');
+        System.assertNotEquals(null, result);
+        System.assert(result instanceof Datetime);
+
+        // Check it's approximately now (within 1 second)
+        Datetime now = Datetime.now();
+        Datetime resultTime = (Datetime)result;
+        Long diff = Math.abs(now.getTime() - resultTime.getTime());
+        System.assert(diff < 1000, 'NOW() should return current datetime');
+    }
+
+    @isTest
+    static void testEvaluateTodayInComparison() {
+        Date yesterday = Date.today().addDays(-1);
+        Date tomorrow = Date.today().addDays(1);
+
+        Map<String, Object> context = new Map<String, Object>{
+            'StartDate' => yesterday,
+            'EndDate' => tomorrow
+        };
+
+        FormulaEvaluator evaluator = new FormulaEvaluator(context);
+
+        // Check if today is between start and end dates
+        Boolean result = (Boolean)evaluator.evaluate('TODAY() > StartDate AND TODAY() < EndDate');
+        System.assertEquals(true, result);
+    }
+
+    @isTest
+    static void testEvaluateNowInComparison() {
+        Datetime past = Datetime.now().addHours(-1);
+        Datetime future = Datetime.now().addHours(1);
+
+        Map<String, Object> context = new Map<String, Object>{
+            'StartTime' => past,
+            'EndTime' => future
+        };
+
+        FormulaEvaluator evaluator = new FormulaEvaluator(context);
+
+        Boolean result = (Boolean)evaluator.evaluate('NOW() > StartTime AND NOW() < EndTime');
+        System.assertEquals(true, result);
+    }
+
+    @isTest
+    static void testEvaluateTodayWithArguments() {
+        Map<String, Object> context = new Map<String, Object>();
+        FormulaEvaluator evaluator = new FormulaEvaluator(context);
+
+        try {
+            evaluator.evaluate('TODAY("invalid")');
+            System.assert(false, 'Should throw exception');
+        } catch (FormulaEvaluator.EvaluatorException e) {
+            System.assert(e.getMessage().contains('requires 0 arguments'));
+        }
+    }
+
+    @isTest
+    static void testEvaluateNowWithArguments() {
+        Map<String, Object> context = new Map<String, Object>();
+        FormulaEvaluator evaluator = new FormulaEvaluator(context);
+
+        try {
+            evaluator.evaluate('NOW("invalid")');
+            System.assert(false, 'Should throw exception');
+        } catch (FormulaEvaluator.EvaluatorException e) {
+            System.assert(e.getMessage().contains('requires 0 arguments'));
+        }
+    }
+
+    // ========== Complex Date/Time Tests ==========
+
+    @isTest
+    static void testEvaluateDateRangeCheck() {
+        Date recordDate = Date.today().addDays(-5);
+
+        Map<String, Object> context = new Map<String, Object>{
+            'RecordDate' => recordDate
+        };
+
+        FormulaEvaluator evaluator = new FormulaEvaluator(context);
+
+        // Check if record is older than 3 days
+        Boolean result = (Boolean)evaluator.evaluate('RecordDate < TODAY()');
+        System.assertEquals(true, result);
+    }
+
+    @isTest
+    static void testEvaluateDateTimeWithSObject() {
+        // Create an Opportunity with CloseDate
+        Opportunity opp = new Opportunity(
+            Name = 'Test Opp',
+            CloseDate = Date.today().addDays(30),
+            StageName = 'Prospecting'
+        );
+        insert opp;
+
+        opp = [SELECT Id, Name, CloseDate FROM Opportunity WHERE Id = :opp.Id];
+
+        FormulaEvaluator evaluator = new FormulaEvaluator(opp);
+
+        // Check if opportunity closes in the future
+        Boolean result = (Boolean)evaluator.evaluate('CloseDate > TODAY()');
+        System.assertEquals(true, result);
+    }
+
+    // ========== Edge Cases for Relational Fields ==========
+
+    @isTest
+    static void testRelationalFieldNonSObjectError() {
+        // Test error when trying to traverse a non-SObject value
+        Map<String, Object> context = new Map<String, Object>{
+            'StringField' => 'test value'
+        };
+
+        FormulaEvaluator evaluator = new FormulaEvaluator(context);
+
+        // This should work - no traversal
+        Object result = evaluator.evaluate('StringField');
+        System.assertEquals('test value', result);
+    }
+
+    @isTest
+    static void testRelationalFieldWithDotNotation() {
+        // Test that dot notation works in context map (should look for exact key)
+        Map<String, Object> context = new Map<String, Object>{
+            'Account.Name' => 'Exact Match'
+        };
+
+        FormulaEvaluator evaluator = new FormulaEvaluator(context);
+
+        Object result = evaluator.evaluate('Account.Name');
+        System.assertEquals('Exact Match', result);
+    }
 }

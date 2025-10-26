@@ -169,6 +169,46 @@ Object result = evaluator.evaluate('AnnualRevenue > 100000');
 // result = true
 ```
 
+### Usage avec Champs Relationnels
+
+```apex
+// Query avec relations
+Account acc = [SELECT Id, Name, Owner.Name, Owner.Email FROM Account LIMIT 1];
+FormulaEvaluator evaluator = new FormulaEvaluator(acc);
+
+// Accès aux champs relationnels avec notation point
+Object ownerName = evaluator.evaluate('Owner.Name');
+
+// Formules avec champs relationnels
+Boolean result = (Boolean)evaluator.evaluate(
+    'NOT ISBLANK(Owner.Email) AND Owner.Name == "John Doe"'
+);
+```
+
+### Usage avec Fonctions Date/Temps
+
+```apex
+// TODAY() - Vérifier si un enregistrement est récent
+Map<String, Object> context = new Map<String, Object>{
+    'CreatedDate' => Date.today().addDays(-7)
+};
+
+FormulaEvaluator evaluator = new FormulaEvaluator(context);
+Boolean isRecent = (Boolean)evaluator.evaluate('CreatedDate > TODAY()');
+// isRecent = false (créé il y a 7 jours)
+
+// NOW() - Vérifier si un enregistrement est périmé
+Datetime recordTime = Datetime.now().addHours(-2);
+context.put('LastModifiedDate', recordTime);
+Boolean isStale = (Boolean)evaluator.evaluate('LastModifiedDate < NOW()');
+// isStale = true (modifié il y a 2 heures)
+
+// Combinaison avec sObject
+Opportunity opp = [SELECT Id, CloseDate FROM Opportunity LIMIT 1];
+evaluator = new FormulaEvaluator(opp);
+Boolean isFuture = (Boolean)evaluator.evaluate('CloseDate > TODAY()');
+```
+
 ### Parser seul (sans évaluation)
 
 ```apex
@@ -238,6 +278,10 @@ FormulaParserDemo.showPipelineStages('AND(A, OR(B, C))');
 - `FLOOR(number)` - Arrondi inférieur
 - `ROUND(number, decimals)` - Arrondi
 - `MOD(number, divisor)` - Modulo
+
+**Date/Temps :**
+- `TODAY()` - Date actuelle
+- `NOW()` - Date et heure actuelles
 
 ---
 

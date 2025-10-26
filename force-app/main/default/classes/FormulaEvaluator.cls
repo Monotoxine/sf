@@ -75,7 +75,7 @@ public class FormulaEvaluator {
     }
 
     /**
-     * @description Evaluates a field reference
+     * @description Evaluates a field reference (supports relational fields like Account.Owner.Name)
      */
     private Object evaluateFieldReference(FormulaNode.FieldReferenceNode node) {
         String fieldName = node.fieldName;
@@ -85,9 +85,13 @@ public class FormulaEvaluator {
             return contextMap.get(fieldName);
         }
 
-        // Try sObject
+        // Try sObject (supports relational fields with dot notation)
         if (record != null) {
             try {
+                // Check if it's a relational field (contains dot)
+                if (fieldName.contains('.')) {
+                    return getRelationalFieldValue(record, fieldName);
+                }
                 return record.get(fieldName);
             } catch (Exception e) {
                 throw new EvaluatorException('Field not found: ' + fieldName);
@@ -95,6 +99,45 @@ public class FormulaEvaluator {
         }
 
         throw new EvaluatorException('No context for field: ' + fieldName);
+    }
+
+    /**
+     * @description Gets value from relational field path (e.g., Account.Owner.Name)
+     * @param obj Starting sObject
+     * @param fieldPath Dot-separated field path
+     * @return Field value
+     */
+    private Object getRelationalFieldValue(SObject obj, String fieldPath) {
+        if (obj == null || fieldPath == null) {
+            return null;
+        }
+
+        String[] parts = fieldPath.split('\\.');
+        Object currentValue = obj;
+
+        for (Integer i = 0; i < parts.size(); i++) {
+            String part = parts[i];
+
+            if (currentValue == null) {
+                return null;
+            }
+
+            if (currentValue instanceof SObject) {
+                SObject currentObj = (SObject)currentValue;
+
+                // Last part or regular field
+                if (i == parts.size() - 1 || !part.endsWith('__r')) {
+                    currentValue = currentObj.get(part);
+                } else {
+                    // Relationship field
+                    currentValue = currentObj.getSObject(part);
+                }
+            } else {
+                throw new EvaluatorException('Cannot traverse non-SObject value at: ' + part);
+            }
+        }
+
+        return currentValue;
     }
 
     /**
@@ -192,6 +235,10 @@ public class FormulaEvaluator {
             return functionRound(args);
         } else if (funcName == 'MOD') {
             return functionMod(args);
+        } else if (funcName == 'TODAY') {
+            return functionToday(args);
+        } else if (funcName == 'NOW') {
+            return functionNow(args);
         }
 
         throw new EvaluatorException('Unknown function: ' + funcName);
@@ -321,6 +368,16 @@ public class FormulaEvaluator {
         Decimal num = toDecimal(args[0]);
         Decimal divisor = toDecimal(args[1]);
         return Math.mod(num.intValue(), divisor.intValue());
+    }
+
+    private Date functionToday(List<Object> args) {
+        if (args.size() != 0) throw new EvaluatorException('TODAY requires 0 arguments');
+        return Date.today();
+    }
+
+    private Datetime functionNow(List<Object> args) {
+        if (args.size() != 0) throw new EvaluatorException('NOW requires 0 arguments');
+        return Datetime.now();
     }
 
     // ========== Helper Methods ==========
