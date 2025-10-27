@@ -1,0 +1,149 @@
+<!--
+  @description       : 
+  @author            : ChangeMeIn@UserSettingsUnder.SFDoc
+  @group             : 
+  @last modified on  : 10-26-2025
+  @last modified by  : ChangeMeIn@UserSettingsUnder.SFDoc
+-->
+<template>
+    <!-- ✅ OPTIMISATION: Indicateur de progression détaillé -->
+    <div class="slds-m-top_medium slds-m-bottom_x-large">
+        <h2 class="slds-text-heading_medium slds-m-bottom_medium">
+            Tree of missing required fields by owner.
+        </h2>
+
+        <!-- ✅ NOUVEAU: Indicateur de chargement amélioré avec progression -->
+        <div class="slds-var-m-vertical_medium slds-is-relative" if:true={isLoading}>
+            <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
+            <div class="slds-text-align_center slds-m-top_small">
+                <p class="slds-text-body_regular slds-text-color_weak">{loadingStep}</p>
+                <lightning-progress-bar value={loadingProgress} size="large"></lightning-progress-bar>
+            </div>
+        </div>
+        
+        <!-- Contenu principal du grid -->
+        <div class="slds-p-around_medium lgc-bg" if:false={isDataEmpty}>
+            
+            <div class="slds-m-bottom_small">
+                <lightning-button 
+                    label="Expand All" 
+                    onclick={clickToGetExpanded}
+                    icon-name="utility:expand_all">
+                </lightning-button>
+                
+                <!-- Compteurs avec badges colorés -->
+                <lightning-button
+                    variant="destructive-text"
+                    class="slds-float_right slds-m-left_x-small"
+                    label={totalError}
+                    title="Error"
+                    icon-name="utility:error"
+                    disabled>
+                </lightning-button>
+                
+                <lightning-button
+                    class="slds-float_right"
+                    label={totalWarning}
+                    title="Warning"
+                    icon-name="utility:warning"
+                    disabled>
+                </lightning-button>
+            </div>
+            
+            <!-- Tree Grid optimisé -->
+            <lightning-tree-grid
+                columns={gridColumns}
+                data={gridData}
+                key-field="key"
+                is-loading={gridLoadingState}
+                expanded-rows={gridExpandedRows}
+                onrowaction={handleRowAction}
+                style="--slds-tree__item-selected-bg-color: #ffffff; --slds-tree__item-not-selected-bg-color: #ffffff"
+                hide-checkbox-column=true>
+            </lightning-tree-grid>
+        </div>
+    </div>
+
+    <!-- Message d'erreur serveur -->
+    <template if:true={hasError}>
+        <div class="slds-modal__content slds-p-around_medium">
+            <div class="slds-notify slds-notify_alert slds-alert_warning" role="alert">
+                <span class="slds-assistive-text">info</span>
+                <lightning-icon 
+                    icon-name="utility:info" 
+                    size="small" 
+                    variant="inverse"
+                    class="slds-m-right_x-small">
+                </lightning-icon>
+                <h2>{errorServer}</h2>
+            </div>
+        </div>
+    </template>
+
+    <!-- Modal d'édition -->
+    <template if:true={isShowingModale}>
+        <section 
+            role="dialog" 
+            tabindex="-1" 
+            aria-modal="true" 
+            aria-labelledby="modal-heading-01"
+            class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                
+                <!-- Bouton de fermeture -->
+                <button 
+                    class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" 
+                    title="Close"
+                    onclick={handleCloseModale}>
+                    <lightning-icon 
+                        icon-name="utility:close" 
+                        alternative-text="Close" 
+                        title="Close">
+                    </lightning-icon>
+                </button>
+                
+                <!-- En-tête de la modal -->
+                <div class="slds-modal__header">
+                    <h1 id="modal-heading-01" class="slds-modal__title slds-hyphenate" tabindex="-1">
+                        Field Information
+                    </h1>
+                </div>
+                
+                <!-- Contenu de la modal -->
+                <div class="slds-modal__content slds-p-around_medium" id="modal-content-id-1">
+                    <p class="slds-text-align_center slds-m-bottom_medium">{errorMessage}</p>
+                    
+                    <!-- Formulaire d'édition -->
+                    <template if:true={isShowingEdit}>
+                        <div class="slds-box slds-theme_shade slds-p-around_medium">
+                            <lightning-record-edit-form
+                                object-api-name={keyObject}
+                                record-id={keyObjectId}
+                                onsuccess={handleSuccess}
+                                onerror={handleError}>
+                                
+                                <lightning-input-field 
+                                    field-name={keyField}>
+                                </lightning-input-field>
+                            
+                                <div class="slds-m-top_medium">
+                                    <lightning-button
+                                        type="submit"
+                                        label="Save"
+                                        variant="brand"
+                                        class="slds-m-right_x-small">
+                                    </lightning-button>
+                                    <lightning-button
+                                        label="Cancel"
+                                        onclick={handleCloseModale}>
+                                    </lightning-button>
+                                </div>
+                            </lightning-record-edit-form>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+</template>

@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Currency</label>
+    <protected>false</protected>
+    <values>
+        <field>Dependent_Field__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>FIeld_Name__c</field>
+        <value xsi:type="xsd:string">Currency__c</value>
+    </values>
+    <values>
+        <field>Formula_Expression__c</field>
+        <value xsi:type="xsd:string">{{Currency__c = null}} &amp;&amp; {KPMG_EPTV2_Scope__c = true || KPMG_PRIIP_Scope__c = true}</value>
+    </values>
+    <values>
+        <field>Message_Warning__c</field>
+        <value xsi:type="xsd:string">Check that the content of this field is AUD, CAD, CHF, EUR, GBP, NZD, SGD, USD, ILS, MYR, BRL,HKD, NOK, SEK, ZAR, CNY, TWD, THB, MXN, DKK,JPY, RUB, ARS or KRW</value>
+    </values>
+    <values>
+        <field>Message_to_user__c</field>
+        <value xsi:type="xsd:string">Check that this field is not empty</value>
+    </values>
+    <values>
+        <field>Object_Name__c</field>
+        <value xsi:type="xsd:string">Project_Share_class__c</value>
+    </values>
+    <values>
+        <field>Owner_type__c</field>
+        <value xsi:type="xsd:string">User</value>
+    </values>
+    <values>
+        <field>PLM_Project_Related_Field_Name__c</field>
+        <value xsi:type="xsd:string">Product_Services_Project__c</value>
+    </values>
+    <values>
+        <field>Required_FCPE_Dedicated_Product_Solutio__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Required_for_FCP_Dedicated_Convention_d__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Required_for_FPS_Ferm_s__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Required_for_FPS_Ouvert__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Required_for_Mandat__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Required_for_OEF_FCP__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Required_for_OEF_FR_FCPE_NIE__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Required_for_OEF_FR_SICAV__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Required_for_OEF_LUX_UK_SICAV__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Required_for_OEF_NIF_IR_SICAV__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Responsible__c</field>
+        <value xsi:type="xsd:string">Product_Owner__c</value>
+    </values>
+    <values>
+        <field>Stage_Name__c</field>
+        <value xsi:type="xsd:string">KPMGControle</value>
+    </values>
+    <values>
+        <field>Type__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Value_to_be_required__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Warning_Expression__c</field>
+        <value xsi:type="xsd:string">{{Currency__c != null &amp;&amp; Currency__c != &apos;AUD&apos; &amp;&amp; Currency__c != &apos;CAD&apos; &amp;&amp; Currency__c != &apos;CHF&apos; &amp;&amp; Currency__c != &apos;EUR&apos; &amp;&amp; Currency__c != &apos;GBP&apos; &amp;&amp; Currency__c != &apos;NZD&apos; &amp;&amp; Currency__c != &apos;SGD&apos; &amp;&amp; Currency__c != &apos;USD&apos; &amp;&amp; Currency__c != &apos;ILS&apos; &amp;&amp; Currency__c != &apos;MYR&apos; &amp;&amp; Currency__c != &apos;BRL&apos; &amp;&amp; Currency__c != &apos;HKD&apos; &amp;&amp; Currency__c != &apos;NOK&apos; &amp;&amp; Currency__c != &apos;SEK&apos; &amp;&amp; Currency__c != &apos;ZAR&apos; &amp;&amp; Currency__c != &apos;CNY&apos; &amp;&amp; Currency__c != &apos;TWD&apos; &amp;&amp; Currency__c != &apos;THB&apos; &amp;&amp; Currency__c != &apos;MXN&apos; &amp;&amp; Currency__c != &apos;DKK&apos; &amp;&amp; Currency__c != &apos;JPY&apos; &amp;&amp; Currency__c != &apos;RUB&apos; &amp;&amp; Currency__c != &apos;ARS&apos; &amp;&amp; Currency__c != &apos;KRW&apos;}} &amp;&amp; {KPMG_EPTV2_Scope__c = true || KPMG_PRIIP_Scope__c = true}</value>
+    </values>
+</CustomMetadata>
