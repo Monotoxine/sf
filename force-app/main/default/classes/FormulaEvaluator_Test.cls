@@ -10,31 +10,31 @@ private class FormulaEvaluator_Test {
 
     @isTest
     static void testTokenCreation() {
-        FormulaToken token = new FormulaToken(FormulaToken.TokenType.STRING, 'test', 0);
-        System.assertEquals(FormulaToken.TokenType.STRING, token.type);
+        FormulaToken token = new FormulaToken(FormulaToken.TokenType.STRING_LITERAL, 'test', 0);
+        System.assertEquals(FormulaToken.TokenType.STRING_LITERAL, token.type);
         System.assertEquals('test', token.value);
         System.assertEquals(0, token.position);
     }
 
     @isTest
     static void testTokenHelpers() {
-        FormulaToken equalsToken = new FormulaToken(FormulaToken.TokenType.EQUALS, '==', 0);
-        System.assert(equalsToken.isType(FormulaToken.TokenType.EQUALS));
+        FormulaToken equalsToken = new FormulaToken(FormulaToken.TokenType.OP_EQ, '==', 0);
+        System.assert(equalsToken.isType(FormulaToken.TokenType.OP_EQ));
         System.assert(equalsToken.isOperator());
         System.assert(equalsToken.isComparisonOperator());
         System.assert(!equalsToken.isLogicalOperator());
 
-        FormulaToken andToken = new FormulaToken(FormulaToken.TokenType.AND, 'AND', 0);
+        FormulaToken andToken = new FormulaToken(FormulaToken.TokenType.OP_AND, 'AND', 0);
         System.assert(andToken.isLogicalOperator());
         System.assert(andToken.isOperator());
 
-        FormulaToken stringToken = new FormulaToken(FormulaToken.TokenType.STRING, 'test', 0);
+        FormulaToken stringToken = new FormulaToken(FormulaToken.TokenType.STRING_LITERAL, 'test', 0);
         System.assert(!stringToken.isOperator());
     }
 
     @isTest
     static void testTokenToString() {
-        FormulaToken token = new FormulaToken(FormulaToken.TokenType.NUMBER, '42', 5);
+        FormulaToken token = new FormulaToken(FormulaToken.TokenType.NUMBER_LITERAL, '42', 5);
         String str = token.toString();
         System.assert(str.contains('NUMBER'));
         System.assert(str.contains('42'));
@@ -47,7 +47,7 @@ private class FormulaEvaluator_Test {
         FormulaTokenizer tokenizer = new FormulaTokenizer('"Hello World"');
         List<FormulaToken> tokens = tokenizer.tokenize();
         System.assertEquals(2, tokens.size()); // STRING + EOF
-        System.assertEquals(FormulaToken.TokenType.STRING, tokens[0].type);
+        System.assertEquals(FormulaToken.TokenType.STRING_LITERAL, tokens[0].type);
         System.assertEquals('Hello World', tokens[0].value);
     }
 
@@ -79,9 +79,9 @@ private class FormulaEvaluator_Test {
     static void testTokenizeBooleanAndNull() {
         FormulaTokenizer tokenizer = new FormulaTokenizer('true false null');
         List<FormulaToken> tokens = tokenizer.tokenize();
-        System.assertEquals(FormulaToken.TokenType.BOOLEAN, tokens[0].type);
+        System.assertEquals(FormulaToken.TokenType.BOOLEAN_LITERAL, tokens[0].type);
         System.assertEquals('true', tokens[0].value);
-        System.assertEquals(FormulaToken.TokenType.BOOLEAN, tokens[1].type);
+        System.assertEquals(FormulaToken.TokenType.BOOLEAN_LITERAL, tokens[1].type);
         System.assertEquals('false', tokens[1].value);
         System.assertEquals(FormulaToken.TokenType.NULL_LITERAL, tokens[2].type);
     }
@@ -90,28 +90,28 @@ private class FormulaEvaluator_Test {
     static void testTokenizeOperators() {
         FormulaTokenizer tokenizer = new FormulaTokenizer('== != > < >= <=');
         List<FormulaToken> tokens = tokenizer.tokenize();
-        System.assertEquals(FormulaToken.TokenType.EQUALS, tokens[0].type);
-        System.assertEquals(FormulaToken.TokenType.NOT_EQUALS, tokens[1].type);
-        System.assertEquals(FormulaToken.TokenType.GREATER_THAN, tokens[2].type);
-        System.assertEquals(FormulaToken.TokenType.LESS_THAN, tokens[3].type);
-        System.assertEquals(FormulaToken.TokenType.GREATER_EQUAL, tokens[4].type);
-        System.assertEquals(FormulaToken.TokenType.LESS_EQUAL, tokens[5].type);
+        System.assertEquals(FormulaToken.TokenType.OP_EQ, tokens[0].type);
+        System.assertEquals(FormulaToken.TokenType.OP_NEQ, tokens[1].type);
+        System.assertEquals(FormulaToken.TokenType.OP_GT, tokens[2].type);
+        System.assertEquals(FormulaToken.TokenType.OP_LT, tokens[3].type);
+        System.assertEquals(FormulaToken.TokenType.OP_GTE, tokens[4].type);
+        System.assertEquals(FormulaToken.TokenType.OP_LTE, tokens[5].type);
     }
 
     @isTest
     static void testTokenizeLogicalOperators() {
         FormulaTokenizer tokenizer = new FormulaTokenizer('AND OR NOT');
         List<FormulaToken> tokens = tokenizer.tokenize();
-        System.assertEquals(FormulaToken.TokenType.AND, tokens[0].type);
-        System.assertEquals(FormulaToken.TokenType.OR, tokens[1].type);
-        System.assertEquals(FormulaToken.TokenType.NOT, tokens[2].type);
+        System.assertEquals(FormulaToken.TokenType.OP_AND, tokens[0].type);
+        System.assertEquals(FormulaToken.TokenType.OP_OR, tokens[1].type);
+        System.assertEquals(FormulaToken.TokenType.OP_NOT, tokens[2].type);
     }
 
     @isTest
     static void testTokenizeFunctions() {
         FormulaTokenizer tokenizer = new FormulaTokenizer('ISBLANK(Name) CONTAINS(text, "search")');
         List<FormulaToken> tokens = tokenizer.tokenize();
-        System.assertEquals(FormulaToken.TokenType.FUNCTION, tokens[0].type);
+        System.assertEquals(FormulaToken.TokenType.FUNCTION_NAME, tokens[0].type);
         System.assertEquals('ISBLANK', tokens[0].value);
     }
 
@@ -119,7 +119,7 @@ private class FormulaEvaluator_Test {
     static void testTokenizeFields() {
         FormulaTokenizer tokenizer = new FormulaTokenizer('Name Amount__c Status');
         List<FormulaToken> tokens = tokenizer.tokenize();
-        System.assertEquals(FormulaToken.TokenType.FIELD, tokens[0].type);
+        System.assertEquals(FormulaToken.TokenType.FIELD_REF, tokens[0].type);
         System.assertEquals('Name', tokens[0].value);
         System.assertEquals('Amount__c', tokens[1].value);
     }
@@ -140,7 +140,7 @@ private class FormulaEvaluator_Test {
         );
         List<FormulaToken> tokens = tokenizer.tokenize();
         System.assert(tokens.size() > 0);
-        System.assertEquals(FormulaToken.TokenType.FUNCTION, tokens[0].type);
+        System.assertEquals(FormulaToken.TokenType.FUNCTION_NAME, tokens[0].type);
         System.assertEquals('AND', tokens[0].value);
     }
 
@@ -335,7 +335,7 @@ private class FormulaEvaluator_Test {
     static void testParseFunctionNoArgs() {
         // Create a simple test with a function that could have no args (though most require them)
         List<FormulaToken> tokens = new List<FormulaToken>{
-            new FormulaToken(FormulaToken.TokenType.FUNCTION, 'TEST', 0),
+            new FormulaToken(FormulaToken.TokenType.FUNCTION_NAME, 'TEST', 0),
             new FormulaToken(FormulaToken.TokenType.LEFT_PAREN, '(', 4),
             new FormulaToken(FormulaToken.TokenType.RIGHT_PAREN, ')', 5),
             new FormulaToken(FormulaToken.TokenType.EOF, '', 6)
@@ -393,8 +393,8 @@ private class FormulaEvaluator_Test {
     @isTest
     static void testParserUnexpectedToken() {
         List<FormulaToken> tokens = new List<FormulaToken>{
-            new FormulaToken(FormulaToken.TokenType.NUMBER, '42', 0),
-            new FormulaToken(FormulaToken.TokenType.NUMBER, '99', 3), // Unexpected
+            new FormulaToken(FormulaToken.TokenType.NUMBER_LITERAL, '42', 0),
+            new FormulaToken(FormulaToken.TokenType.NUMBER_LITERAL, '99', 3), // Unexpected
             new FormulaToken(FormulaToken.TokenType.EOF, '', 6)
         };
         try {
@@ -422,8 +422,8 @@ private class FormulaEvaluator_Test {
     @isTest
     static void testParserMissingFunctionParenthesis() {
         List<FormulaToken> tokens = new List<FormulaToken>{
-            new FormulaToken(FormulaToken.TokenType.FUNCTION, 'ISBLANK', 0),
-            new FormulaToken(FormulaToken.TokenType.FIELD, 'Name', 8), // Missing (
+            new FormulaToken(FormulaToken.TokenType.FUNCTION_NAME, 'ISBLANK', 0),
+            new FormulaToken(FormulaToken.TokenType.FIELD_REF, 'Name', 8), // Missing (
             new FormulaToken(FormulaToken.TokenType.EOF, '', 12)
         };
         try {

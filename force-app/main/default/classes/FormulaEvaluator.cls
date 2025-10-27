@@ -344,18 +344,17 @@ public class FormulaEvaluator {
         return num.abs();
     }
 
-    private Integer functionCeiling(List<Object> args) {
-        if (args.size() != 1) throw new EvaluatorException('CEILING requires 1 argument');
-        Decimal num = toDecimal(args[0]);
-        return num.round(System.RoundingMode.CEILING);
-    }
+   private Long functionCeiling(List<Object> args) {
+    if (args.size() != 1) throw new EvaluatorException('CEILING requires 1 argument');
+    Decimal num = toDecimal(args[0]);
+    return num.round(System.RoundingMode.CEILING); // returns Long
+}
 
-    private Integer functionFloor(List<Object> args) {
-        if (args.size() != 1) throw new EvaluatorException('FLOOR requires 1 argument');
-        Decimal num = toDecimal(args[0]);
-        return num.round(System.RoundingMode.FLOOR);
-    }
-
+private Long functionFloor(List<Object> args) {
+    if (args.size() != 1) throw new EvaluatorException('FLOOR requires 1 argument');
+    Decimal num = toDecimal(args[0]);
+    return num.round(System.RoundingMode.FLOOR); // returns Long
+}
     private Decimal functionRound(List<Object> args) {
         if (args.size() < 1 || args.size() > 2) throw new EvaluatorException('ROUND requires 1 or 2 arguments');
         Decimal num = toDecimal(args[0]);

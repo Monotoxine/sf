@@ -234,9 +234,21 @@ public class FormulaParserDemo {
             };
             FormulaEvaluator evaluator = new FormulaEvaluator(context);
             Object result = evaluator.evaluateNode(ast);
-            System.debug('Result: ' + result + ' (type: ' + (result != null ? String.valueOf(result).getType() : 'null') + ')');
+            System.debug('Result: ' + result + ' (type: ' + (result != null ? getTypeName(result) : 'null') + ')');
         } catch (Exception e) {
             System.debug('Cannot evaluate without proper context: ' + e.getMessage());
         }
     }
+    private static String getTypeName(Object obj) {
+    if (obj == null) return 'null';
+    if (obj instanceof String) return 'String';
+    if (obj instanceof Decimal) return 'Decimal';
+    if (obj instanceof Integer) return 'Integer';
+    if (obj instanceof Long) return 'Long';
+    if (obj instanceof Boolean) return 'Boolean';
+    if (obj instanceof Date) return 'Date';
+    if (obj instanceof Datetime) return 'Datetime';
+    return 'Unknown';
+}
+
 }

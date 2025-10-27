@@ -147,7 +147,7 @@ public class FormulaTokenizer {
         }
 
         advance(); // Skip closing quote
-        return new FormulaToken(FormulaToken.TokenType.STRING, sb.toString(), startPos);
+        return new FormulaToken(FormulaToken.TokenType.STRING_LITERAL, sb.toString(), startPos);
     }
 
     /**
@@ -170,14 +170,14 @@ public class FormulaTokenizer {
             throw new FormulaException('Invalid number format at position ' + startPos);
         }
 
-        return new FormulaToken(FormulaToken.TokenType.NUMBER, numStr, startPos);
+        return new FormulaToken(FormulaToken.TokenType.NUMBER_LITERAL, numStr, startPos);
     }
 
     /**
      * @description Tokenizes an identifier (field, keyword, or function)
      * @return Token representing field, keyword, or function
      */
-    private FormulaToken tokenizeIdentifier() {
+   private FormulaToken tokenizeIdentifier() {
         Integer startPos = position;
         StringBuilder sb = new StringBuilder();
 
@@ -187,36 +187,34 @@ public class FormulaTokenizer {
         }
 
         String identifier = sb.toString();
+        String upperIdent = identifier.toUpperCase();
 
-        // Check for keywords
-        if (KEYWORDS.contains(identifier)) {
-            if (identifier == 'AND') {
-                return new FormulaToken(FormulaToken.TokenType.AND, identifier, startPos);
-            } else if (identifier == 'OR') {
-                return new FormulaToken(FormulaToken.TokenType.OR, identifier, startPos);
-            } else if (identifier == 'NOT') {
-                return new FormulaToken(FormulaToken.TokenType.NOT, identifier, startPos);
-            } else if (identifier == 'true' || identifier == 'false') {
-                return new FormulaToken(FormulaToken.TokenType.BOOLEAN, identifier, startPos);
-            } else if (identifier == 'null') {
-                return new FormulaToken(FormulaToken.TokenType.NULL_LITERAL, identifier, startPos);
-            }
-        }
-
-        // Check for functions (must be followed by '(')
-        if (FUNCTIONS.contains(identifier.toUpperCase())) {
-            // Look ahead for opening parenthesis
+        // --- 1️⃣ Check if it’s a function (followed by '(') ---
+        if (FUNCTIONS.contains(upperIdent) || KEYWORDS.contains(upperIdent)) {
             Integer tempPos = position;
             while (tempPos < length && isWhitespace(formula.substring(tempPos, tempPos + 1))) {
                 tempPos++;
             }
             if (tempPos < length && formula.substring(tempPos, tempPos + 1) == '(') {
-                return new FormulaToken(FormulaToken.TokenType.FUNCTION, identifier.toUpperCase(), startPos);
+                return new FormulaToken(FormulaToken.TokenType.FUNCTION_NAME, upperIdent, startPos);
             }
         }
 
-        // Otherwise, it's a field reference
-        return new FormulaToken(FormulaToken.TokenType.FIELD, identifier, startPos);
+        // --- 2️⃣ Logical operators (when not used as functions) ---
+        if (upperIdent == 'AND') return new FormulaToken(FormulaToken.TokenType.OP_AND, identifier, startPos);
+        if (upperIdent == 'OR')  return new FormulaToken(FormulaToken.TokenType.OP_OR, identifier, startPos);
+        if (upperIdent == 'NOT') return new FormulaToken(FormulaToken.TokenType.OP_NOT, identifier, startPos);
+
+        // --- 3️⃣ Literals ---
+        if (upperIdent == 'TRUE' || upperIdent == 'FALSE') {
+            return new FormulaToken(FormulaToken.TokenType.BOOLEAN_LITERAL, identifier, startPos);
+        }
+        if (upperIdent == 'NULL') {
+            return new FormulaToken(FormulaToken.TokenType.NULL_LITERAL, identifier, startPos);
+        }
+
+        // --- 4️⃣ Otherwise, field reference ---
+        return new FormulaToken(FormulaToken.TokenType.FIELD_REF, identifier, startPos);
     }
 
     /**
@@ -225,10 +223,10 @@ public class FormulaTokenizer {
      * @return Token type or null
      */
     private FormulaToken.TokenType getTwoCharOperator(String twoChar) {
-        if (twoChar == '==') return FormulaToken.TokenType.EQUALS;
-        if (twoChar == '!=') return FormulaToken.TokenType.NOT_EQUALS;
-        if (twoChar == '>=') return FormulaToken.TokenType.GREATER_EQUAL;
-        if (twoChar == '<=') return FormulaToken.TokenType.LESS_EQUAL;
+        if (twoChar == '==') return FormulaToken.TokenType.OP_EQ;
+        if (twoChar == '!=') return FormulaToken.TokenType.OP_NEQ;
+        if (twoChar == '>=') return FormulaToken.TokenType.OP_GTE;
+        if (twoChar == '<=') return FormulaToken.TokenType.OP_LTE;
         return null;
     }
 
@@ -241,9 +239,9 @@ public class FormulaTokenizer {
         if (ch == '(') return FormulaToken.TokenType.LEFT_PAREN;
         if (ch == ')') return FormulaToken.TokenType.RIGHT_PAREN;
         if (ch == ',') return FormulaToken.TokenType.COMMA;
-        if (ch == '>') return FormulaToken.TokenType.GREATER_THAN;
-        if (ch == '<') return FormulaToken.TokenType.LESS_THAN;
-        if (ch == '=') return FormulaToken.TokenType.EQUALS;
+        if (ch == '>') return FormulaToken.TokenType.OP_GT;
+        if (ch == '<') return FormulaToken.TokenType.OP_LT;
+        if (ch == '=') return FormulaToken.TokenType.OP_EQ;
         return null;
     }
 

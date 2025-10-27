@@ -17,8 +17,7 @@ public abstract class FormulaNode {
     }
 
     public abstract NodeType getNodeType();
-    public abstract String toString();
-
+    public abstract override String toString();
     /**
      * @description Literal node (string, number, boolean, null)
      */

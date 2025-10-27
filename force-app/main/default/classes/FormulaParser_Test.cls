@@ -287,7 +287,7 @@ private class FormulaParser_Test {
     static void testFunction_NoArguments() {
         // Create tokens manually for a no-arg function
         List<FormulaToken> tokens = new List<FormulaToken>{
-            new FormulaToken(FormulaToken.TokenType.FUNCTION, 'TESTFUNC', 0),
+            new FormulaToken(FormulaToken.TokenType.FUNCTION_NAME, 'TESTFUNC', 0),
             new FormulaToken(FormulaToken.TokenType.LEFT_PAREN, '(', 8),
             new FormulaToken(FormulaToken.TokenType.RIGHT_PAREN, ')', 9),
             new FormulaToken(FormulaToken.TokenType.EOF, '', 10)
@@ -430,8 +430,8 @@ private class FormulaParser_Test {
     @isTest
     static void testError_FunctionMissingParenthesis() {
         List<FormulaToken> tokens = new List<FormulaToken>{
-            new FormulaToken(FormulaToken.TokenType.FUNCTION, 'ISBLANK', 0),
-            new FormulaToken(FormulaToken.TokenType.FIELD, 'Name', 8),
+            new FormulaToken(FormulaToken.TokenType.FUNCTION_NAME, 'ISBLANK', 0),
+            new FormulaToken(FormulaToken.TokenType.FIELD_REF, 'Name', 8),
             new FormulaToken(FormulaToken.TokenType.EOF, '', 12)
         };
 
@@ -468,8 +468,8 @@ private class FormulaParser_Test {
     @isTest
     static void testError_ExtraTokensAfterExpression() {
         List<FormulaToken> tokens = new List<FormulaToken>{
-            new FormulaToken(FormulaToken.TokenType.FIELD, 'A', 0),
-            new FormulaToken(FormulaToken.TokenType.FIELD, 'B', 2),
+            new FormulaToken(FormulaToken.TokenType.FIELD_REF, 'A', 0),
+            new FormulaToken(FormulaToken.TokenType.FIELD_REF, 'B', 2),
             new FormulaToken(FormulaToken.TokenType.EOF, '', 3)
         };
 

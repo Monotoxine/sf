@@ -10,32 +10,32 @@ public class FormulaToken {
      */
     public enum TokenType {
         // Literals
-        STRING,           // "text"
-        NUMBER,           // 123, 45.67
-        BOOLEAN,          // true, false
-        NULL_LITERAL,     // null
-        FIELD,            // Field__c, Name, etc.
+        STRING_LITERAL,    // "text"
+        NUMBER_LITERAL,    // 123, 45.67
+        BOOLEAN_LITERAL,   // true, false
+        NULL_LITERAL,      // null
+        FIELD_REF,         // Field__c, Name, etc.
 
-        // Operators
-        EQUALS,           // ==
-        NOT_EQUALS,       // !=
-        GREATER_THAN,     // >
-        LESS_THAN,        // <
-        GREATER_EQUAL,    // >=
-        LESS_EQUAL,       // <=
+        // Comparison operators
+        OP_EQ,             // ==
+        OP_NEQ,            // !=
+        OP_GT,             // >
+        OP_LT,             // <
+        OP_GTE,            // >=
+        OP_LTE,            // <=
 
         // Logical operators
-        AND,              // AND
-        OR,               // OR
-        NOT,              // NOT
+        OP_AND,            // AND
+        OP_OR,             // OR
+        OP_NOT,            // NOT
 
         // Functions
-        FUNCTION,         // ISBLANK, ISNUMBER, etc.
+        FUNCTION_NAME,     // ISBLANK, ISNUMBER, etc.
 
         // Delimiters
-        LEFT_PAREN,       // (
-        RIGHT_PAREN,      // )
-        COMMA,            // ,
+        LEFT_PAREN,            // (
+        RIGHT_PAREN,            // )
+        COMMA,             // ,
 
         // End of input
         EOF
@@ -84,15 +84,15 @@ public class FormulaToken {
      * @return true if token is an operator
      */
     public Boolean isOperator() {
-        return type == TokenType.EQUALS ||
-               type == TokenType.NOT_EQUALS ||
-               type == TokenType.GREATER_THAN ||
-               type == TokenType.LESS_THAN ||
-               type == TokenType.GREATER_EQUAL ||
-               type == TokenType.LESS_EQUAL ||
-               type == TokenType.AND ||
-               type == TokenType.OR ||
-               type == TokenType.NOT;
+        return type == TokenType.OP_EQ ||
+               type == TokenType.OP_NEQ ||
+               type == TokenType.OP_GT ||
+               type == TokenType.OP_LT ||
+               type == TokenType.OP_GTE ||
+               type == TokenType.OP_LTE ||
+               type == TokenType.OP_AND ||
+               type == TokenType.OP_OR ||
+               type == TokenType.OP_NOT;
     }
 
     /**
@@ -100,9 +100,9 @@ public class FormulaToken {
      * @return true if token is a logical operator
      */
     public Boolean isLogicalOperator() {
-        return type == TokenType.AND ||
-               type == TokenType.OR ||
-               type == TokenType.NOT;
+        return type == TokenType.OP_AND ||
+               type == TokenType.OP_OR ||
+               type == TokenType.OP_NOT;
     }
 
     /**
@@ -110,11 +110,11 @@ public class FormulaToken {
      * @return true if token is a comparison operator
      */
     public Boolean isComparisonOperator() {
-        return type == TokenType.EQUALS ||
-               type == TokenType.NOT_EQUALS ||
-               type == TokenType.GREATER_THAN ||
-               type == TokenType.LESS_THAN ||
-               type == TokenType.GREATER_EQUAL ||
-               type == TokenType.LESS_EQUAL;
+        return type == TokenType.OP_EQ ||
+               type == TokenType.OP_NEQ ||
+               type == TokenType.OP_GT ||
+               type == TokenType.OP_LT ||
+               type == TokenType.OP_GTE ||
+               type == TokenType.OP_LTE;
     }
 }

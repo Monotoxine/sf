@@ -44,7 +44,7 @@ public class FormulaParser {
     private FormulaNode parseOrExpression() {
         FormulaNode left = parseAndExpression();
 
-        while (currentToken().isType(FormulaToken.TokenType.OR)) {
+        while (currentToken().isType(FormulaToken.TokenType.OP_OR)) {
             advance();
             FormulaNode right = parseAndExpression();
             left = new FormulaNode.BinaryOperatorNode('OR', left, right);
@@ -60,7 +60,7 @@ public class FormulaParser {
     private FormulaNode parseAndExpression() {
         FormulaNode left = parseNotExpression();
 
-        while (currentToken().isType(FormulaToken.TokenType.AND)) {
+        while (currentToken().isType(FormulaToken.TokenType.OP_AND)) {
             advance();
             FormulaNode right = parseNotExpression();
             left = new FormulaNode.BinaryOperatorNode('AND', left, right);
@@ -74,7 +74,7 @@ public class FormulaParser {
      * Grammar: notExpr = 'NOT' notExpr | comparisonExpr
      */
     private FormulaNode parseNotExpression() {
-        if (currentToken().isType(FormulaToken.TokenType.NOT)) {
+        if (currentToken().isType(FormulaToken.TokenType.OP_NOT)) {
             advance();
             FormulaNode operand = parseNotExpression();
             return new FormulaNode.UnaryOperatorNode('NOT', operand);
@@ -116,23 +116,23 @@ public class FormulaParser {
         }
 
         // Function call
-        if (token.isType(FormulaToken.TokenType.FUNCTION)) {
+        if (token.isType(FormulaToken.TokenType.FUNCTION_NAME)) {
             return parseFunctionCall();
         }
 
         // Literal values
-        if (token.isType(FormulaToken.TokenType.STRING)) {
+        if (token.isType(FormulaToken.TokenType.STRING_LITERAL)) {
             advance();
             return new FormulaNode.LiteralNode(token.value, 'STRING');
         }
 
-        if (token.isType(FormulaToken.TokenType.NUMBER)) {
+        if (token.isType(FormulaToken.TokenType.NUMBER_LITERAL)) {
             advance();
             Decimal numValue = Decimal.valueOf(token.value);
             return new FormulaNode.LiteralNode(numValue, 'NUMBER');
         }
 
-        if (token.isType(FormulaToken.TokenType.BOOLEAN)) {
+        if (token.isType(FormulaToken.TokenType.BOOLEAN_LITERAL)) {
             advance();
             Boolean boolValue = token.value == 'true';
             return new FormulaNode.LiteralNode(boolValue, 'BOOLEAN');
@@ -144,7 +144,7 @@ public class FormulaParser {
         }
 
         // Field reference
-        if (token.isType(FormulaToken.TokenType.FIELD)) {
+        if (token.isType(FormulaToken.TokenType.FIELD_REF)) {
             advance();
             return new FormulaNode.FieldReferenceNode(token.value);
         }
@@ -219,15 +219,15 @@ public class FormulaParser {
      * @return Operator string
      */
     private String getOperatorString(FormulaToken.TokenType tokenType) {
-        if (tokenType == FormulaToken.TokenType.EQUALS) return '==';
-        if (tokenType == FormulaToken.TokenType.NOT_EQUALS) return '!=';
-        if (tokenType == FormulaToken.TokenType.GREATER_THAN) return '>';
-        if (tokenType == FormulaToken.TokenType.LESS_THAN) return '<';
-        if (tokenType == FormulaToken.TokenType.GREATER_EQUAL) return '>=';
-        if (tokenType == FormulaToken.TokenType.LESS_EQUAL) return '<=';
-        if (tokenType == FormulaToken.TokenType.AND) return 'AND';
-        if (tokenType == FormulaToken.TokenType.OR) return 'OR';
-        if (tokenType == FormulaToken.TokenType.NOT) return 'NOT';
+        if (tokenType == FormulaToken.TokenType.OP_EQ) return '==';
+        if (tokenType == FormulaToken.TokenType.OP_NEQ) return '!=';
+        if (tokenType == FormulaToken.TokenType.OP_GT) return '>';
+        if (tokenType == FormulaToken.TokenType.OP_LT) return '<';
+        if (tokenType == FormulaToken.TokenType.OP_GTE) return '>=';
+        if (tokenType == FormulaToken.TokenType.OP_LTE) return '<=';
+        if (tokenType == FormulaToken.TokenType.OP_AND) return 'AND';
+        if (tokenType == FormulaToken.TokenType.OP_OR) return 'OR';
+        if (tokenType == FormulaToken.TokenType.OP_NOT) return 'NOT';
         return tokenType.name();
     }
 
