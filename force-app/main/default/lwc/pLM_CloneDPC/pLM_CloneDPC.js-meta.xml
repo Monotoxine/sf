@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>52.0</apiVersion>
+    <isExposed>true</isExposed>
+    <targets>
+        <target>lightning__FlowScreen</target>
+       <target>lightning__RecordPage</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightning__FlowScreen">
+            <property name="recordId" label="PLM Project Id" type="String" role="inputOnly"/>
+            <property name="projectType" label="Type PLM Project" type="String" role="inputOnly"/>
+             <property name="shareclasses" label="Share classes list Id" type="String[]" role="inputOnly"/>
+             <property name="freezeUpdate" label="Freeze Update" type="Boolean" role="inputOnly"/>
+             <property name="outputSelectedrows" label="Output Selected Rows (Collection)" type="String[]" role="outputOnly" description="Record Collection variable to contain only the records that were selected in the datatable. 
+             - NOTE: These records may not contain all of the edited values."/>
+              <property name="outputSelectedRow" label="Output Selected Row (Object)" type="String" role="outputOnly" description="Record Object variable that contains the single record that was selected in the datatable. 
+             - NOTE: This is only provided when just a single record is selected."/>
+        
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>

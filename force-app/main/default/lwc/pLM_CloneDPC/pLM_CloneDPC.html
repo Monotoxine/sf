@@ -1,0 +1,91 @@
+<!--
+  @description       : 
+  @author            : ChangeMeIn@UserSettingsUnder.SFDoc
+  @group             : 
+  @last modified on  : 03-12-2024
+  @last modified by  : ChangeMeIn@UserSettingsUnder.SFDoc
+-->
+<template>
+    <template if:true={isMassUpdate}>
+        <div class="selected-records">
+            <p>Selected Rows: {selectedCons.length}  of items selected / {totalRecords} Total of items</p>
+    </div>
+    </template>
+    <div class="slds-var-m-vertical_medium slds-is-relative" if:true={isLoading}>
+        <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
+    </div>
+    <table class="slds-table slds-table_cell-buffer slds-table_bordered"
+        aria-label="Example table of Opportunities with striped rows">
+        <thead> 
+            <tr class="slds-line-height_reset">
+                <th class="" scope="col">
+                    <div class="slds-truncate" title="Row Number"></div>
+                </th>
+                <th class="" scope="col">
+                    <div class="slds-truncate">
+                        <lightning-input onchange={allSelected} checked={checked}  type="checkbox"></lightning-input>
+                    </div>
+                </th>     
+                <th class="" scope="col">
+                    <div class="slds-truncate" title="Name">Project Share class Name</div>
+                </th>
+                <template if:false={isMassUpdate}>
+                    <th class="" scope="col">
+                        <div class="slds-truncate" title="Status">Status</div>
+                    </th>
+                </template>
+                <template if:true={isMassUpdate}>
+                    <th class="" scope="col">
+                        <div class="slds-truncate" title="ISIN Code">ISIN Code</div>
+                    </th>
+                </template>
+                <th class="" scope="col">
+                    <div class="slds-truncate" title="Message">Message</div>
+                </th>
+                <template if:false={isMassUpdate}>
+                    <th class="" scope="col">
+                        <div class="slds-truncate" title="controlResultRM">Control Result RM data</div>
+                    </th>
+                </template>
+            </tr>
+        </thead>
+        <tbody>
+            <template for:each={dataTableWithRowNumber} for:item="row" for:index="index">
+                <tr class={row.class} key={row.id}>
+                    <td data-label ="Row Number" scope="row">
+                        <div class ="slds-truncate" title="\{row.number}">{row.rowNumber}</div>
+                    </td>
+                    <th scope="col">
+                        <div>
+                            <lightning-input type="checkbox" onchange={selectRow} checked={row.marked} data-id={row.id}></lightning-input>
+                        </div>
+                    </th>
+                    <th data-label="Name" scope="row">
+                        <div class="slds-truncate" title={row.name}>
+                            <a href={row.url} tabindex="-1">{row.name}</a>
+                        </div>
+                    </th>
+                <template if:false={isMassUpdate}>
+                    <td data-label="Status">
+                        <div class="slds-truncate" title={row.status}>{row.status}</div>
+                    </td>
+                </template>
+                <template if:true={isMassUpdate}>
+                    <td data-label="ISIN Code">
+                        <div class="slds-truncate" title={row.isinCode}>{row.isinCode}</div>
+                    </td>
+                </template>
+                    <td data-label="Message">
+                        <div class="slds-truncate" title={row.message}>{row.message}</div>
+                    </td>
+                <template if:false={isMassUpdate}>
+                    <td data-label="">
+                        <div class="slds-truncate" title={row.controlResultRM}>{row.controlResultRM}</div>
+                    </td>
+                </template>
+                </tr>
+            </template>
+            
+        </tbody>
+    </table>
+</template>

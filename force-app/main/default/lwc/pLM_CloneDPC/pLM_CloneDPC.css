@@ -1,0 +1,15 @@
+.selected-records{
+    size: 5px;
+    text-align: left;
+    margin-top: 30px;
+    margin-bottom:10px;
+    font-weight: 700;
+    font-size: 15px;
+
+}
+
+.custom-icon-container {
+    size: 2px;
+    padding: 10px;
+    margin-left: 2px;
+}
