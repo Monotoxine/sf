@@ -307,10 +307,22 @@ export default class ItsmFlowContainer extends NavigationMixin(LightningElement)
     }
     
     get isNextDisabled() {
-        return !this.selectedType || !this.selectedCategory || 
+        return !this.selectedType || !this.selectedCategory ||
                !this.selectedSubcategory || !this.selectedServiceId;
     }
-    
+
+    get isCategoryDisabled() {
+        return !this.selectedType;
+    }
+
+    get isSubcategoryDisabled() {
+        return !this.selectedCategory;
+    }
+
+    get isServiceDisabled() {
+        return !this.selectedSubcategory;
+    }
+
     get showSpinner() {
         return this.isLoading;
     }
