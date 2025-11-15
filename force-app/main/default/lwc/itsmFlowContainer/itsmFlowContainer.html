@@ -57,11 +57,11 @@
                                 value={selectedCategory}
                                 onchange={handleCategoryChange}
                                 required
-                                disabled={selectedType}
+                                disabled={!selectedType}
                             ></lightning-combobox>
                             <p class="help-text">Select the business category for your request</p>
                         </div>
-                        
+
                         <!-- Subcategory Selection -->
                         <div class="picklist-section">
                             <lightning-combobox
@@ -72,11 +72,11 @@
                                 value={selectedSubcategory}
                                 onchange={handleSubcategoryChange}
                                 required
-                                disabled={selectedCategory}
+                                disabled={!selectedCategory}
                             ></lightning-combobox>
                             <p class="help-text">Narrow down your request type</p>
                         </div>
-                        
+
                         <!-- Service Selection -->
                         <div class="picklist-section">
                             <lightning-combobox
@@ -87,7 +87,7 @@
                                 value={selectedServiceId}
                                 onchange={handleServiceChange}
                                 required
-                                disabled={selectedSubcategory}
+                                disabled={!selectedSubcategory}
                             ></lightning-combobox>
                             <p class="help-text">Select the specific service you need</p>
                         </div>
