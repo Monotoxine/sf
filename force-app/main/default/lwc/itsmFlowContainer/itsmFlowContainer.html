@@ -28,15 +28,14 @@
                             </label>
                             <div class="type-selection slds-m-top_small">
                                 <template for:each={typeOptions} for:item="type">
-                                    <div 
+                                    <div
                                         key={type.value}
-                                        class={type.value}
                                         data-type={type.value}
                                         onclick={handleTypeChange}
                                     >
-                                        <div class="type-button" data-selected={selectedType}>
-                                            <lightning-icon 
-                                                icon-name={type.icon} 
+                                        <div class={type.cssClass}>
+                                            <lightning-icon
+                                                icon-name={type.icon}
                                                 size="large"
                                                 class="type-icon"
                                             ></lightning-icon>
