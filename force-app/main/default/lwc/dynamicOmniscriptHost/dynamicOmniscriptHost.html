@@ -7,6 +7,18 @@
 -->
 <template>
     <div class="omniscript-wrapper">
-       
+        <!-- OmniScript Step Component -->
+        <!-- IMPORTANT: Remplacez 'omnistudio' par le bon namespace de votre org -->
+        <!-- Namespaces possibles: omnistudio | vlocity_cmt | vlocity_ins -->
+        <omnistudio-omniscript-step
+            omniscript-type={omniscriptType}
+            omniscript-sub-type={omniscriptSubType}
+            omniscript-lang={omniscriptLang}
+            omniscript-version={omniscriptVersion}
+            layout={layoutData}
+            oncomplete={handleOmniScriptComplete}
+            onerror={handleOmniScriptError}
+            onstep={handleOmniScriptStep}
+        ></omnistudio-omniscript-step>
     </div>
 </template>
