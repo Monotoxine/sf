@@ -1,6 +1,0 @@
-<aura:documentation>
-	<aura:description>
-        Wrapper Aura component to host OmniStudio OmniScripts.
-        This component is used from LWC to bypass cross-namespace limitations.
-	</aura:description>
-</aura:documentation>

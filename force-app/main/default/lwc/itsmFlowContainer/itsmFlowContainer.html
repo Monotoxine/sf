@@ -116,25 +116,8 @@
             </template>
         </template>
         
-        <!-- OmniScript Display -->
-        <template if:true={showOmniScript}>
-            <div class="omniscript-container">
-                <lightning-button 
-                    label="Back" 
-                    icon-name="utility:back"
-                    onclick={handleBack}
-                    class="back-button slds-m-bottom_small"
-                ></lightning-button>
-                
-                <c-dynamic-omniscript-host
-                    omniscript-type={omniscriptType}
-                    omniscript-sub-type={omniscriptSubType}
-                    omniscript-lang={omniscriptLang}
-                    omniscript-version={omniscriptVersion}
-                    oncomplete={handleOmniScriptComplete}
-                ></c-dynamic-omniscript-host>
-            </div>
-        </template>
-        
+        <!-- OmniScript section removed - now using navigation instead -->
+        <!-- User is redirected to OmniScript page when they click Next -->
+
     </div>
 </template>
