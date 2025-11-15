@@ -293,8 +293,18 @@ export default class ItsmFlowContainer extends NavigationMixin(LightningElement)
      */
     get typeOptions() {
         return [
-            { label: 'Support', value: 'Support', icon: 'utility:help' },
-            { label: 'Change', value: 'Change', icon: 'utility:change_owner' }
+            {
+                label: 'Support',
+                value: 'Support',
+                icon: 'utility:help',
+                cssClass: this.selectedType === 'Support' ? 'type-button selected' : 'type-button'
+            },
+            {
+                label: 'Change',
+                value: 'Change',
+                icon: 'utility:change_owner',
+                cssClass: this.selectedType === 'Change' ? 'type-button selected' : 'type-button'
+            }
         ];
     }
     
