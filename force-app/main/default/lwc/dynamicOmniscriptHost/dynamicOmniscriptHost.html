@@ -7,18 +7,13 @@
 -->
 <template>
     <div class="omniscript-wrapper">
-        <!-- OmniScript Step Component -->
-        <!-- IMPORTANT: Remplacez 'omnistudio' par le bon namespace de votre org -->
-        <!-- Namespaces possibles: omnistudio | vlocity_cmt | vlocity_ins -->
-        <omnistudio-omniscript-step
+        <!-- Using Aura wrapper to bypass LWC cross-namespace limitation -->
+        <!-- The c:omniscriptWrapper Aura component can use omnistudio components -->
+        <c-omniscript-wrapper
             omniscript-type={omniscriptType}
             omniscript-sub-type={omniscriptSubType}
             omniscript-lang={omniscriptLang}
             omniscript-version={omniscriptVersion}
-            layout={layoutData}
-            oncomplete={handleOmniScriptComplete}
-            onerror={handleOmniScriptError}
-            onstep={handleOmniScriptStep}
-        ></omnistudio-omniscript-step>
+        ></c-omniscript-wrapper>
     </div>
 </template>
