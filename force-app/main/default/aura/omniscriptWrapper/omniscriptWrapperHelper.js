@@ -1,3 +1,0 @@
-({
-    // Helper methods if needed
-})

@@ -1,8 +1,9 @@
 import { LightningElement, api, wire, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import { NavigationMixin } from 'lightning/navigation';
 import getITSMInitData from '@salesforce/apex/ITSMInitController.getITSMInitData';
 
-export default class ItsmFlowContainer extends LightningElement {
+export default class ItsmFlowContainer extends NavigationMixin(LightningElement) {
     
     @api recordTypeId;
     
@@ -20,11 +21,10 @@ export default class ItsmFlowContainer extends LightningElement {
     
     // UI State
     @track showSelectionForm = true;
-    @track showOmniScript = false;
     @track isLoading = true;
     @track error;
-    
-    // OmniScript parameters
+
+    // OmniScript parameters (used for navigation)
     omniscriptType;
     omniscriptSubType;
     omniscriptLang;
@@ -134,35 +134,34 @@ export default class ItsmFlowContainer extends LightningElement {
         if (!this.validateSelections()) {
             return;
         }
-        
+
         // Find the Service Setup
         const setup = this.itsmData.serviceSetups.find(
             s => s.serviceId === this.selectedServiceId
         );
-        
+
         if (!setup) {
             this.showErrorToast('Error', 'No Service Setup found for this service');
             return;
         }
-        
+
         // Get the appropriate form field
-        const formField = this.selectedType === 'Support' 
-            ? setup.relatedSupportForm 
+        const formField = this.selectedType === 'Support'
+            ? setup.relatedSupportForm
             : setup.relatedChangeForm;
-        
+
         if (!formField) {
             this.showErrorToast('Error', `No ${this.selectedType} form configured for this service`);
             return;
         }
-        
+
         // Parse the form field (Format: Type:SubType:Lang:Version)
         if (!this.parseOmniScriptReference(formField)) {
             return;
         }
-        
-        // Show OmniScript
-        this.showSelectionForm = false;
-        this.showOmniScript = true;
+
+        // Navigate to OmniScript instead of embedding (avoids cross-namespace issues)
+        this.navigateToOmniScript();
     }
     
     /**
@@ -170,25 +169,49 @@ export default class ItsmFlowContainer extends LightningElement {
      */
     parseOmniScriptReference(reference) {
         const parts = reference.split(':');
-        
+
         if (parts.length !== 4) {
             this.showErrorToast('Error', 'Invalid OmniScript reference format');
             return false;
         }
-        
+
         this.omniscriptType = parts[0];
         this.omniscriptSubType = parts[1];
         this.omniscriptLang = parts[2];
         this.omniscriptVersion = parseInt(parts[3], 10);
-        
+
         console.log('Launching OmniScript:', {
             type: this.omniscriptType,
             subType: this.omniscriptSubType,
             lang: this.omniscriptLang,
             version: this.omniscriptVersion
         });
-        
+
         return true;
+    }
+
+    /**
+     * Navigate to OmniScript page (avoids cross-namespace issues)
+     */
+    navigateToOmniScript() {
+        console.log('🚀 Navigating to OmniScript page...');
+
+        // Build OmniScript URL
+        const omniscriptUrl = `/apex/omnistudio__OmniScriptUniversalPage?` +
+            `omniscriptType=${encodeURIComponent(this.omniscriptType)}` +
+            `&omniscriptSubType=${encodeURIComponent(this.omniscriptSubType)}` +
+            `&omniscriptLang=${encodeURIComponent(this.omniscriptLang)}` +
+            `&omniscriptVersion=${this.omniscriptVersion}`;
+
+        console.log('📍 OmniScript URL:', omniscriptUrl);
+
+        // Navigate to OmniScript page
+        this[NavigationMixin.Navigate]({
+            type: 'standard__webPage',
+            attributes: {
+                url: omniscriptUrl
+            }
+        });
     }
     
     /**
@@ -225,26 +248,9 @@ export default class ItsmFlowContainer extends LightningElement {
         this.services = [];
     }
     
-    /**
-     * Handle back button from OmniScript
-     */
-    handleBack() {
-        this.showOmniScript = false;
-        this.showSelectionForm = true;
-    }
-    
-    /**
-     * Handle OmniScript completion
-     */
-    handleOmniScriptComplete(event) {
-        const caseId = event.detail.caseId;
-        
-        // Dispatch event to parent
-        this.dispatchEvent(new CustomEvent('casecreated', {
-            detail: { caseId: caseId }
-        }));
-    }
-    
+    // NOTE: handleBack and handleOmniScriptComplete removed
+    // User navigates to OmniScript page instead of embedding
+
     /**
      * Handle Cancel
      */

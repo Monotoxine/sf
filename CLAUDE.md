@@ -32,10 +32,11 @@ nimOsNewCaseOverride (Aura)
 └── nimOsNewCaseRouter (LWC)
     ├── Record Type Selection
     └── itsmFlowContainer (LWC)
-        ├── Service Selection (Category → Subcategory → Service)
-        └── dynamicOmniscriptHost (LWC)
-            └── OmniScript Dynamic Display
+        ├── Service Selection (Type → Category → Subcategory → Service)
+        └── NavigationMixin.Navigate() → OmniScript Universal Page
 ```
+
+**Note**: `dynamicOmniscriptHost` component removed - using navigation instead of embedding to avoid cross-namespace issues.
 
 ---
 
@@ -89,25 +90,19 @@ showItsmFlow // Controls ITSM flow view
 **OmniScript Reference Format**: `Type:SubType:Lang:Version`
 - Example: `CaseSupport:ITSupport:EN:1`
 
-#### 3. `dynamicOmniscriptHost`
-**Location**: `force-app/main/default/lwc/dynamicOmniscriptHost/`
+#### 3. OmniScript Integration (via Navigation)
 
-**Purpose**: Embeds and displays OmniScript forms dynamically
+**NOTE**: This component was **removed** due to cross-namespace limitations.
 
-**Important**: Uses native HTML tag (no JavaScript import) to avoid cross-namespace issues
+**Current Approach**: Instead of embedding OmniScript, the system **navigates** to the standard OmniScript page.
 
-**Properties** (received from parent):
-```javascript
-@api omniscriptType     // e.g., "CaseSupport"
-@api omniscriptSubType  // e.g., "ITSupport"
-@api omniscriptLang     // e.g., "EN"
-@api omniscriptVersion  // e.g., 1
-```
+**Why Navigation?**:
+- ❌ LWC cannot reference cross-namespace components (omnistudio)
+- ❌ LWC cannot call Aura components (only reverse works)
+- ✅ Navigation avoids all cross-namespace issues
+- ✅ Uses Salesforce standard OmniScript Universal Page
 
-**Events Handled**:
-- `oncomplete` - OmniScript completion (extracts Case ID)
-- `onerror` - OmniScript errors
-- `onstep` - Step navigation
+**Implementation**: See `itsmFlowContainer.js` → `navigateToOmniScript()` method
 
 ### Aura Component
 
@@ -241,11 +236,13 @@ graph TD
     I --> J[User selects Service]
     J --> K[Click Next]
     K --> L[Parse OmniScript reference]
-    L --> M[Display dynamicOmniscriptHost]
+    L --> M[Navigate to OmniScript Universal Page]
     M --> N[User fills OmniScript form]
     N --> O[OmniScript creates Case]
-    O --> P[Navigate to Case record]
+    O --> P[Case record displayed]
 ```
+
+**Note**: Step M uses `NavigationMixin.Navigate()` to redirect to `/apex/omnistudio__OmniScriptUniversalPage` instead of embedding the OmniScript.
 
 ### Event Chain
 
@@ -264,77 +261,98 @@ graph TD
 
 4. **Launch OmniScript**
    - Event: `onclick={handleLaunchOmniScript}`
-   - Parses OmniScript reference from Service Setup
-   - Shows `dynamicOmniscriptHost`
+   - Parses OmniScript reference from Service Setup (Format: `Type:SubType:Lang:Version`)
+   - Calls `navigateToOmniScript()` method
+   - Navigates to `/apex/omnistudio__OmniScriptUniversalPage?params`
 
 5. **OmniScript Completion**
-   - Event: `oncomplete={handleOmniScriptComplete}`
-   - Extracts Case ID from response
-   - Navigates to Case record page
+   - User completes OmniScript on Universal Page
+   - OmniScript creates Case
+   - OmniScript handles navigation to Case (configured in OmniScript)
 
 ---
 
-## 🔍 OMNISCRIPT INTEGRATION
+## 🔍 OMNISCRIPT INTEGRATION (via Navigation)
 
-### Namespace Detection
+### Overview
 
-**CRITICAL**: You must determine your OmniStudio namespace before deployment.
+**IMPORTANT CHANGE**: Due to cross-namespace limitations in LWC, OmniScripts are **NOT embedded** in the component. Instead, the system **navigates** to the OmniScript Universal Page.
 
-#### Check in Setup
+### Why Navigation Instead of Embedding?
+
+| Approach | Works? | Reason |
+|----------|--------|--------|
+| LWC → OmniStudio tag | ❌ | Cross-namespace error |
+| LWC → Aura → OmniStudio | ❌ | LWC cannot call Aura |
+| **Navigation to Universal Page** | ✅ | **No cross-namespace issues** |
+
+### How It Works
+
+When user clicks "Next" after service selection:
+
+1. **Parse Reference**: Extract Type, SubType, Lang, Version from Service_Setup__c
+   - Format: `CaseSupport:ITSupport:EN:1`
+
+2. **Build URL**: Construct OmniScript Universal Page URL
+   ```javascript
+   const url = `/apex/omnistudio__OmniScriptUniversalPage?
+       omniscriptType=CaseSupport&
+       omniscriptSubType=ITSupport&
+       omniscriptLang=EN&
+       omniscriptVersion=1`;
+   ```
+
+3. **Navigate**: Use NavigationMixin to redirect
+   ```javascript
+   this[NavigationMixin.Navigate]({
+       type: 'standard__webPage',
+       attributes: { url: url }
+   });
+   ```
+
+### Namespace Configuration
+
+**CRITICAL**: Update the namespace in `itsmFlowContainer.js` line 201 if your org uses a different OmniStudio namespace.
+
+#### Check Your Namespace
 1. Navigate to: **Setup → Installed Packages**
 2. Search for: "OmniStudio" or "Vlocity"
 3. Note the namespace prefix
 
 #### Common Namespaces
 
-| Namespace | Product | Tag Example |
-|-----------|---------|-------------|
-| `omnistudio` | OmniStudio (modern) | `<omnistudio-omniscript-step>` |
-| `vlocity_cmt` | Vlocity CMT (legacy) | `<vlocity_cmt-omniscript-step>` |
-| `vlocity_ins` | Industry Cloud Insurance | `<vlocity_ins-omniscript-step>` |
+| Namespace | VF Page |
+|-----------|---------|
+| `omnistudio` (default) | `/apex/omnistudio__OmniScriptUniversalPage` |
+| `vlocity_cmt` | `/apex/vlocity_cmt__OmniScriptUniversalPage` |
+| `vlocity_ins` | `/apex/vlocity_ins__OmniScriptUniversalPage` |
 
-#### Update the Component
+#### Update Code
 
-Edit `dynamicOmniscriptHost.html` line 13:
-```html
-<!-- Replace 'omnistudio' with your org's namespace -->
-<omnistudio-omniscript-step
-    omniscript-type={omniscriptType}
-    ...
-></omnistudio-omniscript-step>
-```
+**File**: `force-app/main/default/lwc/itsmFlowContainer/itsmFlowContainer.js`
 
-### OmniScript Component Properties
-
-| Property | Type | Description | Example |
-|----------|------|-------------|---------|
-| `omniscript-type` | String | OmniScript Type | "CaseSupport" |
-| `omniscript-sub-type` | String | OmniScript SubType | "ITSupport" |
-| `omniscript-lang` | String | Language code | "EN" |
-| `omniscript-version` | Number | Version number | 1 |
-| `layout` | String (JSON) | Prefill data | `{"prefill": {}, "seed": true}` |
-
-### OmniScript Events
-
+**Line 201**:
 ```javascript
-// Completion event
-handleOmniScriptComplete(event) {
-    const caseId = event.detail?.CaseId ||
-                   event.detail?.response?.CaseId ||
-                   event.detail?.data?.CaseId ||
-                   event.detail?.contextId;
-}
-
-// Error event
-handleOmniScriptError(event) {
-    console.error('OmniScript error:', event.detail);
-}
-
-// Step navigation event
-handleOmniScriptStep(event) {
-    console.log('Step changed:', event.detail);
-}
+const omniscriptUrl = `/apex/omnistudio__OmniScriptUniversalPage?` + // ← Change namespace here
 ```
+
+### URL Parameters
+
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| `omniscriptType` | OmniScript Type | `CaseSupport` |
+| `omniscriptSubType` | OmniScript SubType | `ITSupport` |
+| `omniscriptLang` | Language code | `EN` |
+| `omniscriptVersion` | Version number | `1` |
+
+### User Experience
+
+1. User completes service selection in `itsmFlowContainer`
+2. Clicks "Next"
+3. **Browser navigates** to OmniScript page (leaves ITSM selection page)
+4. User completes OmniScript form
+5. OmniScript creates Case
+6. OmniScript redirects to Case (configured in OmniScript settings)
 
 ---
 
@@ -382,11 +400,13 @@ Ensure users have:
 - Read access to: Account, Product2, Service_Setup__c, Account_Service_Relationship__c
 - Field-level access to: User.Division__c, Account.Legal_Name__c
 
-#### 6. Update OmniScript Namespace
+#### 6. Update OmniScript Namespace (if needed)
 
-Edit `force-app/main/default/lwc/dynamicOmniscriptHost/dynamicOmniscriptHost.html`:
-```html
-<omnistudio-omniscript-step>  <!-- Change to your namespace -->
+**File**: `force-app/main/default/lwc/itsmFlowContainer/itsmFlowContainer.js`
+
+Edit line 201 if your org uses a different namespace:
+```javascript
+const omniscriptUrl = `/apex/omnistudio__OmniScriptUniversalPage?` + // ← Change namespace
 ```
 
 ---
@@ -427,13 +447,15 @@ Currently **no test classes** are included in the repository.
 - [ ] Verify navigation to standard Case creation
 - [ ] Verify no infinite loop (nooverride works)
 
-#### Test Case 4: OmniScript Integration
-- [ ] Complete the ITSM flow to OmniScript
-- [ ] Verify OmniScript loads with correct Type/SubType
+#### Test Case 4: OmniScript Navigation
+- [ ] Complete the ITSM flow to launch OmniScript
+- [ ] **Verify browser navigates** to `/apex/omnistudio__OmniScriptUniversalPage`
+- [ ] Verify URL contains correct parameters (type, subType, lang, version)
+- [ ] Verify OmniScript displays on Universal Page
 - [ ] Fill out OmniScript form
 - [ ] Submit OmniScript
 - [ ] Verify Case is created
-- [ ] Verify navigation to new Case record
+- [ ] Verify navigation to new Case record (configured in OmniScript)
 
 #### Test Case 5: Error Handling
 - [ ] User with no Division → Should show error

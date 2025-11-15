@@ -1,3 +1,0 @@
-<aura:event type="APPLICATION" description="Event fired when OmniScript completes">
-    <aura:attribute name="detail" type="Object" description="OmniScript completion data"/>
-</aura:event>
