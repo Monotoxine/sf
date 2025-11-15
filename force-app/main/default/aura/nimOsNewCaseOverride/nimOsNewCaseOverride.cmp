@@ -1,0 +1,17 @@
+<!--
+  @description       : 
+  @author            : ChangeMeIn@UserSettingsUnder.SFDoc
+  @group             : 
+  @last modified on  : 11-15-2025
+  @last modified by  : ChangeMeIn@UserSettingsUnder.SFDoc
+-->
+<aura:component implements="lightning:actionOverride,force:lightningQuickAction" 
+                access="global">
+    <aura:attribute name="recordId" type="String" />
+    <aura:attribute name="recordTypeId" type="String" />
+    
+    <c:nimOsNewCaseRouter 
+        recordId="{!v.recordId}"
+        recordTypeId="{!v.recordTypeId}"
+    />
+</aura:component>

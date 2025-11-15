@@ -1,0 +1,120 @@
+<!--
+  @description       : 
+  @author            : ChangeMeIn@UserSettingsUnder.SFDoc
+  @group             : 
+  @last modified on  : 11-15-2025
+  @last modified by  : ChangeMeIn@UserSettingsUnder.SFDoc
+-->
+<template>
+    <!-- Loading Spinner -->
+    <template if:true={showSpinner}>
+        <div class="spinner-container">
+            <lightning-spinner alternative-text="Loading Record Types..." size="medium"></lightning-spinner>
+        </div>
+    </template>
+    
+    <!-- Error Message -->
+    <template if:true={showError}>
+        <div class="error-container">
+            <p class="error-message">{error}</p>
+            <lightning-button 
+                label="Cancel" 
+                onclick={handleCancel}
+                class="slds-m-top_small"
+            ></lightning-button>
+        </div>
+    </template>
+    
+    <!-- Record Type Selection -->
+    <template if:true={showRecordTypeSelection}>
+        <template if:false={showSpinner}>
+            <lightning-card title="Select Case Record Type" icon-name="standard:case">
+                <div class="slds-p-around_medium">
+                    
+                    <template if:true={hasRecordTypes}>
+                        <!-- Record Type Options -->
+                        <div class="slds-grid slds-wrap slds-gutters_small">
+                            <template for:each={recordTypes} for:item="rt">
+                                <div key={rt.id} class="slds-col slds-size_1-of-1">
+                                    <!-- ⭐ CLICK ICI -->
+                                    <div 
+                                        class="slds-box slds-box_x-small record-type-option"
+                                        data-id={rt.id}
+                                        data-devname={rt.developerName}
+                                        onclick={handleRecordTypeSelection}
+                                    >
+                                        <div class="slds-media slds-media_center">
+                                            <div class="slds-media__figure">
+                                                <lightning-icon 
+                                                    icon-name="standard:case" 
+                                                    size="small"
+                                                ></lightning-icon>
+                                            </div>
+                                            <div class="slds-media__body">
+                                                <h3 class="slds-text-heading_small">{rt.name}</h3>
+                                                <p class="slds-text-color_weak slds-text-body_small">
+                                                    {rt.description}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="slds-m-top_large slds-clearfix">
+                            <lightning-button 
+                                label="Cancel" 
+                                onclick={handleCancel}
+                                class="slds-float_left"
+                            ></lightning-button>
+                            
+                            <!-- ⭐ CLICK ICI AUSSI -->
+                            <lightning-button 
+                                variant="brand" 
+                                label="Next"
+                                onclick={handleNext}
+                                disabled={isNextDisabled}
+                                class="slds-float_right"
+                            ></lightning-button>
+                        </div>
+                        
+                        <!-- 🔍 DEBUG INFO -->
+                        <div class="slds-m-top_medium slds-border_top slds-p-top_small">
+                            <p><strong>DEBUG INFO:</strong></p>
+                            <p>Selected RT ID: {selectedRecordTypeId}</p>
+                            <p>Selected RT DevName: {selectedRecordTypeDeveloperName}</p>
+                            <p>Next button disabled: {isNextDisabled}</p>
+                        </div>
+                    </template>
+                    
+                    <!-- No Record Types Available -->
+                    <template if:false={hasRecordTypes}>
+                        <div class="slds-text-align_center slds-p-around_large">
+                            <p class="slds-text-color_weak">No Record Types available</p>
+                            <lightning-button 
+                                label="Cancel" 
+                                onclick={handleCancel}
+                                class="slds-m-top_medium"
+                            ></lightning-button>
+                        </div>
+                    </template>
+                    
+                </div>
+            </lightning-card>
+        </template>
+    </template>
+    
+    <!-- ITSM Flow Container -->
+    <template if:true={showItsmFlow}>
+        <div class="slds-box slds-theme_success slds-m-bottom_small">
+            <p>✅ ITSM Flow should display here</p>
+        </div>
+        <c-itsm-flow-container 
+            record-type-id={selectedRecordTypeId}
+            oncasecreated={handleCaseCreated}
+            oncancel={handleCancel}
+        ></c-itsm-flow-container>
+    </template>
+</template>

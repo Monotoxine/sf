@@ -1,0 +1,4 @@
+<AuraDefinitionBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>65.0</apiVersion>
+    <description>Aura wrapper to override New Case button</description>
+</AuraDefinitionBundle>

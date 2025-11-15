@@ -1,0 +1,35 @@
+.record-type-option {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
+}
+
+.record-type-option:hover {
+    background-color: #f3f3f3;
+    border-color: #0176d3;
+}
+
+.record-type-option.selected {
+    background-color: #e8f4ff;
+    border-color: #0176d3;
+}
+
+.spinner-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 200px;
+}
+
+.error-container {
+    padding: 1rem;
+    background-color: #fef5e7;
+    border-left: 4px solid #e74c3c;
+    border-radius: 4px;
+    margin: 1rem 0;
+}
+
+.error-message {
+    color: #c0392b;
+    font-weight: 600;
+}

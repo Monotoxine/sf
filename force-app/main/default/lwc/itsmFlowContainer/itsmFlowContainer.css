@@ -1,0 +1,59 @@
+.flow-container {
+    min-height: 400px;
+}
+
+.selection-card {
+    margin-bottom: 1rem;
+}
+
+.type-selection {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin: 1rem 0;
+}
+
+.type-button {
+    flex: 1;
+    max-width: 200px;
+    padding: 1rem;
+    border: 2px solid #dddbda;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.type-button:hover {
+    border-color: #0176d3;
+    background-color: #f3f3f3;
+}
+
+.type-button.selected {
+    border-color: #0176d3;
+    background-color: #e8f4ff;
+}
+
+.type-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.picklist-section {
+    padding: 1rem 0;
+}
+
+.help-text {
+    color: #706e6b;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.omniscript-container {
+    min-height: 500px;
+    background-color: #ffffff;
+}
+
+.back-button {
+    margin-bottom: 1rem;
+}

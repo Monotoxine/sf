@@ -1,0 +1,140 @@
+<!--
+  @description       : 
+  @author            : ChangeMeIn@UserSettingsUnder.SFDoc
+  @group             : 
+  @last modified on  : 11-15-2025
+  @last modified by  : ChangeMeIn@UserSettingsUnder.SFDoc
+-->
+<template>
+    <div class="flow-container">
+        
+        <!-- Loading Spinner -->
+        <template if:true={showSpinner}>
+            <div class="slds-align_absolute-center" style="height: 300px;">
+                <lightning-spinner alternative-text="Loading..." size="medium"></lightning-spinner>
+            </div>
+        </template>
+        
+        <!-- Selection Form -->
+        <template if:true={showSelectionForm}>
+            <template if:false={showSpinner}>
+                <lightning-card title="ITSM Case Creation" icon-name="standard:case">
+                    <div class="slds-p-around_medium">
+                        
+                        <!-- Type Selection -->
+                        <div class="slds-m-bottom_large">
+                            <label class="slds-form-element__label slds-text-heading_small">
+                                1. Select Intervention Type *
+                            </label>
+                            <div class="type-selection slds-m-top_small">
+                                <template for:each={typeOptions} for:item="type">
+                                    <div 
+                                        key={type.value}
+                                        class={type.value}
+                                        data-type={type.value}
+                                        onclick={handleTypeChange}
+                                    >
+                                        <div class="type-button" data-selected={selectedType}>
+                                            <lightning-icon 
+                                                icon-name={type.icon} 
+                                                size="large"
+                                                class="type-icon"
+                                            ></lightning-icon>
+                                            <div class="slds-text-heading_small">{type.label}</div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                        
+                        <!-- Category Selection -->
+                        <div class="picklist-section">
+                            <lightning-combobox
+                                name="category"
+                                label="2. Select Category *"
+                                placeholder="Choose a category"
+                                options={categories}
+                                value={selectedCategory}
+                                onchange={handleCategoryChange}
+                                required
+                                disabled={selectedType}
+                            ></lightning-combobox>
+                            <p class="help-text">Select the business category for your request</p>
+                        </div>
+                        
+                        <!-- Subcategory Selection -->
+                        <div class="picklist-section">
+                            <lightning-combobox
+                                name="subcategory"
+                                label="3. Select Subcategory *"
+                                placeholder="Choose a subcategory"
+                                options={subcategories}
+                                value={selectedSubcategory}
+                                onchange={handleSubcategoryChange}
+                                required
+                                disabled={selectedCategory}
+                            ></lightning-combobox>
+                            <p class="help-text">Narrow down your request type</p>
+                        </div>
+                        
+                        <!-- Service Selection -->
+                        <div class="picklist-section">
+                            <lightning-combobox
+                                name="service"
+                                label="4. Select Service *"
+                                placeholder="Choose a service"
+                                options={services}
+                                value={selectedServiceId}
+                                onchange={handleServiceChange}
+                                required
+                                disabled={selectedSubcategory}
+                            ></lightning-combobox>
+                            <p class="help-text">Select the specific service you need</p>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="slds-m-top_x-large slds-clearfix">
+                            <lightning-button 
+                                label="Cancel" 
+                                onclick={handleCancel}
+                                class="slds-float_left"
+                            ></lightning-button>
+                            
+                            <lightning-button 
+                                variant="brand" 
+                                label="Next"
+                                icon-name="utility:forward"
+                                icon-position="right"
+                                onclick={handleLaunchOmniScript}
+                                disabled={isNextDisabled}
+                                class="slds-float_right"
+                            ></lightning-button>
+                        </div>
+                        
+                    </div>
+                </lightning-card>
+            </template>
+        </template>
+        
+        <!-- OmniScript Display -->
+        <template if:true={showOmniScript}>
+            <div class="omniscript-container">
+                <lightning-button 
+                    label="Back" 
+                    icon-name="utility:back"
+                    onclick={handleBack}
+                    class="back-button slds-m-bottom_small"
+                ></lightning-button>
+                
+                <c-dynamic-omniscript-host
+                    omniscript-type={omniscriptType}
+                    omniscript-sub-type={omniscriptSubType}
+                    omniscript-lang={omniscriptLang}
+                    omniscript-version={omniscriptVersion}
+                    oncomplete={handleOmniScriptComplete}
+                ></c-dynamic-omniscript-host>
+            </div>
+        </template>
+        
+    </div>
+</template>
