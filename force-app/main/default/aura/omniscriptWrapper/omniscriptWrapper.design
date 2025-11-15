@@ -1,0 +1,6 @@
+<design:component>
+    <design:attribute name="omniscriptType" label="OmniScript Type" />
+    <design:attribute name="omniscriptSubType" label="OmniScript SubType" />
+    <design:attribute name="omniscriptLang" label="Language" />
+    <design:attribute name="omniscriptVersion" label="Version" />
+</design:component>

@@ -1,0 +1,23 @@
+<aura:component access="global" implements="flexipage:availableForAllPageTypes">
+    <!-- Public attributes received from LWC -->
+    <aura:attribute name="omniscriptType" type="String" />
+    <aura:attribute name="omniscriptSubType" type="String" />
+    <aura:attribute name="omniscriptLang" type="String" default="English"/>
+    <aura:attribute name="omniscriptVersion" type="Decimal" />
+
+    <!-- Layout JSON -->
+    <aura:attribute name="layoutData" type="String" default='{"prefill": {}, "seed": true}'/>
+
+    <!-- OmniScript Component -->
+    <!-- Using omnistudio namespace for modern OmniStudio -->
+    <omnistudio:omniscriptStep
+        aura:id="omniscriptCmp"
+        scriptType="{!v.omniscriptType}"
+        scriptSubType="{!v.omniscriptSubType}"
+        scriptLang="{!v.omniscriptLang}"
+        scriptVersion="{!v.omniscriptVersion}"
+        layout="{!v.layoutData}"
+        oncomplete="{!c.handleComplete}"
+        onerror="{!c.handleError}"
+    />
+</aura:component>
