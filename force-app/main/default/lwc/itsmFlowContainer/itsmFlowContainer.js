@@ -237,6 +237,7 @@ export default class ItsmFlowContainer extends NavigationMixin(LightningElement)
                 omniscript__type: this.omniscriptType,
                 omniscript__subType: this.omniscriptSubType,
                 omniscript__language: this.omniscriptLang,
+                omniscript__version: this.omniscriptVersion,
                 omniscript__seedData: seedDataEncoded
             }
         });
