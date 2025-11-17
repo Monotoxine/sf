@@ -191,27 +191,67 @@ export default class ItsmFlowContainer extends NavigationMixin(LightningElement)
     }
 
     /**
-     * Navigate to OmniScript page (avoids cross-namespace issues)
+     * Navigate to OmniScript page using modern Lightning Navigation
+     * Passes ITSM context data via seedData
      */
     navigateToOmniScript() {
         console.log('🚀 Navigating to OmniScript page...');
 
-        // Build OmniScript URL
-        const omniscriptUrl = `/apex/omnistudio__OmniScriptUniversalPage?` +
-            `omniscriptType=${encodeURIComponent(this.omniscriptType)}` +
-            `&omniscriptSubType=${encodeURIComponent(this.omniscriptSubType)}` +
-            `&omniscriptLang=${encodeURIComponent(this.omniscriptLang)}` +
-            `&omniscriptVersion=${this.omniscriptVersion}`;
+        // Build ITSM context data to pass to OmniScript
+        const itsmContext = {
+            // Service selection
+            serviceId: this.selectedServiceId,
+            serviceName: this.getServiceName(),
+            category: this.selectedCategory,
+            subcategory: this.selectedSubcategory,
+            interventionType: this.selectedType,
 
-        console.log('📍 OmniScript URL:', omniscriptUrl);
+            // User/Account context
+            userDivision: this.itsmData?.userDivision,
+            accountId: this.itsmData?.accountId,
+            accountName: this.itsmData?.accountName,
 
-        // Navigate to OmniScript page
+            // Record Type
+            recordTypeId: this.recordTypeId
+        };
+
+        // Encode seed data (required for OmniScript)
+        const seedDataEncoded = encodeURIComponent(JSON.stringify(itsmContext));
+
+        console.log('📦 ITSM Context:', itsmContext);
+        console.log('🔧 OmniScript:', {
+            type: this.omniscriptType,
+            subType: this.omniscriptSubType,
+            language: this.omniscriptLang,
+            version: this.omniscriptVersion
+        });
+
+        // Navigate using modern standard__featurePage (recommended by Salesforce)
         this[NavigationMixin.Navigate]({
-            type: 'standard__webPage',
+            type: 'standard__featurePage',
             attributes: {
-                url: omniscriptUrl
+                featureName: 'omnistudio',
+                pageName: 'omniscript'
+            },
+            state: {
+                omniscript__type: this.omniscriptType,
+                omniscript__subType: this.omniscriptSubType,
+                omniscript__language: this.omniscriptLang,
+                omniscript__seedData: seedDataEncoded
             }
         });
+
+        console.log('✅ Navigation initiated');
+    }
+
+    /**
+     * Get service name from selected service ID
+     */
+    getServiceName() {
+        const key = `${this.selectedCategory}||${this.selectedSubcategory}`;
+        const serviceList = this.itsmData?.servicesByCatSubcat?.[key] || [];
+        const service = serviceList.find(s => s.id === this.selectedServiceId);
+        return service?.name || '';
     }
     
     /**
