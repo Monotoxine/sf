@@ -72,7 +72,7 @@ public with sharing class ITSupportController {
 
             // 4. Get Provisioned Applications with Applications and Modules
             // Junction: Provisioned_Application__c links Contract to Application__c
-            // Modules: Module__c has Master-Detail to Application__c
+            // Module__c is a lookup field on Provisioned_Application__c
             List<Provisioned_Application__c> provisionedApps = [
                 SELECT Id,
                        Contract__c,
@@ -80,9 +80,10 @@ public with sharing class ITSupportController {
                        Application__r.Id,
                        Application__r.Name,
                        Application__r.Description__c,
-                       (SELECT Id, Name, Description__c
-                        FROM Modules__r
-                        ORDER BY Name)
+                       Module__c,
+                       Module__r.Id,
+                       Module__r.Name,
+                       Module__r.Description__c
                 FROM Provisioned_Application__c
                 WHERE Contract__c IN :contractIds
                 AND Application__c != null
@@ -96,6 +97,7 @@ public with sharing class ITSupportController {
             System.debug('📦 Found ' + provisionedApps.size() + ' provisioned applications');
 
             // 5. Build structured data
+            // Group modules by application name
             response.applications = new List<String>();
             response.modulesByApplication = new Map<String, List<ModuleDTO>>();
 
@@ -110,23 +112,31 @@ public with sharing class ITSupportController {
                     response.applications.add(appName);
                 }
 
-                // Build modules list for this application
-                List<ModuleDTO> modules = new List<ModuleDTO>();
-                for (Module__c mod : pa.Modules__r) {
+                // Add module to this application (if module exists)
+                if (pa.Module__c != null) {
                     ModuleDTO moduleDto = new ModuleDTO();
-                    moduleDto.id = mod.Id;
-                    moduleDto.name = mod.Name;
-                    moduleDto.description = mod.Description__c;
-                    modules.add(moduleDto);
-                }
+                    moduleDto.id = pa.Module__r.Id;
+                    moduleDto.name = pa.Module__r.Name;
+                    moduleDto.description = pa.Module__r.Description__c;
 
-                // Store modules by application name
-                if (!response.modulesByApplication.containsKey(appName)) {
-                    response.modulesByApplication.put(appName, modules);
-                } else {
-                    // Merge modules if same application appears multiple times
+                    // Store module by application name
+                    if (!response.modulesByApplication.containsKey(appName)) {
+                        response.modulesByApplication.put(appName, new List<ModuleDTO>());
+                    }
+
+                    // Check for duplicates before adding
                     List<ModuleDTO> existingModules = response.modulesByApplication.get(appName);
-                    existingModules.addAll(modules);
+                    Boolean isDuplicate = false;
+                    for (ModuleDTO existing : existingModules) {
+                        if (existing.id == moduleDto.id) {
+                            isDuplicate = true;
+                            break;
+                        }
+                    }
+
+                    if (!isDuplicate) {
+                        existingModules.add(moduleDto);
+                    }
                 }
             }
 
