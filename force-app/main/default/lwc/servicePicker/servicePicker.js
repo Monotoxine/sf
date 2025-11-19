@@ -143,6 +143,7 @@ export default class ServicePicker extends LightningElement {
      */
     emitSelectionChange() {
         const serviceName = this.getSelectedServiceName();
+        const queueForAssignment = this.getQueueForAssignment();
 
         const selectionData = {
             serviceId: this.selectedServiceId,
@@ -150,7 +151,8 @@ export default class ServicePicker extends LightningElement {
             category: this.selectedCategory,
             subcategory: this.selectedSubcategory,
             accountId: this.itsmData?.accountId,
-            userDivision: this.itsmData?.userDivision
+            userDivision: this.itsmData?.userDivision,
+            queueForAssignment: queueForAssignment
         };
 
         console.log('📤 Emitting selection:', selectionData);
@@ -174,6 +176,16 @@ export default class ServicePicker extends LightningElement {
         const serviceList = this.itsmData.servicesByCatSubcat[key] || [];
         const service = serviceList.find(s => s.id === this.selectedServiceId);
         return service ? service.name : '';
+    }
+
+    /**
+     * Get QueueForAssignment from selected service
+     */
+    getQueueForAssignment() {
+        if (!this.selectedServiceId || !this.itsmData || !this.itsmData.serviceSetups) return '';
+
+        const setup = this.itsmData.serviceSetups.find(s => s.serviceId === this.selectedServiceId);
+        return setup?.queueForAssignment || '';
     }
 
     /**
