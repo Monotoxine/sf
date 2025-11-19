@@ -1,7 +1,7 @@
 /**
  * @description Contrôleur Apex pour l'IP Init ITSM
  * Récupère tous les services disponibles pour l'utilisateur courant
- * @author ITSM Team
+ * @author Mouhamadoune
  * @date 2025
  */
 public with sharing class ITSMInitController {
@@ -85,7 +85,8 @@ public with sharing class ITSMInitController {
                    (
                        SELECT Id,
                               RelatedSupportForm__c,
-                              RelatedChangeForm__c
+                              RelatedChangeForm__c,
+                              QueueForAssignment__c
                        FROM Service_Setups__r
                    )
             FROM Product2
@@ -163,6 +164,7 @@ public with sharing class ITSMInitController {
                 setupDTO.serviceName = svc.Name;
                 setupDTO.relatedSupportForm = setup.RelatedSupportForm__c;
                 setupDTO.relatedChangeForm = setup.RelatedChangeForm__c;
+                setupDTO.queueForAssignment=setup.QueueForAssignment__c;
                 response.serviceSetups.add(setupDTO);
             }
         }
@@ -223,5 +225,7 @@ public with sharing class ITSMInitController {
         @AuraEnabled public String serviceName;
         @AuraEnabled public String relatedSupportForm;
         @AuraEnabled public String relatedChangeForm;
+        @AuraEnabled public String queueForAssignment;
+
     }
 }

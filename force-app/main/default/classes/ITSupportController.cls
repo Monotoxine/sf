@@ -2,7 +2,7 @@
  * @description Controller for IT Support Case creation flow
  * Provides Application/Module data based on user's Account and active Contracts
  *
- * @author Claude
+ * @author Mouhamadoune
  * @date 2025-11-19
  */
 public with sharing class ITSupportController {
@@ -82,8 +82,7 @@ public with sharing class ITSupportController {
                        Application__r.Description__c,
                        Module__c,
                        Module__r.Id,
-                       Module__r.Name,
-                       Module__r.Description__c
+                       Module__r.Name
                 FROM Provisioned_Application__c
                 WHERE Contract__c IN :contractIds
                 AND Application__c != null
@@ -117,7 +116,7 @@ public with sharing class ITSupportController {
                     ModuleDTO moduleDto = new ModuleDTO();
                     moduleDto.id = pa.Module__r.Id;
                     moduleDto.name = pa.Module__r.Name;
-                    moduleDto.description = pa.Module__r.Description__c;
+                    moduleDto.description = 'null';
 
                     // Store module by application name
                     if (!response.modulesByApplication.containsKey(appName)) {

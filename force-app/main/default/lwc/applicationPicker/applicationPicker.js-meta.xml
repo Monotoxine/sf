@@ -6,10 +6,9 @@
         <target>lightning__AppPage</target>
         <target>lightning__RecordPage</target>
         <target>lightning__HomePage</target>
-        <target>lightningCommunity__Page</target>
     </targets>
     <targetConfigs>
-        <targetConfig targets="lightning__AppPage,lightning__RecordPage,lightning__HomePage,lightningCommunity__Page">
+        <targetConfig targets="lightning__AppPage,lightning__RecordPage,lightning__HomePage">
             <property name="recordTypeId" type="String" label="Record Type ID" description="Record Type ID passed from router"/>
         </targetConfig>
     </targetConfigs>

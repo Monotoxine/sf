@@ -1,4 +1,4 @@
-import { LightningElement, wire, track } from 'lwc';
+import { LightningElement, wire, track,api} from 'lwc';
 import { CurrentPageReference, NavigationMixin } from 'lightning/navigation';
 import { getObjectInfo } from 'lightning/uiObjectInfoApi';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
@@ -22,7 +22,7 @@ export default class NimOsNewCaseRouter extends NavigationMixin(LightningElement
 
     // OmniScript mapping for each Record Type
     OMNISCRIPT_MAPPING = {
-        'NIM-OS_IT_Support': {
+        'NIM-OS_IT_Supportsss': {
             type: 'ITSM',
             subType: 'ITSupport',
             language: 'English',
@@ -30,7 +30,7 @@ export default class NimOsNewCaseRouter extends NavigationMixin(LightningElement
         },
         'NIM-OS_Support': {
             type: 'ITSM',
-            subType: 'Support',
+            subType: 'CreateCaseSupport',
             language: 'English',
             version: 1
         },
@@ -46,6 +46,8 @@ export default class NimOsNewCaseRouter extends NavigationMixin(LightningElement
     @track selectedRecordTypeDeveloperName;
     @track isLoading = true;
     @track error;
+    @api recordTypeId
+    @api recordId
 
     // Store Case object info for RT lookups
     caseObjectInfo;
