@@ -1,0 +1,13 @@
+.picker-container {
+    min-height: 200px;
+}
+
+.picklist-section {
+    padding: 1rem 0;
+}
+
+.help-text {
+    color: #706e6b;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
