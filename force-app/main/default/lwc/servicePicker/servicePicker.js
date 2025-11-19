@@ -1,13 +1,15 @@
 import { LightningElement, api, wire, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getITSMInitData from '@salesforce/apex/ITSMInitController.getITSMInitData';
-import { OmniscriptBaseMixin } from 'omnistudio/omniscriptBaseMixin';
 
 /**
  * Service Picker for Non-Applicatif Support Cases
  *
  * Displays dependent picklists: Category → Subcategory → Service
  * Designed to be embedded in OmniScript
+ *
+ * NOTE: Does NOT use OmniscriptBaseMixin to avoid cross-namespace issues.
+ * The component works in OmniScript by emitting standard events.
  *
  * Emits 'selectionchange' event with:
  * {
@@ -18,7 +20,7 @@ import { OmniscriptBaseMixin } from 'omnistudio/omniscriptBaseMixin';
  *   queueForAssignment: String
  * }
  */
-export default class ServicePicker extends OmniscriptBaseMixin(LightningElement) {
+export default class ServicePicker extends LightningElement {
 
     @api recordTypeId;  // Passed from OmniScript if needed
 

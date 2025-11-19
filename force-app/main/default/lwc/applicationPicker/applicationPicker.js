@@ -1,13 +1,15 @@
 import { LightningElement, api, wire, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getITSupportData from '@salesforce/apex/ITSupportController.getITSupportData';
-import { OmniscriptBaseMixin } from 'omnistudio/omniscriptBaseMixin';
 
 /**
  * Application Picker for IT Support Cases
  *
  * Displays dependent picklists: Application → Module
  * Designed to be embedded in OmniScript
+ *
+ * NOTE: Does NOT use OmniscriptBaseMixin to avoid cross-namespace issues.
+ * The component works in OmniScript by emitting standard events.
  *
  * Emits 'selectionchange' event with:
  * {
@@ -16,7 +18,7 @@ import { OmniscriptBaseMixin } from 'omnistudio/omniscriptBaseMixin';
  *   moduleName: String
  * }
  */
-export default class ApplicationPicker extends OmniscriptBaseMixin(LightningElement) {
+export default class ApplicationPicker extends LightningElement {
 
     @api recordTypeId;  // Passed from OmniScript if needed
 
