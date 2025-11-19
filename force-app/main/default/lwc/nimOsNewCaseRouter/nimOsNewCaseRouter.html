@@ -1,15 +1,17 @@
 <!--
-  @description: Case New override router
+  @description: Case New override router - Simplified for direct OmniScript navigation
   @author: ChangeMeIn@UserSettingsUnder.SFDoc
-  @last modified on: 11-15-2025
-  @last modified by: ChangeMeIn@UserSettingsUnder.SFDoc
+  @last modified on: 11-19-2025
+  @last modified by: Claude
 
-  This template does NOT show record type selection (that's handled by standard Salesforce modal).
-  It only shows:
-  1. Loading spinner while determining route
-  2. Error message if something goes wrong
-  3. ITSM flow for NIM-OS Support record type
-  4. Nothing for other RTs (redirects immediately to standard Case form)
+  NEW ARCHITECTURE:
+  This router component ONLY handles RT detection and navigation.
+  All business logic is in OmniScripts (which contain LWC pickers).
+
+  This template shows:
+  1. Loading spinner while determining route (brief)
+  2. Error message if RT resolution fails (rare)
+  3. Nothing else - automatically navigates to OmniScript or standard Case form
 -->
 <template>
     <!-- Loading Spinner (while resolving RT and routing) -->
@@ -22,7 +24,7 @@
         </div>
     </template>
 
-    <!-- Error Message -->
+    <!-- Error Message (shown only if RT resolution fails) -->
     <template if:true={showError}>
         <div class="error-container">
             <lightning-icon
@@ -32,20 +34,6 @@
                 class="slds-m-right_small"
             ></lightning-icon>
             <p class="error-message">{error}</p>
-            <lightning-button
-                label="Back to Cases"
-                onclick={handleCancel}
-                class="slds-m-top_medium"
-            ></lightning-button>
         </div>
-    </template>
-
-    <!-- ITSM Flow Container (for NIM-OS Support RT only) -->
-    <template if:true={showItsmFlow}>
-        <c-itsm-flow-container
-            record-type-id={selectedRecordTypeId}
-            oncasecreated={handleCaseCreated}
-            oncancel={handleCancel}
-        ></c-itsm-flow-container>
     </template>
 </template>

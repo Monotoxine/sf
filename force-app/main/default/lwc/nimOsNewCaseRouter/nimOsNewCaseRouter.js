@@ -7,23 +7,43 @@ import CASE_OBJECT from '@salesforce/schema/Case';
 /**
  * Router component for Case creation override
  *
- * ARCHITECTURE:
+ * NEW ARCHITECTURE (LWC in OmniScript):
  * - Reads recordTypeId from CurrentPageReference (selected in standard Salesforce modal)
- * - Routes based on Record Type:
- *   * NIM-OS Support → Show custom ITSM flow (Support/Change choice)
+ * - Routes directly to the appropriate OmniScript based on Record Type:
+ *   * NIM-OS IT Support → OmniScript IT Support (contains applicationPicker LWC)
+ *   * NIM-OS Support → OmniScript Support (contains servicePicker LWC)
+ *   * NIM-OS Change → OmniScript Change (no picker yet)
  *   * Other RTs → Navigate to standard Case creation (with nooverride to avoid loop)
  *
- * IMPORTANT: This component does NOT display record type selection.
- * That's already done by the standard Salesforce modal.
+ * The router ONLY handles RT detection and navigation.
+ * All business logic (picklists, form, Case creation) is in OmniScripts.
  */
 export default class NimOsNewCaseRouter extends NavigationMixin(LightningElement) {
 
-    // Record Type Developer Name to detect NIM-OS Support
-    NIMOS_SUPPORT_RT_DEVNAME = 'NIM_OS_Support';
+    // OmniScript mapping for each Record Type
+    OMNISCRIPT_MAPPING = {
+        'NIM-OS_IT_Support': {
+            type: 'ITSM',
+            subType: 'ITSupport',
+            language: 'English',
+            version: 1
+        },
+        'NIM-OS_Support': {
+            type: 'ITSM',
+            subType: 'Support',
+            language: 'English',
+            version: 1
+        },
+        'NIM-OS_Change': {
+            type: 'ITSM',
+            subType: 'Change',
+            language: 'English',
+            version: 1
+        }
+    };
 
     @track selectedRecordTypeId;
     @track selectedRecordTypeDeveloperName;
-    @track showItsmFlow = false;
     @track isLoading = true;
     @track error;
 
@@ -110,18 +130,57 @@ export default class NimOsNewCaseRouter extends NavigationMixin(LightningElement
 
     /**
      * Route user based on selected Record Type
+     * Routes directly to OmniScript (no intermediate container)
      */
     routeBasedOnRecordType() {
         console.log('🚦 Routing based on RT:', this.selectedRecordTypeDeveloperName);
 
-        if (this.selectedRecordTypeDeveloperName === this.NIMOS_SUPPORT_RT_DEVNAME) {
-            console.log('✅ NIM-OS Support detected → Showing ITSM flow');
-            this.isLoading = false;
-            this.showItsmFlow = true;
+        // Check if RT has a mapped OmniScript
+        const omniscriptConfig = this.OMNISCRIPT_MAPPING[this.selectedRecordTypeDeveloperName];
+
+        if (omniscriptConfig) {
+            console.log('✅ NIM-OS RT detected → Navigating to OmniScript:', omniscriptConfig);
+            this.navigateToOmniScript(omniscriptConfig);
         } else {
             console.log('✅ Other RT detected → Navigating to standard Case creation');
             this.navigateToStandardCaseCreation();
         }
+    }
+
+    /**
+     * Navigate directly to OmniScript with context data
+     */
+    navigateToOmniScript(config) {
+        console.log('🚀 Navigating to OmniScript:', config);
+
+        // Build minimal context to pass to OmniScript
+        // OmniScript will load additional data (User, Account, etc.) via DataRaptor/IP
+        const contextData = {
+            recordTypeId: this.selectedRecordTypeId
+        };
+
+        // Encode seed data
+        const seedDataEncoded = encodeURIComponent(JSON.stringify(contextData));
+
+        console.log('📦 Context data:', contextData);
+
+        // Navigate using modern standard__featurePage
+        this[NavigationMixin.Navigate]({
+            type: 'standard__featurePage',
+            attributes: {
+                featureName: 'omnistudio',
+                pageName: 'omniscript'
+            },
+            state: {
+                omniscript__type: config.type,
+                omniscript__subType: config.subType,
+                omniscript__language: config.language,
+                omniscript__version: config.version,
+                omniscript__seedData: seedDataEncoded
+            }
+        });
+
+        console.log('✅ Navigation initiated');
     }
 
     /**
@@ -148,57 +207,8 @@ export default class NimOsNewCaseRouter extends NavigationMixin(LightningElement
     }
 
     /**
-     * Handle Case created event from ITSM flow
-     */
-    handleCaseCreated(event) {
-        console.log('🔵 Case created event received');
-        const caseId = event.detail.caseId;
-        console.log('📍 Case ID:', caseId);
-
-        if (caseId) {
-            this.showSuccessToast('Success', 'Case created successfully');
-
-            // Navigate to the created Case
-            this[NavigationMixin.Navigate]({
-                type: 'standard__recordPage',
-                attributes: {
-                    recordId: caseId,
-                    objectApiName: 'Case',
-                    actionName: 'view'
-                }
-            });
-        }
-    }
-
-    /**
-     * Handle cancel from ITSM flow
-     */
-    handleCancel() {
-        console.log('🔵 Cancel clicked');
-
-        // Navigate back to Case list view
-        this[NavigationMixin.Navigate]({
-            type: 'standard__objectPage',
-            attributes: {
-                objectApiName: 'Case',
-                actionName: 'home'
-            }
-        });
-    }
-
-    /**
      * Toast message helpers
      */
-    showSuccessToast(title, message) {
-        this.dispatchEvent(
-            new ShowToastEvent({
-                title: title,
-                message: message,
-                variant: 'success'
-            })
-        );
-    }
-
     showErrorToast(title, message) {
         this.dispatchEvent(
             new ShowToastEvent({
