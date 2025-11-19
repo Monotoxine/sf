@@ -146,7 +146,8 @@ public with sharing class ITSupportController {
                 }
             }
 
-            response.applications.sort();
+            // Applications are already sorted by SOQL query (ORDER BY Application__r.Name)
+            // No need to sort again
 
             System.debug('✅ Response built: ' + response.applications.size() + ' applications');
             return response;
