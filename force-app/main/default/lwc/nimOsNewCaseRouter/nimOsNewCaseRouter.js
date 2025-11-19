@@ -22,7 +22,7 @@ export default class NimOsNewCaseRouter extends NavigationMixin(LightningElement
 
     // OmniScript mapping for each Record Type
     OMNISCRIPT_MAPPING = {
-        'NIM-OS_IT_Supportsss': {
+        'NIM-OS_IT_Support': {
             type: 'ITSM',
             subType: 'ITSupport',
             language: 'English',

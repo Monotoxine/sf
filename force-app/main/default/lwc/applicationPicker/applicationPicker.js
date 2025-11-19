@@ -8,11 +8,17 @@ import getITSupportData from '@salesforce/apex/ITSupportController.getITSupportD
  * Displays dependent picklists: Application → Module
  * Designed to be embedded in OmniScript
  *
+ * NOTE: Does NOT use OmniscriptBaseMixin to avoid cross-namespace issues.
+ * The component works in OmniScript by emitting standard events.
+ *
  * Emits 'selectionchange' event with:
  * {
+ *   applicationId: String,
  *   applicationName: String,
  *   moduleId: String,
- *   moduleName: String
+ *   moduleName: String,
+ *   accountId: String,
+ *   userDivision: String
  * }
  */
 export default class ApplicationPicker extends LightningElement {
@@ -25,7 +31,8 @@ export default class ApplicationPicker extends LightningElement {
     @track modules = [];
 
     // User selections
-    @track selectedApplication;
+    @track selectedApplicationId;
+    @track selectedApplicationName;
     @track selectedModuleId;
 
     // UI State
@@ -54,10 +61,10 @@ export default class ApplicationPicker extends LightningElement {
      * Process IT Support data into picklist options
      */
     processData(data) {
-        // Build application options
+        // Build application options from ApplicationDTO objects
         this.applications = data.applications.map(app => ({
-            label: app,
-            value: app
+            label: app.name,
+            value: app.id  // Use ID as value now
         }));
 
         console.log('✅ Processed:', {
@@ -70,14 +77,21 @@ export default class ApplicationPicker extends LightningElement {
      * Handle Application change
      */
     handleApplicationChange(event) {
-        this.selectedApplication = event.detail.value;
+        this.selectedApplicationId = event.detail.value;
         this.selectedModuleId = null;  // Reset module selection
 
-        console.log('📍 Application selected:', this.selectedApplication);
+        // Find application name from ID
+        const selectedApp = this.itSupportData?.applications.find(app => app.id === this.selectedApplicationId);
+        this.selectedApplicationName = selectedApp ? selectedApp.name : '';
 
-        // Update modules based on selected application
-        if (this.itSupportData && this.itSupportData.modulesByApplication[this.selectedApplication]) {
-            const moduleDTOs = this.itSupportData.modulesByApplication[this.selectedApplication];
+        console.log('📍 Application selected:', {
+            id: this.selectedApplicationId,
+            name: this.selectedApplicationName
+        });
+
+        // Update modules based on selected application NAME (modulesByApplication uses name as key)
+        if (this.itSupportData && this.itSupportData.modulesByApplication[this.selectedApplicationName]) {
+            const moduleDTOs = this.itSupportData.modulesByApplication[this.selectedApplicationName];
             this.modules = moduleDTOs.map(mod => ({
                 label: mod.name,
                 value: mod.id
@@ -86,7 +100,7 @@ export default class ApplicationPicker extends LightningElement {
             console.log('✅ Modules loaded:', this.modules.length);
         } else {
             this.modules = [];
-            console.log('⚠️ No modules found for application:', this.selectedApplication);
+            console.log('⚠️ No modules found for application:', this.selectedApplicationName);
         }
 
         // Emit selection change
@@ -112,7 +126,8 @@ export default class ApplicationPicker extends LightningElement {
         const moduleName = this.getSelectedModuleName();
 
         const selectionData = {
-            applicationName: this.selectedApplication,
+            applicationId: this.selectedApplicationId,
+            applicationName: this.selectedApplicationName,
             moduleId: this.selectedModuleId,
             moduleName: moduleName,
             accountId: this.itSupportData?.accountId,
@@ -134,9 +149,9 @@ export default class ApplicationPicker extends LightningElement {
      * Get selected module name from ID
      */
     getSelectedModuleName() {
-        if (!this.selectedModuleId || !this.itSupportData) return '';
+        if (!this.selectedModuleId || !this.itSupportData || !this.selectedApplicationName) return '';
 
-        const moduleDTOs = this.itSupportData.modulesByApplication[this.selectedApplication];
+        const moduleDTOs = this.itSupportData.modulesByApplication[this.selectedApplicationName];
         if (!moduleDTOs) return '';
 
         const module = moduleDTOs.find(m => m.id === this.selectedModuleId);
@@ -177,7 +192,7 @@ export default class ApplicationPicker extends LightningElement {
      * Getters
      */
     get isModuleDisabled() {
-        return !this.selectedApplication;
+        return !this.selectedApplicationId;
     }
 
     get showSpinner() {
@@ -185,6 +200,6 @@ export default class ApplicationPicker extends LightningElement {
     }
 
     get isSelectionComplete() {
-        return this.selectedApplication && this.selectedModuleId;
+        return this.selectedApplicationId && this.selectedModuleId;
     }
 }

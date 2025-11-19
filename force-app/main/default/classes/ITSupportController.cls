@@ -97,18 +97,25 @@ public with sharing class ITSupportController {
 
             // 5. Build structured data
             // Group modules by application name
-            response.applications = new List<String>();
+            response.applications = new List<ApplicationDTO>();
             response.modulesByApplication = new Map<String, List<ModuleDTO>>();
 
-            Set<String> uniqueApplications = new Set<String>();
+            Set<String> uniqueApplicationNames = new Set<String>();
+            Map<String, String> applicationIdByName = new Map<String, String>();
 
             for (Provisioned_Application__c pa : provisionedApps) {
                 String appName = pa.Application__r.Name;
+                String appId = pa.Application__r.Id;
 
                 // Add application to list (deduplicate)
-                if (!uniqueApplications.contains(appName)) {
-                    uniqueApplications.add(appName);
-                    response.applications.add(appName);
+                if (!uniqueApplicationNames.contains(appName)) {
+                    uniqueApplicationNames.add(appName);
+                    applicationIdByName.put(appName, appId);
+
+                    ApplicationDTO appDto = new ApplicationDTO();
+                    appDto.id = appId;
+                    appDto.name = appName;
+                    response.applications.add(appDto);
                 }
 
                 // Add module to this application (if module exists)
@@ -155,11 +162,19 @@ public with sharing class ITSupportController {
      * Response DTO
      */
     public class ResponseDTO {
-        @AuraEnabled public List<String> applications;
+        @AuraEnabled public List<ApplicationDTO> applications;
         @AuraEnabled public Map<String, List<ModuleDTO>> modulesByApplication;
         @AuraEnabled public String userDivision;
         @AuraEnabled public String accountId;
         @AuraEnabled public String accountName;
+    }
+
+    /**
+     * Application DTO
+     */
+    public class ApplicationDTO {
+        @AuraEnabled public String id;
+        @AuraEnabled public String name;
     }
 
     /**
