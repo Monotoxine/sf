@@ -1,6 +1,7 @@
 import { LightningElement, api, wire, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getITSupportData from '@salesforce/apex/ITSupportController.getITSupportData';
+import { OmniscriptBaseMixin } from 'omnistudio/omniscriptBaseMixin';
 
 /**
  * Application Picker for IT Support Cases
@@ -15,7 +16,7 @@ import getITSupportData from '@salesforce/apex/ITSupportController.getITSupportD
  *   moduleName: String
  * }
  */
-export default class ApplicationPicker extends LightningElement {
+export default class ApplicationPicker extends OmniscriptBaseMixin(LightningElement) {
 
     @api recordTypeId;  // Passed from OmniScript if needed
 

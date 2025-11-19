@@ -1,6 +1,7 @@
 import { LightningElement, api, wire, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getITSMInitData from '@salesforce/apex/ITSMInitController.getITSMInitData';
+import { OmniscriptBaseMixin } from 'omnistudio/omniscriptBaseMixin';
 
 /**
  * Service Picker for Non-Applicatif Support Cases
@@ -13,10 +14,11 @@ import getITSMInitData from '@salesforce/apex/ITSMInitController.getITSMInitData
  *   serviceId: String,
  *   serviceName: String,
  *   category: String,
- *   subcategory: String
+ *   subcategory: String,
+ *   queueForAssignment: String
  * }
  */
-export default class ServicePicker extends LightningElement {
+export default class ServicePicker extends OmniscriptBaseMixin(LightningElement) {
 
     @api recordTypeId;  // Passed from OmniScript if needed
 
