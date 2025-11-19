@@ -17,6 +17,15 @@
             </div>
         </template>
 
+        <!-- Validation Error Message -->
+        <template if:true={hasValidationError}>
+            <div class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_warning" role="alert">
+                <span class="slds-assistive-text">warning</span>
+                <lightning-icon icon-name="utility:warning" size="small" variant="inverse"></lightning-icon>
+                <h2>{validationError}</h2>
+            </div>
+        </template>
+
         <!-- Picker Form -->
         <template if:false={showSpinner}>
             <template if:false={error}>
@@ -30,7 +39,7 @@
                                 label="1. Select Application *"
                                 placeholder="Choose an application"
                                 options={applications}
-                                value={selectedApplication}
+                                value={selectedApplicationId}
                                 onchange={handleApplicationChange}
                                 required
                             ></lightning-combobox>
