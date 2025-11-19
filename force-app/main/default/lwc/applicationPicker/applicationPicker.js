@@ -38,6 +38,7 @@ export default class ApplicationPicker extends LightningElement {
     // UI State
     @track isLoading = true;
     @track error;
+    @track validationError;
 
     /**
      * Wire to get IT Support data (Applications/Modules from Contracts)
@@ -79,6 +80,7 @@ export default class ApplicationPicker extends LightningElement {
     handleApplicationChange(event) {
         this.selectedApplicationId = event.detail.value;
         this.selectedModuleId = null;  // Reset module selection
+        this.validationError = null;   // Clear validation error
 
         // Find application name from ID
         const selectedApp = this.itSupportData?.applications.find(app => app.id === this.selectedApplicationId);
@@ -112,6 +114,7 @@ export default class ApplicationPicker extends LightningElement {
      */
     handleModuleChange(event) {
         this.selectedModuleId = event.detail.value;
+        this.validationError = null;  // Clear validation error
 
         console.log('📍 Module selected:', this.selectedModuleId);
 
@@ -189,6 +192,38 @@ export default class ApplicationPicker extends LightningElement {
     }
 
     /**
+     * Validation method called by OmniScript before navigation
+     * Required to block navigation if fields are not filled
+     *
+     * @return {boolean} true if valid, false if invalid
+     */
+    @api
+    validate() {
+        console.log('🔍 Validating applicationPicker...');
+
+        // Clear previous validation error
+        this.validationError = null;
+
+        // Check if both application and module are selected
+        if (!this.selectedApplicationId) {
+            this.validationError = 'Please select an Application';
+            console.log('❌ Validation failed: No application selected');
+            this.showErrorToast('Required Field Missing', this.validationError);
+            return false;
+        }
+
+        if (!this.selectedModuleId) {
+            this.validationError = 'Please select a Module';
+            console.log('❌ Validation failed: No module selected');
+            this.showErrorToast('Required Field Missing', this.validationError);
+            return false;
+        }
+
+        console.log('✅ Validation passed');
+        return true;
+    }
+
+    /**
      * Getters
      */
     get isModuleDisabled() {
@@ -201,5 +236,9 @@ export default class ApplicationPicker extends LightningElement {
 
     get isSelectionComplete() {
         return this.selectedApplicationId && this.selectedModuleId;
+    }
+
+    get hasValidationError() {
+        return !!this.validationError;
     }
 }

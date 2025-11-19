@@ -38,6 +38,7 @@ export default class ServicePicker extends LightningElement {
     // UI State
     @track isLoading = true;
     @track error;
+    @track validationError;
 
     /**
      * Wire to get ITSM data (Services from Product2)
@@ -80,6 +81,7 @@ export default class ServicePicker extends LightningElement {
         this.selectedCategory = event.detail.value;
         this.selectedSubcategory = null;
         this.selectedServiceId = null;
+        this.validationError = null;  // Clear validation error
 
         console.log('📍 Category selected:', this.selectedCategory);
 
@@ -108,6 +110,7 @@ export default class ServicePicker extends LightningElement {
     handleSubcategoryChange(event) {
         this.selectedSubcategory = event.detail.value;
         this.selectedServiceId = null;
+        this.validationError = null;  // Clear validation error
 
         console.log('📍 Subcategory selected:', this.selectedSubcategory);
 
@@ -135,6 +138,7 @@ export default class ServicePicker extends LightningElement {
      */
     handleServiceChange(event) {
         this.selectedServiceId = event.detail.value;
+        this.validationError = null;  // Clear validation error
 
         console.log('📍 Service selected:', this.selectedServiceId);
 
@@ -229,6 +233,45 @@ export default class ServicePicker extends LightningElement {
         return !this.selectedCategory;
     }
 
+    /**
+     * Validation method called by OmniScript before navigation
+     * Required to block navigation if fields are not filled
+     *
+     * @return {boolean} true if valid, false if invalid
+     */
+    @api
+    validate() {
+        console.log('🔍 Validating servicePicker...');
+
+        // Clear previous validation error
+        this.validationError = null;
+
+        // Check if all required fields are selected
+        if (!this.selectedCategory) {
+            this.validationError = 'Please select a Category';
+            console.log('❌ Validation failed: No category selected');
+            this.showErrorToast('Required Field Missing', this.validationError);
+            return false;
+        }
+
+        if (!this.selectedSubcategory) {
+            this.validationError = 'Please select a Subcategory';
+            console.log('❌ Validation failed: No subcategory selected');
+            this.showErrorToast('Required Field Missing', this.validationError);
+            return false;
+        }
+
+        if (!this.selectedServiceId) {
+            this.validationError = 'Please select a Service';
+            console.log('❌ Validation failed: No service selected');
+            this.showErrorToast('Required Field Missing', this.validationError);
+            return false;
+        }
+
+        console.log('✅ Validation passed');
+        return true;
+    }
+
     get isServiceDisabled() {
         return !this.selectedSubcategory;
     }
@@ -239,5 +282,9 @@ export default class ServicePicker extends LightningElement {
 
     get isSelectionComplete() {
         return this.selectedCategory && this.selectedSubcategory && this.selectedServiceId;
+    }
+
+    get hasValidationError() {
+        return !!this.validationError;
     }
 }
