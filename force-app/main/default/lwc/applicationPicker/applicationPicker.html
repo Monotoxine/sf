@@ -1,0 +1,61 @@
+<template>
+    <div class="picker-container">
+
+        <!-- Loading Spinner -->
+        <template if:true={showSpinner}>
+            <div class="slds-align_absolute-center" style="height: 200px;">
+                <lightning-spinner alternative-text="Loading applications..." size="medium"></lightning-spinner>
+            </div>
+        </template>
+
+        <!-- Error Message -->
+        <template if:true={error}>
+            <div class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error" role="alert">
+                <span class="slds-assistive-text">error</span>
+                <lightning-icon icon-name="utility:error" size="small" variant="inverse"></lightning-icon>
+                <h2>{error}</h2>
+            </div>
+        </template>
+
+        <!-- Picker Form -->
+        <template if:false={showSpinner}>
+            <template if:false={error}>
+                <lightning-card title="Select Application & Module" icon-name="custom:custom14">
+                    <div class="slds-p-around_medium">
+
+                        <!-- Application Picklist -->
+                        <div class="picklist-section">
+                            <lightning-combobox
+                                name="application"
+                                label="1. Select Application *"
+                                placeholder="Choose an application"
+                                options={applications}
+                                value={selectedApplication}
+                                onchange={handleApplicationChange}
+                                required
+                            ></lightning-combobox>
+                            <p class="help-text">Select the application related to your request</p>
+                        </div>
+
+                        <!-- Module Picklist -->
+                        <div class="picklist-section">
+                            <lightning-combobox
+                                name="module"
+                                label="2. Select Module *"
+                                placeholder="Choose a module"
+                                options={modules}
+                                value={selectedModuleId}
+                                onchange={handleModuleChange}
+                                disabled={isModuleDisabled}
+                                required
+                            ></lightning-combobox>
+                            <p class="help-text">Select the specific module for your request</p>
+                        </div>
+
+                    </div>
+                </lightning-card>
+            </template>
+        </template>
+
+    </div>
+</template>
