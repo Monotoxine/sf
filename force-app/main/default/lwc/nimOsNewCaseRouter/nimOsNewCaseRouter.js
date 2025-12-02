@@ -82,15 +82,82 @@ export default class NimOsNewCaseRouter extends NavigationMixin(LightningElement
         if (data) {
             console.log('✅ Case ObjectInfo received');
             this.caseObjectInfo = data;
-            this.isLoading = false;
 
             // If we already have a recordTypeId from page state, resolve it now
             if (this.selectedRecordTypeId) {
+                this.isLoading = false;
                 this.resolveRecordTypeAndRoute();
+            } else {
+                // No recordTypeId in URL (user may have only 1 RT accessible)
+                // Auto-detect the available Record Type
+                this.detectAndUseDefaultRecordType(data);
             }
         } else if (error) {
             console.error('❌ ObjectInfo error:', error);
             this.error = 'Error loading Case object info: ' + this.reduceErrors(error);
+            this.showErrorToast('Error', this.error);
+            this.isLoading = false;
+        }
+    }
+
+    /**
+     * Detect and use default Record Type when user has only one accessible
+     * This handles the case where Salesforce doesn't show RT selection modal
+     */
+    detectAndUseDefaultRecordType(objectInfo) {
+        console.log('🔍 No recordTypeId in URL - detecting available Record Types...');
+
+        // Get all available (non-master) Record Types for current user
+        const availableRTs = [];
+
+        if (objectInfo.recordTypeInfos) {
+            Object.keys(objectInfo.recordTypeInfos).forEach(rtId => {
+                const rtInfo = objectInfo.recordTypeInfos[rtId];
+
+                // Include only available (non-master) record types
+                if (rtInfo.available && !rtInfo.master) {
+                    availableRTs.push({
+                        id: rtId,
+                        name: rtInfo.name,
+                        developerName: rtInfo.name.replace(/\s+/g, '_')
+                    });
+                }
+            });
+        }
+
+        console.log('📋 Available Record Types:', availableRTs);
+
+        if (availableRTs.length === 0) {
+            // No Record Types available - use Master RT or show error
+            console.log('⚠️ No Record Types available - using default routing');
+
+            // Find Master RT
+            const masterRT = Object.keys(objectInfo.recordTypeInfos).find(rtId => {
+                return objectInfo.recordTypeInfos[rtId].master;
+            });
+
+            if (masterRT) {
+                this.selectedRecordTypeId = masterRT;
+                this.isLoading = false;
+                this.resolveRecordTypeAndRoute();
+            } else {
+                this.error = 'No Record Type available';
+                this.showErrorToast('Error', this.error);
+                this.isLoading = false;
+            }
+
+        } else if (availableRTs.length === 1) {
+            // Only one RT available - use it automatically
+            console.log('✅ Single Record Type detected - using automatically:', availableRTs[0]);
+            this.selectedRecordTypeId = availableRTs[0].id;
+            this.isLoading = false;
+            this.resolveRecordTypeAndRoute();
+
+        } else {
+            // Multiple RTs but none selected - this shouldn't happen normally
+            // Salesforce should have shown the RT selection modal
+            console.error('⚠️ Multiple Record Types but none selected in URL');
+            this.error = 'Please select a Record Type';
             this.showErrorToast('Error', this.error);
             this.isLoading = false;
         }
