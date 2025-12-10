@@ -2,16 +2,16 @@
 
 ## 📋 Vue d'ensemble
 
-Solution Salesforce complète pour extraire dynamiquement des données Parent-Enfant en CSV avec gestion automatique des Governor Limits.
+Solution Salesforce complète pour extraire dynamiquement des données Parent-Enfant en CSV et les télécharger directement dans le navigateur **sans utiliser de stockage Salesforce**.
 
 ### Fonctionnalités clés:
 ✅ Upload CSV avec liste d'IDs (DataMigrationId__c)
 ✅ Sélection dynamique d'objets Master/Child
 ✅ Détection automatique des relations Lookup/Master-Detail
-✅ Batch Apex Stateful avec monitoring de Heap Size
-✅ Split automatique en plusieurs fichiers si nécessaire
+✅ **Download direct dans le navigateur** (zéro stockage)
+✅ Extraction synchrone rapide (pas de batch à attendre)
 ✅ Génération de fichiers CSV (Master + Child)
-✅ Sauvegarde en ContentVersion
+✅ Support jusqu'à ~5,000 records
 
 ---
 
@@ -20,19 +20,18 @@ Solution Salesforce complète pour extraire dynamiquement des données Parent-En
 ```
 csvExtractor (LWC)
   ↓
-CSVExtractionController (Apex)
+CSVExtractionController.extractCSVDirect (Apex)
   ↓
-CSVExtractionBatch (Batch Stateful)
-  → ContentVersion (CSV files)
+Browser Download (Blob API)
 ```
 
 ### Composants:
 
 | Composant | Type | Description |
 |-----------|------|-------------|
-| **csvExtractor** | LWC | Interface utilisateur (wizard 4 étapes) |
-| **CSVExtractionController** | Apex | Contrôleur pour lancer le batch |
-| **CSVExtractionBatch** | Batch Apex | Extraction avec monitoring Governor Limits |
+| **csvExtractor** | LWC | Interface utilisateur (wizard 3 étapes) |
+| **CSVExtractionController** | Apex | Contrôleur avec extraction synchrone |
+| **CSVExtractionBatch** | Batch Apex | ⚠️ Non utilisé (gardé pour référence) |
 
 ---
 
@@ -113,7 +112,7 @@ sf project deploy start --source-path force-app/main/default/lwc/csvExtractor
    - ✅ Success: "TherapyType__c (Master-Detail)"
    - ⚠️ Warning: "No relationship found"
 
-### Étape 3: Review & Launch
+### Étape 3: Review & Extract
 
 1. Vérifiez le résumé:
    - Fichier CSV
@@ -121,47 +120,51 @@ sf project deploy start --source-path force-app/main/default/lwc/csvExtractor
    - Objets sélectionnés
    - Type de relation
 
-2. Cliquez sur **Launch Extraction**
+2. Cliquez sur **Extract & Download**
 
-### Étape 4: Extraction Progress
-
-1. **Monitoring en temps réel**:
-   - Statut du batch
-   - Barre de progression (%)
-   - Mise à jour toutes les 3 secondes
-
-2. **Completion**:
-   - Message de succès
-   - Les fichiers CSV sont sauvegardés dans "Files"
+3. **Download automatique**:
+   - Le CSV Master se télécharge immédiatement
+   - Le CSV Child se télécharge 500ms après (si sélectionné)
+   - Fichiers sauvegardés dans votre dossier Downloads
+   - **Aucun fichier stocké dans Salesforce** 🎉
 
 ---
 
 ## 🔧 Gestion des Governor Limits
 
-### Heap Size Monitoring
+### Approche Synchrone (Direct Download)
 
-Le batch surveille constamment la taille du heap:
-
-```apex
-private static final Integer MAX_HEAP_SIZE = 6000000; // 6MB max
-private static final Integer FLUSH_THRESHOLD = 5000000; // Flush à 5MB
-```
-
-**Comportement**:
-- Si heap > 5MB → Sauvegarde le fichier CSV partiel
-- Libère la mémoire
-- Continue le traitement
-- Génère `Master_Part1.csv`, `Master_Part2.csv`, etc.
-
-### Batch Size
+L'extraction utilise une méthode Apex **synchrone** qui:
 
 ```apex
-Database.executeBatch(batch, 200); // 200 records par batch
+@AuraEnabled
+public static CSVExtractionResult extractCSVDirect(
+    String masterObject,
+    String childObject,
+    List<String> ids
+)
 ```
 
-Ajustez si nécessaire:
-- **Plus petit** (50-100): Si objets avec beaucoup de champs
-- **Plus grand** (500-1000): Si objets simples
+**Limites à respecter**:
+
+| Limite | Valeur Max | Notre Usage |
+|--------|------------|-------------|
+| **Heap Size** | 6 MB | CSV string en mémoire |
+| **CPU Time** | 10 secondes | SOQL + CSV building |
+| **SOQL Queries** | 100 | 2-3 queries total |
+
+**Capacité recommandée**: ~5,000 records
+
+### Pour volumes plus importants
+
+Si vous avez besoin d'extraire **> 5,000 records**:
+
+**Option A**: Filtrer davantage les IDs (faire plusieurs extractions)
+
+**Option B**: Utiliser le Batch (disponible dans le code mais non utilisé par défaut):
+```javascript
+// Dans csvExtractor.js, remplacer extractCSVDirect par launchExtractionBatch
+```
 
 ---
 
@@ -196,13 +199,13 @@ a0Y012,Work Type 2,a0X123,WT-002,...
 | **SOQL Queries** | 100 | 1 query Master + 1 query Child par batch → OK |
 | **DML Statements** | Aucune en batch | Seulement insert ContentVersion en finish() |
 
-### Capacité estimée:
+### Capacité estimée (Direct Download):
 
-- **Petits objets** (10-20 champs): ~100,000 records
-- **Objets moyens** (50 champs): ~50,000 records
-- **Gros objets** (100+ champs): ~20,000 records
+- **Petits objets** (10-20 champs): ~10,000 records
+- **Objets moyens** (50 champs): ~5,000 records
+- **Gros objets** (100+ champs): ~2,000 records
 
-**Note**: Si le volume dépasse, le système créera automatiquement des fichiers Part1, Part2, etc.
+**Note**: Ces limites sont dues au Heap Size et CPU Time des méthodes synchrones. Pour des volumes plus importants, utilisez le batch approach (voir section précédente).
 
 ---
 
@@ -238,14 +241,23 @@ a0Y012,Work Type 2,a0X123,WT-002,...
    - Vérifier les noms d'objets
    - Augmenter/Réduire le batch size
 
-### Problème: Fichiers introuvables
+### Problème: Fichiers non téléchargés
 
-**Cause**: Sauvegardés dans "My Files" de l'utilisateur qui a lancé le batch
+**Cause**: Pop-up bloqué par le navigateur ou erreur JavaScript
 
 **Solution**:
-1. Allez dans **Files** (Lightning)
-2. Filtrer par **Owned by Me**
-3. Rechercher: `[ObjectName]_Part1.csv`
+1. Vérifiez que les pop-ups sont autorisées
+2. Ouvrez la console du navigateur (F12) pour voir les erreurs
+3. Vérifiez votre dossier Downloads
+4. Si bloqué: Réessayez l'extraction
+
+### Problème: Un seul fichier téléchargé (Child manquant)
+
+**Cause**: Navigateur bloque les téléchargements multiples rapides
+
+**Solution**:
+1. Autorisez les téléchargements multiples dans votre navigateur
+2. Les 2 fichiers devraient se télécharger (Master puis Child après 500ms)
 
 ---
 
@@ -306,20 +318,22 @@ private String buildDynamicQuery(String objectName, Set<String> ids) {
 }
 ```
 
-### Heap size check & flush:
+### Download direct dans le navigateur:
 
-```apex
-private void processMasterRecords(List<SObject> records) {
-    for (SObject record : records) {
-        String row = buildCSVRow(record) + '\n';
+```javascript
+downloadCSV(csvContent, fileName) {
+    // Create Blob
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
 
-        // Check heap before adding
-        if (checkHeapSize()) {
-            saveMasterCSVPart(); // Flush to file
-        }
+    // Create download link
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
 
-        masterCSV += row;
-    }
+    link.setAttribute('href', url);
+    link.setAttribute('download', fileName);
+    link.click();
+
+    console.log('📥 Downloaded:', fileName);
 }
 ```
 
