@@ -1,0 +1,258 @@
+<template>
+    <lightning-card title="CSV Data Extractor" icon-name="custom:custom63">
+
+        <!-- Progress Indicator -->
+        <div class="slds-p-around_medium">
+            <lightning-progress-indicator current-step={currentStep} type="path" variant="base">
+                <lightning-progress-step label="Upload CSV" value="1"></lightning-progress-step>
+                <lightning-progress-step label="Select Objects" value="2"></lightning-progress-step>
+                <lightning-progress-step label="Review & Launch" value="3"></lightning-progress-step>
+                <lightning-progress-step label="Extraction" value="4"></lightning-progress-step>
+            </lightning-progress-indicator>
+        </div>
+
+        <!-- Loading Spinner -->
+        <template if:true={isLoading}>
+            <lightning-spinner alternative-text="Loading..." size="medium"></lightning-spinner>
+        </template>
+
+        <div class="slds-p-around_medium">
+
+            <!-- STEP 1: Upload CSV -->
+            <template if:true={isStep1}>
+                <div class="step-container">
+                    <h2 class="slds-text-heading_medium slds-m-bottom_medium">
+                        Step 1: Upload CSV File with IDs
+                    </h2>
+
+                    <p class="slds-m-bottom_medium">
+                        Upload a CSV file containing DataMigration IDs (one ID per line).
+                    </p>
+
+                    <lightning-input
+                        type="file"
+                        label="Select CSV File"
+                        accept=".csv"
+                        onchange={handleFileUpload}
+                    ></lightning-input>
+
+                    <template if:true={uploadedFileName}>
+                        <div class="slds-m-top_medium">
+                            <lightning-badge label={uploadedFileName}></lightning-badge>
+                            <p class="slds-m-top_small slds-text-color_success">
+                                {idCountText}
+                            </p>
+                        </div>
+                    </template>
+
+                    <div class="slds-m-top_large">
+                        <lightning-button
+                            variant="brand"
+                            label="Next"
+                            onclick={handleNext}
+                            disabled={!canProceedStep1}
+                        ></lightning-button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- STEP 2: Select Objects -->
+            <template if:true={isStep2}>
+                <div class="step-container">
+                    <h2 class="slds-text-heading_medium slds-m-bottom_medium">
+                        Step 2: Select Master & Child Objects
+                    </h2>
+
+                    <!-- Master Object Selection -->
+                    <div class="slds-m-bottom_medium">
+                        <lightning-combobox
+                            name="masterObject"
+                            label="Master Object *"
+                            placeholder="Select master object"
+                            options={masterObjects}
+                            value={selectedMasterObject}
+                            onchange={handleMasterObjectChange}
+                            required
+                        ></lightning-combobox>
+                        <p class="help-text">
+                            Select the object that contains the DataMigration IDs
+                        </p>
+                    </div>
+
+                    <!-- Child Object Selection -->
+                    <div class="slds-m-bottom_medium">
+                        <lightning-combobox
+                            name="childObject"
+                            label="Child Object (Optional)"
+                            placeholder="Select child object"
+                            options={childObjects}
+                            value={selectedChildObject}
+                            onchange={handleChildObjectChange}
+                        ></lightning-combobox>
+                        <p class="help-text">
+                            Select a child object that has a Lookup/Master-Detail relationship to the Master
+                        </p>
+                    </div>
+
+                    <!-- Relationship Validation Result -->
+                    <template if:true={relationshipInfo}>
+                        <div class="slds-m-bottom_medium">
+                            <template if:true={hasValidRelationship}>
+                                <div class="slds-notify slds-notify_alert slds-theme_success" role="alert">
+                                    <span class="slds-assistive-text">success</span>
+                                    <h2>{relationshipText}</h2>
+                                </div>
+                            </template>
+                            <template if:false={hasValidRelationship}>
+                                <div class="slds-notify slds-notify_alert slds-theme_warning" role="alert">
+                                    <span class="slds-assistive-text">warning</span>
+                                    <h2>{relationshipText}</h2>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <div class="slds-m-top_large button-group">
+                        <lightning-button
+                            label="Previous"
+                            onclick={handlePrevious}
+                        ></lightning-button>
+                        <lightning-button
+                            variant="brand"
+                            label="Next"
+                            onclick={handleNext}
+                            disabled={!canProceedStep2}
+                        ></lightning-button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- STEP 3: Review & Launch -->
+            <template if:true={isStep3}>
+                <div class="step-container">
+                    <h2 class="slds-text-heading_medium slds-m-bottom_medium">
+                        Step 3: Review & Launch Extraction
+                    </h2>
+
+                    <div class="slds-box slds-m-bottom_medium">
+                        <dl class="slds-dl_horizontal">
+                            <dt class="slds-dl_horizontal__label">
+                                <p class="slds-truncate">CSV File:</p>
+                            </dt>
+                            <dd class="slds-dl_horizontal__detail">
+                                <p>{uploadedFileName}</p>
+                            </dd>
+
+                            <dt class="slds-dl_horizontal__label">
+                                <p class="slds-truncate">IDs Count:</p>
+                            </dt>
+                            <dd class="slds-dl_horizontal__detail">
+                                <p>{parsedIds.length}</p>
+                            </dd>
+
+                            <dt class="slds-dl_horizontal__label">
+                                <p class="slds-truncate">Master Object:</p>
+                            </dt>
+                            <dd class="slds-dl_horizontal__detail">
+                                <p>{selectedMasterObject}</p>
+                            </dd>
+
+                            <dt class="slds-dl_horizontal__label">
+                                <p class="slds-truncate">Child Object:</p>
+                            </dt>
+                            <dd class="slds-dl_horizontal__detail">
+                                <p>{selectedChildObject}</p>
+                            </dd>
+
+                            <template if:true={hasValidRelationship}>
+                                <dt class="slds-dl_horizontal__label">
+                                    <p class="slds-truncate">Relationship:</p>
+                                </dt>
+                                <dd class="slds-dl_horizontal__detail">
+                                    <p>{relationshipText}</p>
+                                </dd>
+                            </template>
+                        </dl>
+                    </div>
+
+                    <div class="slds-notify slds-notify_alert slds-theme_info" role="alert">
+                        <span class="slds-assistive-text">info</span>
+                        <h2>
+                            The extraction will run as a Batch Job. You will be able to monitor progress
+                            and download the generated CSV files once completed.
+                        </h2>
+                    </div>
+
+                    <div class="slds-m-top_large button-group">
+                        <lightning-button
+                            label="Previous"
+                            onclick={handlePrevious}
+                        ></lightning-button>
+                        <lightning-button
+                            variant="brand"
+                            label="Launch Extraction"
+                            icon-name="utility:download"
+                            onclick={handleLaunchExtraction}
+                            disabled={!canLaunchExtraction}
+                        ></lightning-button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- STEP 4: Extraction Progress -->
+            <template if:true={isStep4}>
+                <div class="step-container">
+                    <h2 class="slds-text-heading_medium slds-m-bottom_medium">
+                        Extraction in Progress
+                    </h2>
+
+                    <!-- Batch Job Status -->
+                    <div class="slds-m-bottom_medium">
+                        <div class="slds-text-title slds-m-bottom_small">
+                            Status: <strong>{batchStatus}</strong>
+                        </div>
+
+                        <lightning-progress-bar
+                            value={batchProgress}
+                            size="large"
+                        ></lightning-progress-bar>
+
+                        <div class="slds-text-align_center slds-m-top_small">
+                            {batchProgress}% Complete
+                        </div>
+                    </div>
+
+                    <!-- Spinner while extracting -->
+                    <template if:true={isExtracting}>
+                        <div class="slds-align_absolute-center">
+                            <lightning-spinner
+                                alternative-text="Extracting data..."
+                                size="medium"
+                            ></lightning-spinner>
+                        </div>
+                    </template>
+
+                    <!-- Completion message -->
+                    <template if:false={isExtracting}>
+                        <div class="slds-notify slds-notify_alert slds-theme_success" role="alert">
+                            <span class="slds-assistive-text">success</span>
+                            <h2>
+                                Extraction completed! Check your Files for the generated CSV files.
+                            </h2>
+                        </div>
+
+                        <div class="slds-m-top_large">
+                            <lightning-button
+                                variant="brand"
+                                label="Start New Extraction"
+                                onclick={handleReset}
+                            ></lightning-button>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+        </div>
+
+    </lightning-card>
+</template>
