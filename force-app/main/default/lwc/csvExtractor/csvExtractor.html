@@ -6,8 +6,7 @@
             <lightning-progress-indicator current-step={currentStep} type="path" variant="base">
                 <lightning-progress-step label="Upload CSV" value="1"></lightning-progress-step>
                 <lightning-progress-step label="Select Objects" value="2"></lightning-progress-step>
-                <lightning-progress-step label="Review & Launch" value="3"></lightning-progress-step>
-                <lightning-progress-step label="Extraction" value="4"></lightning-progress-step>
+                <lightning-progress-step label="Review & Extract" value="3"></lightning-progress-step>
             </lightning-progress-indicator>
         </div>
 
@@ -127,118 +126,106 @@
                 </div>
             </template>
 
-            <!-- STEP 3: Review & Launch -->
+            <!-- STEP 3: Review & Extract -->
             <template if:true={isStep3}>
                 <div class="step-container">
                     <h2 class="slds-text-heading_medium slds-m-bottom_medium">
-                        Step 3: Review & Launch Extraction
+                        Step 3: Review & Extract
                     </h2>
 
-                    <div class="slds-box slds-m-bottom_medium">
-                        <dl class="slds-dl_horizontal">
-                            <dt class="slds-dl_horizontal__label">
-                                <p class="slds-truncate">CSV File:</p>
-                            </dt>
-                            <dd class="slds-dl_horizontal__detail">
-                                <p>{uploadedFileName}</p>
-                            </dd>
-
-                            <dt class="slds-dl_horizontal__label">
-                                <p class="slds-truncate">IDs Count:</p>
-                            </dt>
-                            <dd class="slds-dl_horizontal__detail">
-                                <p>{parsedIds.length}</p>
-                            </dd>
-
-                            <dt class="slds-dl_horizontal__label">
-                                <p class="slds-truncate">Master Object:</p>
-                            </dt>
-                            <dd class="slds-dl_horizontal__detail">
-                                <p>{selectedMasterObject}</p>
-                            </dd>
-
-                            <dt class="slds-dl_horizontal__label">
-                                <p class="slds-truncate">Child Object:</p>
-                            </dt>
-                            <dd class="slds-dl_horizontal__detail">
-                                <p>{selectedChildObject}</p>
-                            </dd>
-
-                            <template if:true={hasValidRelationship}>
+                    <!-- Extraction not started yet -->
+                    <template if:false={extractionComplete}>
+                        <div class="slds-box slds-m-bottom_medium">
+                            <dl class="slds-dl_horizontal">
                                 <dt class="slds-dl_horizontal__label">
-                                    <p class="slds-truncate">Relationship:</p>
+                                    <p class="slds-truncate">CSV File:</p>
                                 </dt>
                                 <dd class="slds-dl_horizontal__detail">
-                                    <p>{relationshipText}</p>
+                                    <p>{uploadedFileName}</p>
                                 </dd>
-                            </template>
-                        </dl>
-                    </div>
 
-                    <div class="slds-notify slds-notify_alert slds-theme_info" role="alert">
-                        <span class="slds-assistive-text">info</span>
-                        <h2>
-                            The extraction will run as a Batch Job. You will be able to monitor progress
-                            and download the generated CSV files once completed.
-                        </h2>
-                    </div>
+                                <dt class="slds-dl_horizontal__label">
+                                    <p class="slds-truncate">IDs Count:</p>
+                                </dt>
+                                <dd class="slds-dl_horizontal__detail">
+                                    <p>{parsedIds.length}</p>
+                                </dd>
 
-                    <div class="slds-m-top_large button-group">
-                        <lightning-button
-                            label="Previous"
-                            onclick={handlePrevious}
-                        ></lightning-button>
-                        <lightning-button
-                            variant="brand"
-                            label="Launch Extraction"
-                            icon-name="utility:download"
-                            onclick={handleLaunchExtraction}
-                            disabled={!canLaunchExtraction}
-                        ></lightning-button>
-                    </div>
-                </div>
-            </template>
+                                <dt class="slds-dl_horizontal__label">
+                                    <p class="slds-truncate">Master Object:</p>
+                                </dt>
+                                <dd class="slds-dl_horizontal__detail">
+                                    <p>{selectedMasterObject}</p>
+                                </dd>
 
-            <!-- STEP 4: Extraction Progress -->
-            <template if:true={isStep4}>
-                <div class="step-container">
-                    <h2 class="slds-text-heading_medium slds-m-bottom_medium">
-                        Extraction in Progress
-                    </h2>
+                                <dt class="slds-dl_horizontal__label">
+                                    <p class="slds-truncate">Child Object:</p>
+                                </dt>
+                                <dd class="slds-dl_horizontal__detail">
+                                    <p>{selectedChildObject}</p>
+                                </dd>
 
-                    <!-- Batch Job Status -->
-                    <div class="slds-m-bottom_medium">
-                        <div class="slds-text-title slds-m-bottom_small">
-                            Status: <strong>{batchStatus}</strong>
+                                <template if:true={hasValidRelationship}>
+                                    <dt class="slds-dl_horizontal__label">
+                                        <p class="slds-truncate">Relationship:</p>
+                                    </dt>
+                                    <dd class="slds-dl_horizontal__detail">
+                                        <p>{relationshipText}</p>
+                                    </dd>
+                                </template>
+                            </dl>
                         </div>
 
-                        <lightning-progress-bar
-                            value={batchProgress}
-                            size="large"
-                        ></lightning-progress-bar>
-
-                        <div class="slds-text-align_center slds-m-top_small">
-                            {batchProgress}% Complete
+                        <div class="slds-notify slds-notify_alert slds-theme_info" role="alert">
+                            <span class="slds-assistive-text">info</span>
+                            <h2>
+                                CSV files will be downloaded directly to your browser.
+                                No files will be saved in Salesforce.
+                            </h2>
                         </div>
-                    </div>
 
-                    <!-- Spinner while extracting -->
-                    <template if:true={isExtracting}>
-                        <div class="slds-align_absolute-center">
-                            <lightning-spinner
-                                alternative-text="Extracting data..."
-                                size="medium"
-                            ></lightning-spinner>
+                        <!-- Spinner while extracting -->
+                        <template if:true={isExtracting}>
+                            <div class="slds-align_absolute-center slds-m-top_large">
+                                <lightning-spinner
+                                    alternative-text="Extracting data..."
+                                    size="medium"
+                                ></lightning-spinner>
+                                <p class="slds-text-align_center slds-m-top_small">
+                                    Extracting data and preparing download...
+                                </p>
+                            </div>
+                        </template>
+
+                        <div class="slds-m-top_large button-group">
+                            <lightning-button
+                                label="Previous"
+                                onclick={handlePrevious}
+                                disabled={isExtracting}
+                            ></lightning-button>
+                            <lightning-button
+                                variant="brand"
+                                label="Extract & Download"
+                                icon-name="utility:download"
+                                onclick={handleLaunchExtraction}
+                                disabled={!canLaunchExtraction}
+                            ></lightning-button>
                         </div>
                     </template>
 
-                    <!-- Completion message -->
-                    <template if:false={isExtracting}>
+                    <!-- Extraction completed -->
+                    <template if:true={extractionComplete}>
                         <div class="slds-notify slds-notify_alert slds-theme_success" role="alert">
                             <span class="slds-assistive-text">success</span>
                             <h2>
-                                Extraction completed! Check your Files for the generated CSV files.
+                                ✓ Extraction completed! CSV files have been downloaded to your browser.
                             </h2>
+                        </div>
+
+                        <div class="slds-m-top_medium">
+                            <p class="slds-text-body_regular">
+                                {extractionSummary}
+                            </p>
                         </div>
 
                         <div class="slds-m-top_large">

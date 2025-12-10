@@ -4,8 +4,7 @@ import getExtractableObjects from '@salesforce/apex/CSVExtractionController.getE
 import getAllObjects from '@salesforce/apex/CSVExtractionController.getAllObjects';
 import validateRelationship from '@salesforce/apex/CSVExtractionController.validateRelationship';
 import parseCSVFile from '@salesforce/apex/CSVExtractionController.parseCSVFile';
-import launchExtractionBatch from '@salesforce/apex/CSVExtractionController.launchExtractionBatch';
-import getBatchJobStatus from '@salesforce/apex/CSVExtractionController.getBatchJobStatus';
+import extractCSVDirect from '@salesforce/apex/CSVExtractionController.extractCSVDirect';
 
 /**
  * CSV Extractor Component
@@ -32,14 +31,10 @@ export default class CsvExtractor extends LightningElement {
     @track relationshipInfo = null;
     @track hasValidRelationship = false;
 
-    // Batch Execution
-    @track batchJobId = '';
-    @track batchStatus = '';
-    @track batchProgress = 0;
+    // Extraction State
     @track isExtracting = false;
-
-    // Polling interval ID
-    pollingIntervalId;
+    @track extractionComplete = false;
+    @track extractionResult = null;
 
     /**
      * Wire to get Master objects (with DataMigrationId__c)
@@ -225,7 +220,7 @@ export default class CsvExtractor extends LightningElement {
     }
 
     /**
-     * Launch extraction
+     * Launch extraction and download CSV directly
      */
     async handleLaunchExtraction() {
         // Final validation
@@ -243,76 +238,73 @@ export default class CsvExtractor extends LightningElement {
         this.isExtracting = true;
 
         try {
-            const result = await launchExtractionBatch({
+            console.log('🚀 Starting direct extraction...');
+
+            const result = await extractCSVDirect({
                 masterObject: this.selectedMasterObject,
                 childObject: this.selectedChildObject || null,
                 ids: this.parsedIds
             });
 
             if (result.success) {
-                this.batchJobId = result.batchJobId;
-                console.log('✅ Batch launched:', this.batchJobId);
-                this.showToast('Success', 'Extraction started successfully', 'success');
+                console.log('✅ Extraction successful:', {
+                    master: result.masterRecordCount,
+                    child: result.childRecordCount
+                });
 
-                // Start polling for status
-                this.startStatusPolling();
-                this.currentStep = 4;
+                this.extractionResult = result;
+                this.extractionComplete = true;
+
+                this.showToast('Success',
+                    `Extracted ${result.masterRecordCount} master and ${result.childRecordCount} child records`,
+                    'success');
+
+                // Download Master CSV
+                if (result.masterCSV) {
+                    this.downloadCSV(result.masterCSV, `${this.selectedMasterObject}.csv`);
+                }
+
+                // Download Child CSV
+                if (result.childCSV) {
+                    // Small delay to avoid browser blocking multiple downloads
+                    setTimeout(() => {
+                        this.downloadCSV(result.childCSV, `${this.selectedChildObject}.csv`);
+                    }, 500);
+                }
 
             } else {
                 this.showToast('Error', result.message, 'error');
-                this.isExtracting = false;
             }
 
         } catch (error) {
-            console.error('❌ Error launching extraction:', error);
-            this.showToast('Error', 'Failed to launch extraction', 'error');
-            this.isExtracting = false;
+            console.error('❌ Error during extraction:', error);
+            this.showToast('Error', 'Failed to extract data: ' + error.body.message, 'error');
         } finally {
             this.isLoading = false;
+            this.isExtracting = false;
         }
     }
 
     /**
-     * Start polling for batch status
+     * Download CSV file directly in browser
      */
-    startStatusPolling() {
-        // Poll every 3 seconds
-        this.pollingIntervalId = setInterval(() => {
-            this.checkBatchStatus();
-        }, 3000);
-    }
+    downloadCSV(csvContent, fileName) {
+        // Create a Blob from CSV content
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
 
-    /**
-     * Check batch status
-     */
-    async checkBatchStatus() {
-        if (!this.batchJobId) return;
+        // Create download link
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
 
-        try {
-            const status = await getBatchJobStatus({
-                batchJobId: this.batchJobId
-            });
+        link.setAttribute('href', url);
+        link.setAttribute('download', fileName);
+        link.style.visibility = 'hidden';
 
-            this.batchStatus = status.status;
-            this.batchProgress = status.progressPercentage || 0;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
 
-            console.log('📊 Batch status:', status.status, '-', this.batchProgress + '%');
-
-            // Stop polling if completed or failed
-            if (status.isCompleted || status.isFailed) {
-                clearInterval(this.pollingIntervalId);
-                this.isExtracting = false;
-
-                if (status.isCompleted) {
-                    this.showToast('Success', 'Extraction completed successfully!', 'success');
-                } else if (status.isFailed) {
-                    this.showToast('Error', 'Extraction failed: ' + status.extendedStatus, 'error');
-                }
-            }
-
-        } catch (error) {
-            console.error('❌ Error checking batch status:', error);
-        }
+        console.log('📥 Downloaded:', fileName);
     }
 
     /**
@@ -327,14 +319,9 @@ export default class CsvExtractor extends LightningElement {
         this.selectedChildObject = '';
         this.relationshipInfo = null;
         this.hasValidRelationship = false;
-        this.batchJobId = '';
-        this.batchStatus = '';
-        this.batchProgress = 0;
         this.isExtracting = false;
-
-        if (this.pollingIntervalId) {
-            clearInterval(this.pollingIntervalId);
-        }
+        this.extractionComplete = false;
+        this.extractionResult = null;
     }
 
     /**
@@ -365,10 +352,6 @@ export default class CsvExtractor extends LightningElement {
         return this.currentStep === 3;
     }
 
-    get isStep4() {
-        return this.currentStep === 4;
-    }
-
     get canProceedStep1() {
         return this.parsedIds && this.parsedIds.length > 0;
     }
@@ -397,16 +380,9 @@ export default class CsvExtractor extends LightningElement {
         }
     }
 
-    get progressStyle() {
-        return `width: ${this.batchProgress}%`;
-    }
+    get extractionSummary() {
+        if (!this.extractionResult) return '';
 
-    /**
-     * Cleanup on component destroy
-     */
-    disconnectedCallback() {
-        if (this.pollingIntervalId) {
-            clearInterval(this.pollingIntervalId);
-        }
+        return `Master: ${this.extractionResult.masterRecordCount} records | Child: ${this.extractionResult.childRecordCount} records`;
     }
 }

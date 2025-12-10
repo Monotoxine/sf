@@ -163,15 +163,16 @@ public with sharing class CSVExtractionController {
     }
 
     /**
-     * Launch extraction batch
+     * Extract CSV directly (synchronous) - for smaller datasets
+     * Recommended for < 5,000 records
      */
     @AuraEnabled
-    public static BatchLaunchResult launchExtractionBatch(
+    public static CSVExtractionResult extractCSVDirect(
         String masterObject,
         String childObject,
         List<String> ids
     ) {
-        BatchLaunchResult result = new BatchLaunchResult();
+        CSVExtractionResult result = new CSVExtractionResult();
 
         try {
             // Validate inputs
@@ -183,28 +184,207 @@ public with sharing class CSVExtractionController {
                 throw new AuraHandledException('No IDs provided');
             }
 
+            System.debug('🔵 Starting direct CSV extraction');
+            System.debug('📍 Master: ' + masterObject + ', Child: ' + childObject + ', IDs: ' + ids.size());
+
             // Convert to Set
             Set<String> idSet = new Set<String>(ids);
 
-            // Launch batch
-            CSVExtractionBatch batch = new CSVExtractionBatch(masterObject, childObject, idSet);
+            // Extract Master records
+            String masterCSV = extractMasterRecords(masterObject, idSet);
 
-            // Batch size: Start small to avoid heap issues
-            Id batchJobId = Database.executeBatch(batch, 200);
+            // Extract Child records (if child object specified)
+            String childCSV = '';
+            if (String.isNotBlank(childObject)) {
+                childCSV = extractChildRecords(masterObject, childObject, idSet);
+            }
 
             result.success = true;
-            result.batchJobId = batchJobId;
-            result.message = 'Batch job launched successfully';
+            result.masterCSV = masterCSV;
+            result.childCSV = childCSV;
+            result.masterRecordCount = countLines(masterCSV) - 1; // Exclude header
+            result.childRecordCount = String.isNotBlank(childCSV) ? countLines(childCSV) - 1 : 0;
+            result.message = 'Extraction completed successfully';
 
-            System.debug('✅ Batch launched: ' + batchJobId);
+            System.debug('✅ Extraction complete: ' + result.masterRecordCount + ' master, ' + result.childRecordCount + ' child');
 
         } catch (Exception e) {
             result.success = false;
-            result.message = 'Error launching batch: ' + e.getMessage();
-            System.debug('❌ Error launching batch: ' + e.getMessage());
+            result.message = 'Error extracting data: ' + e.getMessage();
+            System.debug('❌ Error: ' + e.getMessage());
+            System.debug('❌ Stack: ' + e.getStackTraceString());
         }
 
         return result;
+    }
+
+    /**
+     * Extract Master records as CSV
+     */
+    private static String extractMasterRecords(String objectName, Set<String> ids) {
+        // Build dynamic query
+        String query = buildDynamicQuery(objectName);
+        query += ' WHERE DataMigrationId__c IN :ids';
+        query += ' ORDER BY DataMigrationId__c';
+
+        System.debug('🔍 Master Query: ' + query);
+
+        List<SObject> records = Database.query(query);
+        System.debug('📦 Found ' + records.size() + ' master records');
+
+        if (records.isEmpty()) {
+            return '';
+        }
+
+        // Build CSV
+        return buildCSV(records);
+    }
+
+    /**
+     * Extract Child records as CSV
+     */
+    private static String extractChildRecords(String masterObject, String childObject, Set<String> masterIds) {
+        // Find relationship field
+        String relationshipField = findRelationshipField(childObject, masterObject);
+
+        if (String.isBlank(relationshipField)) {
+            System.debug('⚠️ No relationship field found');
+            return '';
+        }
+
+        System.debug('📍 Relationship field: ' + relationshipField);
+
+        // Get Master record IDs
+        String masterQuery = 'SELECT Id FROM ' + masterObject + ' WHERE DataMigrationId__c IN :masterIds';
+        List<SObject> masterRecords = Database.query(masterQuery);
+
+        Set<Id> masterRecordIds = new Set<Id>();
+        for (SObject record : masterRecords) {
+            masterRecordIds.add(record.Id);
+        }
+
+        if (masterRecordIds.isEmpty()) {
+            return '';
+        }
+
+        // Build child query
+        String query = buildDynamicQuery(childObject);
+        query += ' WHERE ' + relationshipField + ' IN :masterRecordIds';
+        query += ' ORDER BY ' + relationshipField;
+
+        System.debug('🔍 Child Query: ' + query);
+
+        List<SObject> records = Database.query(query);
+        System.debug('📦 Found ' + records.size() + ' child records');
+
+        if (records.isEmpty()) {
+            return '';
+        }
+
+        // Build CSV
+        return buildCSV(records);
+    }
+
+    /**
+     * Build dynamic SOQL query
+     */
+    private static String buildDynamicQuery(String objectName) {
+        Map<String, Schema.SObjectField> fieldMap = Schema.getGlobalDescribe()
+            .get(objectName)
+            .getDescribe()
+            .fields
+            .getMap();
+
+        List<String> fieldNames = new List<String>();
+        for (String fieldName : fieldMap.keySet()) {
+            Schema.DescribeFieldResult fieldDescribe = fieldMap.get(fieldName).getDescribe();
+
+            // Skip non-accessible fields
+            if (!fieldDescribe.isAccessible()) continue;
+
+            // Skip compound fields
+            if (fieldDescribe.isCompound()) continue;
+
+            fieldNames.add(fieldName);
+        }
+
+        return 'SELECT ' + String.join(fieldNames, ', ') + ' FROM ' + objectName;
+    }
+
+    /**
+     * Find relationship field from Child to Master
+     */
+    private static String findRelationshipField(String childObj, String masterObj) {
+        Schema.DescribeSObjectResult childDescribe = Schema.getGlobalDescribe()
+            .get(childObj)
+            .getDescribe();
+
+        for (Schema.SObjectField field : childDescribe.fields.getMap().values()) {
+            Schema.DescribeFieldResult fieldDescribe = field.getDescribe();
+
+            if (fieldDescribe.getType() == Schema.DisplayType.REFERENCE) {
+                List<Schema.SObjectType> references = fieldDescribe.getReferenceTo();
+
+                for (Schema.SObjectType refType : references) {
+                    if (refType.getDescribe().getName() == masterObj) {
+                        return fieldDescribe.getName();
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Build CSV from SObject list
+     */
+    private static String buildCSV(List<SObject> records) {
+        if (records.isEmpty()) return '';
+
+        List<String> lines = new List<String>();
+
+        // Build header
+        Map<String, Object> firstRecordFields = records[0].getPopulatedFieldsAsMap();
+        List<String> headers = new List<String>(firstRecordFields.keySet());
+        lines.add(String.join(headers, ','));
+
+        // Build rows
+        for (SObject record : records) {
+            List<String> values = new List<String>();
+
+            for (String fieldName : headers) {
+                Object value = record.get(fieldName);
+                String stringValue = value != null ? String.valueOf(value) : '';
+                values.add(escapeCSV(stringValue));
+            }
+
+            lines.add(String.join(values, ','));
+        }
+
+        return String.join(lines, '\n');
+    }
+
+    /**
+     * Escape CSV special characters
+     */
+    private static String escapeCSV(String value) {
+        if (String.isBlank(value)) return '';
+
+        // Escape quotes and wrap if contains comma, quote, or newline
+        if (value.contains(',') || value.contains('"') || value.contains('\n')) {
+            value = '"' + value.replace('"', '""') + '"';
+        }
+
+        return value;
+    }
+
+    /**
+     * Count lines in CSV
+     */
+    private static Integer countLines(String csv) {
+        if (String.isBlank(csv)) return 0;
+        return csv.split('\n').size();
     }
 
     /**
@@ -286,6 +466,18 @@ public with sharing class CSVExtractionController {
         @AuraEnabled public Boolean success;
         @AuraEnabled public Integer idCount;
         @AuraEnabled public List<String> ids;
+        @AuraEnabled public String message;
+    }
+
+    /**
+     * CSV extraction result (direct download)
+     */
+    public class CSVExtractionResult {
+        @AuraEnabled public Boolean success;
+        @AuraEnabled public String masterCSV;
+        @AuraEnabled public String childCSV;
+        @AuraEnabled public Integer masterRecordCount;
+        @AuraEnabled public Integer childRecordCount;
         @AuraEnabled public String message;
     }
 
