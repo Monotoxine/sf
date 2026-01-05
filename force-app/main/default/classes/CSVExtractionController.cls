@@ -302,8 +302,11 @@ public with sharing class CSVExtractionController {
             // Skip non-accessible fields
             if (!fieldDescribe.isAccessible()) continue;
 
-            // Skip compound fields
-            if (fieldDescribe.isCompound()) continue;
+            // Skip compound fields (Address, Location, etc.)
+            Schema.DisplayType fieldType = fieldDescribe.getType();
+            if (fieldType == Schema.DisplayType.ADDRESS || fieldType == Schema.DisplayType.LOCATION) {
+                continue;
+            }
 
             fieldNames.add(fieldName);
         }
