@@ -73,40 +73,71 @@
                             onchange={handleMasterObjectChange}
                             required
                         ></lightning-combobox>
+                        <template if:true={detectedObjectText}>
+                            <p class="help-text slds-text-color_success">
+                                {detectedObjectText}
+                            </p>
+                        </template>
                         <p class="help-text">
-                            Select the object that contains the DataMigration IDs
+                            The master object is auto-detected from your CSV IDs
                         </p>
                     </div>
 
-                    <!-- Child Object Selection -->
-                    <div class="slds-m-bottom_medium">
-                        <lightning-combobox
-                            name="childObject"
-                            label="Child Object (Optional)"
-                            placeholder="Select child object"
-                            options={childObjects}
-                            value={selectedChildObject}
-                            onchange={handleChildObjectChange}
-                        ></lightning-combobox>
-                        <p class="help-text">
-                            Select a child object that has a Lookup/Master-Detail relationship to the Master
-                        </p>
-                    </div>
-
-                    <!-- Relationship Validation Result -->
-                    <template if:true={relationshipInfo}>
+                    <!-- Child Objects Tree Selection -->
+                    <template if:true={hasChildObjects}>
                         <div class="slds-m-bottom_medium">
-                            <template if:true={hasValidRelationship}>
-                                <div class="slds-notify slds-notify_alert slds-theme_success" role="alert">
-                                    <span class="slds-assistive-text">success</span>
-                                    <h2>{relationshipText}</h2>
-                                </div>
-                            </template>
-                            <template if:false={hasValidRelationship}>
-                                <div class="slds-notify slds-notify_alert slds-theme_warning" role="alert">
-                                    <span class="slds-assistive-text">warning</span>
-                                    <h2>{relationshipText}</h2>
-                                </div>
+                            <label class="slds-form-element__label">
+                                Child Objects (Optional)
+                            </label>
+                            <p class="help-text slds-m-bottom_small">
+                                Select child objects to extract. Click arrow to expand and select nested children.
+                            </p>
+
+                            <div class="slds-box child-tree-container">
+                                <template if:true={flattenedTree}>
+                                    <template for:each={flattenedTree} for:item="node">
+                                        <div key={node.id} class="tree-node" style={node.indentStyle}>
+                                            <!-- Expand/Collapse Button -->
+                                            <lightning-button-icon
+                                                if:true={node.children}
+                                                icon-name={node.isExpanded ? 'utility:chevrondown' : 'utility:chevronright'}
+                                                alternative-text="Expand"
+                                                variant="bare"
+                                                size="x-small"
+                                                data-node-id={node.id}
+                                                onclick={handleExpandNode}
+                                                class="expand-btn"
+                                            ></lightning-button-icon>
+
+                                            <!-- Checkbox for Selection -->
+                                            <lightning-input
+                                                type="checkbox"
+                                                label={node.objectLabel}
+                                                checked={node.isSelected}
+                                                data-node-id={node.id}
+                                                onchange={handleChildToggle}
+                                                class="child-checkbox"
+                                            ></lightning-input>
+
+                                            <!-- Relationship Info -->
+                                            <span class="relationship-info">
+                                                ({node.relationshipType}: {node.relationshipLabel})
+                                            </span>
+                                        </div>
+                                    </template>
+                                </template>
+
+                                <template if:false={flattenedTree}>
+                                    <p class="slds-text-color_weak">
+                                        No child objects available for this master object
+                                    </p>
+                                </template>
+                            </div>
+
+                            <template if:true={selectedChildrenCount}>
+                                <p class="help-text slds-text-color_success slds-m-top_small">
+                                    {selectedChildrenCount} child object(s) selected
+                                </p>
                             </template>
                         </div>
                     </template>
@@ -159,20 +190,16 @@
                                 </dd>
 
                                 <dt class="slds-dl_horizontal__label">
-                                    <p class="slds-truncate">Child Object:</p>
+                                    <p class="slds-truncate">Child Objects:</p>
                                 </dt>
                                 <dd class="slds-dl_horizontal__detail">
-                                    <p>{selectedChildObject}</p>
+                                    <template if:true={selectedChildrenCount}>
+                                        <p>{selectedChildrenCount} child object(s) selected</p>
+                                    </template>
+                                    <template if:false={selectedChildrenCount}>
+                                        <p class="slds-text-color_weak">No child objects selected</p>
+                                    </template>
                                 </dd>
-
-                                <template if:true={hasValidRelationship}>
-                                    <dt class="slds-dl_horizontal__label">
-                                        <p class="slds-truncate">Relationship:</p>
-                                    </dt>
-                                    <dd class="slds-dl_horizontal__detail">
-                                        <p>{relationshipText}</p>
-                                    </dd>
-                                </template>
                             </dl>
                         </div>
 

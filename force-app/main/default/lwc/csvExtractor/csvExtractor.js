@@ -2,6 +2,7 @@ import { LightningElement, track, wire } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getExtractableObjects from '@salesforce/apex/CSVExtractionController.getExtractableObjects';
 import getAllObjects from '@salesforce/apex/CSVExtractionController.getAllObjects';
+import getChildObjects from '@salesforce/apex/CSVExtractionController.getChildObjects';
 import validateRelationship from '@salesforce/apex/CSVExtractionController.validateRelationship';
 import parseCSVFile from '@salesforce/apex/CSVExtractionController.parseCSVFile';
 import extractCSVDirect from '@salesforce/apex/CSVExtractionController.extractCSVDirect';
@@ -20,16 +21,16 @@ export default class CsvExtractor extends LightningElement {
     @track uploadedFileName = '';
     @track uploadedFileData = '';
     @track parsedIds = [];
+    @track detectedMasterObject = '';
+    @track detectedMasterObjectLabel = '';
 
     // Object Selection
     @track masterObjects = [];
-    @track childObjects = [];
     @track selectedMasterObject = '';
-    @track selectedChildObject = '';
 
-    // Relationship Validation
-    @track relationshipInfo = null;
-    @track hasValidRelationship = false;
+    // Multi-level Child Selection
+    @track childSelectionTree = []; // Tree structure for multi-level child selection
+    @track selectedChildrenConfig = []; // Configuration for extraction
 
     // Extraction State
     @track isExtracting = false;
@@ -37,7 +38,7 @@ export default class CsvExtractor extends LightningElement {
     @track extractionResult = null;
 
     /**
-     * Wire to get Master objects (with DataMigrationId__c)
+     * Wire to get Master objects (for manual override)
      */
     @wire(getExtractableObjects)
     wiredMasterObjects({ error, data }) {
@@ -46,20 +47,6 @@ export default class CsvExtractor extends LightningElement {
             this.masterObjects = data;
         } else if (error) {
             console.error('❌ Error loading master objects:', error);
-            this.showToast('Error', 'Failed to load objects', 'error');
-        }
-    }
-
-    /**
-     * Wire to get all Child objects
-     */
-    @wire(getAllObjects)
-    wiredChildObjects({ error, data }) {
-        if (data) {
-            console.log('📦 Child objects loaded:', data.length);
-            this.childObjects = data;
-        } else if (error) {
-            console.error('❌ Error loading child objects:', error);
             this.showToast('Error', 'Failed to load objects', 'error');
         }
     }
@@ -113,6 +100,15 @@ export default class CsvExtractor extends LightningElement {
 
             if (result.success) {
                 this.parsedIds = result.ids;
+                this.detectedMasterObject = result.detectedObject;
+                this.detectedMasterObjectLabel = result.detectedObjectLabel;
+
+                // Auto-set the master object if detected
+                if (result.detectedObject) {
+                    this.selectedMasterObject = result.detectedObject;
+                    console.log('🔍 Auto-detected master object:', result.detectedObject);
+                }
+
                 console.log('✅ Parsed IDs:', result.idCount);
                 this.showToast('Success', result.message, 'success');
             } else {
@@ -130,66 +126,163 @@ export default class CsvExtractor extends LightningElement {
     /**
      * Handle Master Object change
      */
-    handleMasterObjectChange(event) {
+    async handleMasterObjectChange(event) {
         this.selectedMasterObject = event.detail.value;
         console.log('📍 Master object selected:', this.selectedMasterObject);
 
-        // Reset relationship validation
-        this.relationshipInfo = null;
-        this.hasValidRelationship = false;
+        // Reset child selection tree
+        this.childSelectionTree = [];
+        this.selectedChildrenConfig = [];
 
-        // Re-validate if child is already selected
-        if (this.selectedChildObject) {
-            this.validateRelationshipBetweenObjects();
-        }
-    }
-
-    /**
-     * Handle Child Object change
-     */
-    handleChildObjectChange(event) {
-        this.selectedChildObject = event.detail.value;
-        console.log('📍 Child object selected:', this.selectedChildObject);
-
-        // Validate relationship
+        // Load child objects for the selected master
         if (this.selectedMasterObject) {
-            this.validateRelationshipBetweenObjects();
+            await this.loadChildObjectsForParent(this.selectedMasterObject, null, 0);
         }
     }
 
     /**
-     * Validate relationship between Master and Child
+     * Load child objects for a given parent
      */
-    async validateRelationshipBetweenObjects() {
-        if (!this.selectedMasterObject || !this.selectedChildObject) return;
-
+    async loadChildObjectsForParent(parentObject, parentNode, level) {
         this.isLoading = true;
 
         try {
-            const result = await validateRelationship({
-                masterObject: this.selectedMasterObject,
-                childObject: this.selectedChildObject
-            });
+            const childObjects = await getChildObjects({ parentObjectName: parentObject });
 
-            this.relationshipInfo = result;
-            this.hasValidRelationship = result.hasRelationship;
+            console.log(`📦 Found ${childObjects.length} child objects for ${parentObject}`);
 
-            if (result.hasRelationship) {
-                console.log('✅ Relationship validated:', result.relationshipField);
-                this.showToast('Relationship Found',
-                    `${result.relationshipLabel} (${result.relationshipType})`,
-                    'success');
+            if (!parentNode) {
+                // Root level - add to tree
+                this.childSelectionTree = childObjects.map(child => ({
+                    ...child,
+                    id: this.generateId(),
+                    level: level,
+                    isSelected: false,
+                    isExpanded: false,
+                    children: [],
+                    hasLoadedChildren: false
+                }));
             } else {
-                console.log('⚠️ No relationship found');
-                this.showToast('No Relationship', result.message, 'warning');
+                // Nested level - add to parent node
+                parentNode.children = childObjects.map(child => ({
+                    ...child,
+                    id: this.generateId(),
+                    level: level,
+                    isSelected: false,
+                    isExpanded: false,
+                    children: [],
+                    hasLoadedChildren: false,
+                    parentNodeId: parentNode.id
+                }));
+                parentNode.hasLoadedChildren = true;
             }
 
+            // Force reactivity
+            this.childSelectionTree = [...this.childSelectionTree];
+
         } catch (error) {
-            console.error('❌ Error validating relationship:', error);
-            this.showToast('Error', 'Failed to validate relationship', 'error');
+            console.error('❌ Error loading child objects:', error);
+            this.showToast('Error', 'Failed to load child objects', 'error');
         } finally {
             this.isLoading = false;
         }
+    }
+
+    /**
+     * Generate unique ID for tree nodes
+     */
+    generateId() {
+        return 'node_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+    }
+
+    /**
+     * Handle child object selection toggle
+     */
+    handleChildToggle(event) {
+        const nodeId = event.currentTarget.dataset.nodeId;
+        const node = this.findNodeById(nodeId, this.childSelectionTree);
+
+        if (node) {
+            node.isSelected = !node.isSelected;
+            console.log(`📍 ${node.isSelected ? 'Selected' : 'Deselected'} child: ${node.objectName}`);
+
+            // Force reactivity
+            this.childSelectionTree = [...this.childSelectionTree];
+
+            // Rebuild config
+            this.buildChildExtractionConfig();
+        }
+    }
+
+    /**
+     * Handle expand/collapse node to load children
+     */
+    async handleExpandNode(event) {
+        const nodeId = event.currentTarget.dataset.nodeId;
+        const node = this.findNodeById(nodeId, this.childSelectionTree);
+
+        if (node) {
+            node.isExpanded = !node.isExpanded;
+
+            // Load children if not loaded yet and expanding
+            if (node.isExpanded && !node.hasLoadedChildren) {
+                await this.loadChildObjectsForParent(node.objectName, node, node.level + 1);
+            }
+
+            // Force reactivity
+            this.childSelectionTree = [...this.childSelectionTree];
+        }
+    }
+
+    /**
+     * Find node by ID in tree
+     */
+    findNodeById(nodeId, nodes) {
+        for (let node of nodes) {
+            if (node.id === nodeId) {
+                return node;
+            }
+
+            if (node.children && node.children.length > 0) {
+                const found = this.findNodeById(nodeId, node.children);
+                if (found) return found;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Build child extraction configuration from selected nodes
+     */
+    buildChildExtractionConfig() {
+        this.selectedChildrenConfig = this.buildConfigFromNodes(this.childSelectionTree);
+        console.log('🔧 Built extraction config:', JSON.stringify(this.selectedChildrenConfig, null, 2));
+    }
+
+    /**
+     * Recursively build config from nodes
+     */
+    buildConfigFromNodes(nodes) {
+        const configs = [];
+
+        for (let node of nodes) {
+            if (node.isSelected) {
+                const config = {
+                    childObject: node.objectName,
+                    relationshipField: node.relationshipField,
+                    children: []
+                };
+
+                // Recursively add selected children
+                if (node.children && node.children.length > 0) {
+                    config.children = this.buildConfigFromNodes(node.children);
+                }
+
+                configs.push(config);
+            }
+        }
+
+        return configs;
     }
 
     /**
@@ -239,38 +332,35 @@ export default class CsvExtractor extends LightningElement {
 
         try {
             console.log('🚀 Starting direct extraction...');
+            console.log('📋 Child configs:', this.selectedChildrenConfig);
 
             const result = await extractCSVDirect({
                 masterObject: this.selectedMasterObject,
-                childObject: this.selectedChildObject || null,
-                ids: this.parsedIds
+                ids: this.parsedIds,
+                childConfigs: this.selectedChildrenConfig.length > 0 ? this.selectedChildrenConfig : null
             });
 
             if (result.success) {
-                console.log('✅ Extraction successful:', {
-                    master: result.masterRecordCount,
-                    child: result.childRecordCount
-                });
+                console.log('✅ Extraction successful:', result.csvFiles.length + ' CSV files');
 
                 this.extractionResult = result;
                 this.extractionComplete = true;
 
+                let totalRecords = result.masterRecordCount;
+                result.csvFiles.forEach(file => {
+                    if (file.level > 0) totalRecords += file.recordCount;
+                });
+
                 this.showToast('Success',
-                    `Extracted ${result.masterRecordCount} master and ${result.childRecordCount} child records`,
+                    `Extracted ${result.csvFiles.length} CSV file(s) with ${totalRecords} total records`,
                     'success');
 
-                // Download Master CSV
-                if (result.masterCSV) {
-                    this.downloadCSV(result.masterCSV, `${this.selectedMasterObject}.csv`);
-                }
-
-                // Download Child CSV
-                if (result.childCSV) {
-                    // Small delay to avoid browser blocking multiple downloads
+                // Download all CSV files
+                result.csvFiles.forEach((file, index) => {
                     setTimeout(() => {
-                        this.downloadCSV(result.childCSV, `${this.selectedChildObject}.csv`);
-                    }, 500);
-                }
+                        this.downloadCSV(file.csvContent, `${file.objectName}.csv`);
+                    }, index * 500); // Stagger downloads
+                });
 
             } else {
                 this.showToast('Error', result.message, 'error');
@@ -278,7 +368,8 @@ export default class CsvExtractor extends LightningElement {
 
         } catch (error) {
             console.error('❌ Error during extraction:', error);
-            this.showToast('Error', 'Failed to extract data: ' + error.body.message, 'error');
+            const errorMessage = error.body ? error.body.message : error.message;
+            this.showToast('Error', 'Failed to extract data: ' + errorMessage, 'error');
         } finally {
             this.isLoading = false;
             this.isExtracting = false;
@@ -315,10 +406,11 @@ export default class CsvExtractor extends LightningElement {
         this.uploadedFileName = '';
         this.uploadedFileData = '';
         this.parsedIds = [];
+        this.detectedMasterObject = '';
+        this.detectedMasterObjectLabel = '';
         this.selectedMasterObject = '';
-        this.selectedChildObject = '';
-        this.relationshipInfo = null;
-        this.hasValidRelationship = false;
+        this.childSelectionTree = [];
+        this.selectedChildrenConfig = [];
         this.isExtracting = false;
         this.extractionComplete = false;
         this.extractionResult = null;
@@ -370,19 +462,53 @@ export default class CsvExtractor extends LightningElement {
         return this.parsedIds ? `${this.parsedIds.length} IDs loaded` : '';
     }
 
-    get relationshipText() {
-        if (!this.relationshipInfo) return '';
+    get detectedObjectText() {
+        return this.detectedMasterObjectLabel ?
+            `Auto-detected: ${this.detectedMasterObjectLabel}` : '';
+    }
 
-        if (this.relationshipInfo.hasRelationship) {
-            return `✓ ${this.relationshipInfo.relationshipLabel} (${this.relationshipInfo.relationshipType})`;
-        } else {
-            return '✗ No relationship found';
-        }
+    get hasChildObjects() {
+        return this.childSelectionTree && this.childSelectionTree.length > 0;
+    }
+
+    get selectedChildrenCount() {
+        return this.selectedChildrenConfig ? this.selectedChildrenConfig.length : 0;
     }
 
     get extractionSummary() {
-        if (!this.extractionResult) return '';
+        if (!this.extractionResult || !this.extractionResult.csvFiles) return '';
 
-        return `Master: ${this.extractionResult.masterRecordCount} records | Child: ${this.extractionResult.childRecordCount} records`;
+        const fileCount = this.extractionResult.csvFiles.length;
+        let totalRecords = 0;
+        this.extractionResult.csvFiles.forEach(file => {
+            totalRecords += file.recordCount;
+        });
+
+        return `${fileCount} CSV file(s) with ${totalRecords} total records`;
+    }
+
+    /**
+     * Flatten tree for template iteration
+     */
+    get flattenedTree() {
+        return this.flattenNodes(this.childSelectionTree, 0);
+    }
+
+    flattenNodes(nodes, indent) {
+        let result = [];
+
+        for (let node of nodes) {
+            result.push({
+                ...node,
+                indent: indent,
+                indentStyle: `padding-left: ${indent * 20}px`
+            });
+
+            if (node.isExpanded && node.children && node.children.length > 0) {
+                result = result.concat(this.flattenNodes(node.children, indent + 1));
+            }
+        }
+
+        return result;
     }
 }

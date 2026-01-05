@@ -70,6 +70,58 @@ public with sharing class CSVExtractionController {
     }
 
     /**
+     * Get child objects that have a relationship to the given parent object
+     */
+    @AuraEnabled(cacheable=true)
+    public static List<ChildObjectInfo> getChildObjects(String parentObjectName) {
+        List<ChildObjectInfo> childObjects = new List<ChildObjectInfo>();
+
+        try {
+            Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
+
+            // Loop through all objects to find those with relationships to parent
+            for (String objectName : globalDescribe.keySet()) {
+                Schema.DescribeSObjectResult childDescribe = globalDescribe.get(objectName).getDescribe();
+
+                // Skip if not custom object
+                if (!childDescribe.isCustom()) continue;
+
+                // Check all fields for reference to parent
+                for (Schema.SObjectField field : childDescribe.fields.getMap().values()) {
+                    Schema.DescribeFieldResult fieldDescribe = field.getDescribe();
+
+                    // Check if it's a reference field
+                    if (fieldDescribe.getType() == Schema.DisplayType.REFERENCE) {
+                        List<Schema.SObjectType> references = fieldDescribe.getReferenceTo();
+
+                        for (Schema.SObjectType refType : references) {
+                            if (refType.getDescribe().getName() == parentObjectName) {
+                                ChildObjectInfo childInfo = new ChildObjectInfo();
+                                childInfo.objectName = childDescribe.getName();
+                                childInfo.objectLabel = childDescribe.getLabel();
+                                childInfo.relationshipField = fieldDescribe.getName();
+                                childInfo.relationshipLabel = fieldDescribe.getLabel();
+                                childInfo.relationshipType = fieldDescribe.getRelationshipOrder() == 0 ?
+                                    'Master-Detail' : 'Lookup';
+
+                                childObjects.add(childInfo);
+                                break; // Only add each child object once
+                            }
+                        }
+                    }
+                }
+            }
+
+            System.debug('📋 Found ' + childObjects.size() + ' child objects for ' + parentObjectName);
+
+        } catch (Exception e) {
+            System.debug('❌ Error getting child objects: ' + e.getMessage());
+        }
+
+        return childObjects;
+    }
+
+    /**
      * Validate relationship between Master and Child objects
      */
     @AuraEnabled
@@ -115,7 +167,7 @@ public with sharing class CSVExtractionController {
     }
 
     /**
-     * Parse CSV file and extract IDs
+     * Parse CSV file and extract IDs with auto-detection of object type
      */
     @AuraEnabled
     public static ParseCSVResult parseCSVFile(String base64Data, String fileName) {
@@ -141,7 +193,7 @@ public with sharing class CSVExtractionController {
 
                 // Clean and add ID
                 String cleanId = line.replace('\r', '').replace('"', '').trim();
-                if (String.isNotBlank(cleanId)) {
+                if (String.isNotBlank(cleanId) && cleanId.length() >= 15) {
                     ids.add(cleanId);
                 }
             }
@@ -149,9 +201,19 @@ public with sharing class CSVExtractionController {
             result.success = true;
             result.idCount = ids.size();
             result.ids = new List<String>(ids);
-            result.message = 'Successfully parsed ' + ids.size() + ' IDs';
 
-            System.debug('✅ Parsed CSV: ' + ids.size() + ' IDs');
+            // Auto-detect object type from first ID
+            if (!ids.isEmpty()) {
+                String detectedObject = detectObjectFromId(new List<String>(ids)[0]);
+                result.detectedObject = detectedObject;
+                result.detectedObjectLabel = detectedObject != null ?
+                    Schema.getGlobalDescribe().get(detectedObject).getDescribe().getLabel() : '';
+            }
+
+            result.message = 'Successfully parsed ' + ids.size() + ' IDs' +
+                           (result.detectedObject != null ? ' from ' + result.detectedObjectLabel : '');
+
+            System.debug('✅ Parsed CSV: ' + ids.size() + ' IDs, Detected Object: ' + result.detectedObject);
 
         } catch (Exception e) {
             result.success = false;
@@ -163,14 +225,48 @@ public with sharing class CSVExtractionController {
     }
 
     /**
+     * Detect Salesforce object type from a Record ID
+     */
+    private static String detectObjectFromId(String recordId) {
+        try {
+            if (String.isBlank(recordId) || recordId.length() < 15) {
+                return null;
+            }
+
+            // Get key prefix (first 3 characters)
+            String keyPrefix = recordId.substring(0, 3);
+
+            // Search through all objects to find matching key prefix
+            Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
+
+            for (String objectName : globalDescribe.keySet()) {
+                Schema.DescribeSObjectResult describe = globalDescribe.get(objectName).getDescribe();
+
+                if (describe.getKeyPrefix() == keyPrefix) {
+                    System.debug('🔍 Detected object: ' + objectName + ' from ID prefix: ' + keyPrefix);
+                    return describe.getName();
+                }
+            }
+
+            System.debug('⚠️ No object found for ID prefix: ' + keyPrefix);
+            return null;
+
+        } catch (Exception e) {
+            System.debug('❌ Error detecting object from ID: ' + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Extract CSV directly (synchronous) - for smaller datasets
      * Recommended for < 5,000 records
+     * Supports multi-level child extraction
      */
     @AuraEnabled
     public static CSVExtractionResult extractCSVDirect(
         String masterObject,
-        String childObject,
-        List<String> ids
+        List<String> ids,
+        List<ChildExtractionConfig> childConfigs
     ) {
         CSVExtractionResult result = new CSVExtractionResult();
 
@@ -185,28 +281,36 @@ public with sharing class CSVExtractionController {
             }
 
             System.debug('🔵 Starting direct CSV extraction');
-            System.debug('📍 Master: ' + masterObject + ', Child: ' + childObject + ', IDs: ' + ids.size());
+            System.debug('📍 Master: ' + masterObject + ', IDs: ' + ids.size() + ', Child Configs: ' +
+                        (childConfigs != null ? childConfigs.size() : 0));
 
             // Convert to Set
             Set<String> idSet = new Set<String>(ids);
 
             // Extract Master records
             String masterCSV = extractMasterRecords(masterObject, idSet);
+            result.masterRecordCount = countLines(masterCSV) - 1; // Exclude header
 
-            // Extract Child records (if child object specified)
-            String childCSV = '';
-            if (String.isNotBlank(childObject)) {
-                childCSV = extractChildRecords(masterObject, childObject, idSet);
+            // Store all CSV results
+            result.csvFiles = new List<CSVFileResult>();
+
+            // Add master CSV
+            CSVFileResult masterFile = new CSVFileResult();
+            masterFile.objectName = masterObject;
+            masterFile.csvContent = masterCSV;
+            masterFile.recordCount = result.masterRecordCount;
+            masterFile.level = 0;
+            result.csvFiles.add(masterFile);
+
+            // Extract Child records recursively if child configs provided
+            if (childConfigs != null && !childConfigs.isEmpty()) {
+                extractChildRecordsRecursively(masterObject, idSet, childConfigs, result.csvFiles, 1);
             }
 
             result.success = true;
-            result.masterCSV = masterCSV;
-            result.childCSV = childCSV;
-            result.masterRecordCount = countLines(masterCSV) - 1; // Exclude header
-            result.childRecordCount = String.isNotBlank(childCSV) ? countLines(childCSV) - 1 : 0;
             result.message = 'Extraction completed successfully';
 
-            System.debug('✅ Extraction complete: ' + result.masterRecordCount + ' master, ' + result.childRecordCount + ' child');
+            System.debug('✅ Extraction complete: ' + result.csvFiles.size() + ' CSV files generated');
 
         } catch (Exception e) {
             result.success = false;
@@ -216,6 +320,140 @@ public with sharing class CSVExtractionController {
         }
 
         return result;
+    }
+
+    /**
+     * Extract child records recursively
+     */
+    private static void extractChildRecordsRecursively(
+        String parentObject,
+        Set<String> parentIds,
+        List<ChildExtractionConfig> childConfigs,
+        List<CSVFileResult> results,
+        Integer level
+    ) {
+        // Get parent record IDs (not DataMigration IDs)
+        String parentQuery = 'SELECT Id FROM ' + parentObject + ' WHERE DataMigrationId__c IN :parentIds';
+        List<SObject> parentRecords = Database.query(parentQuery);
+
+        Set<Id> parentRecordIds = new Set<Id>();
+        for (SObject record : parentRecords) {
+            parentRecordIds.add(record.Id);
+        }
+
+        if (parentRecordIds.isEmpty()) return;
+
+        // Extract each child object
+        for (ChildExtractionConfig config : childConfigs) {
+            try {
+                // Extract child records
+                String childCSV = extractChildRecordsByRelationship(
+                    config.childObject,
+                    config.relationshipField,
+                    parentRecordIds
+                );
+
+                if (String.isNotBlank(childCSV)) {
+                    CSVFileResult childFile = new CSVFileResult();
+                    childFile.objectName = config.childObject;
+                    childFile.csvContent = childCSV;
+                    childFile.recordCount = countLines(childCSV) - 1;
+                    childFile.level = level;
+                    childFile.parentObject = parentObject;
+                    results.add(childFile);
+
+                    System.debug('✅ Extracted ' + childFile.recordCount + ' records from ' + config.childObject);
+
+                    // Recursively extract grandchildren if configured
+                    if (config.children != null && !config.children.isEmpty()) {
+                        // Get child record DataMigration IDs for recursive extraction
+                        Set<String> childDataMigrationIds = extractDataMigrationIds(childCSV);
+
+                        if (!childDataMigrationIds.isEmpty()) {
+                            extractChildRecordsRecursively(
+                                config.childObject,
+                                childDataMigrationIds,
+                                config.children,
+                                results,
+                                level + 1
+                            );
+                        }
+                    }
+                }
+
+            } catch (Exception e) {
+                System.debug('❌ Error extracting child ' + config.childObject + ': ' + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Extract child records by relationship field
+     */
+    private static String extractChildRecordsByRelationship(
+        String childObject,
+        String relationshipField,
+        Set<Id> parentRecordIds
+    ) {
+        // Build child query
+        String query = buildDynamicQuery(childObject);
+        query += ' WHERE ' + relationshipField + ' IN :parentRecordIds';
+        query += ' ORDER BY ' + relationshipField;
+
+        System.debug('🔍 Child Query: ' + query);
+
+        List<SObject> records = Database.query(query);
+        System.debug('📦 Found ' + records.size() + ' child records');
+
+        if (records.isEmpty()) {
+            return '';
+        }
+
+        // Build CSV
+        return buildCSV(records);
+    }
+
+    /**
+     * Extract DataMigration IDs from CSV content
+     */
+    private static Set<String> extractDataMigrationIds(String csvContent) {
+        Set<String> ids = new Set<String>();
+
+        try {
+            List<String> lines = csvContent.split('\n');
+
+            // Skip header
+            if (lines.size() <= 1) return ids;
+
+            // Get header to find DataMigrationId column index
+            List<String> headers = lines[0].split(',');
+            Integer idColumnIndex = -1;
+
+            for (Integer i = 0; i < headers.size(); i++) {
+                if (headers[i].toLowerCase().contains('datamigrationid')) {
+                    idColumnIndex = i;
+                    break;
+                }
+            }
+
+            if (idColumnIndex < 0) return ids;
+
+            // Extract IDs from data rows
+            for (Integer i = 1; i < lines.size(); i++) {
+                List<String> values = lines[i].split(',');
+                if (values.size() > idColumnIndex) {
+                    String idValue = values[idColumnIndex].trim();
+                    if (String.isNotBlank(idValue)) {
+                        ids.add(idValue);
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            System.debug('❌ Error extracting DataMigration IDs from CSV: ' + e.getMessage());
+        }
+
+        return ids;
     }
 
     /**
@@ -240,50 +478,6 @@ public with sharing class CSVExtractionController {
         return buildCSV(records);
     }
 
-    /**
-     * Extract Child records as CSV
-     */
-    private static String extractChildRecords(String masterObject, String childObject, Set<String> masterIds) {
-        // Find relationship field
-        String relationshipField = findRelationshipField(childObject, masterObject);
-
-        if (String.isBlank(relationshipField)) {
-            System.debug('⚠️ No relationship field found');
-            return '';
-        }
-
-        System.debug('📍 Relationship field: ' + relationshipField);
-
-        // Get Master record IDs
-        String masterQuery = 'SELECT Id FROM ' + masterObject + ' WHERE DataMigrationId__c IN :masterIds';
-        List<SObject> masterRecords = Database.query(masterQuery);
-
-        Set<Id> masterRecordIds = new Set<Id>();
-        for (SObject record : masterRecords) {
-            masterRecordIds.add(record.Id);
-        }
-
-        if (masterRecordIds.isEmpty()) {
-            return '';
-        }
-
-        // Build child query
-        String query = buildDynamicQuery(childObject);
-        query += ' WHERE ' + relationshipField + ' IN :masterRecordIds';
-        query += ' ORDER BY ' + relationshipField;
-
-        System.debug('🔍 Child Query: ' + query);
-
-        List<SObject> records = Database.query(query);
-        System.debug('📦 Found ' + records.size() + ' child records');
-
-        if (records.isEmpty()) {
-            return '';
-        }
-
-        // Build CSV
-        return buildCSV(records);
-    }
 
     /**
      * Build dynamic SOQL query
@@ -449,6 +643,17 @@ public with sharing class CSVExtractionController {
     }
 
     /**
+     * Child object information with relationship details
+     */
+    public class ChildObjectInfo {
+        @AuraEnabled public String objectName;
+        @AuraEnabled public String objectLabel;
+        @AuraEnabled public String relationshipField;
+        @AuraEnabled public String relationshipLabel;
+        @AuraEnabled public String relationshipType;
+    }
+
+    /**
      * Relationship validation result
      */
     public class RelationshipValidation {
@@ -466,19 +671,39 @@ public with sharing class CSVExtractionController {
         @AuraEnabled public Boolean success;
         @AuraEnabled public Integer idCount;
         @AuraEnabled public List<String> ids;
+        @AuraEnabled public String detectedObject;
+        @AuraEnabled public String detectedObjectLabel;
         @AuraEnabled public String message;
     }
 
     /**
-     * CSV extraction result (direct download)
+     * CSV extraction result (direct download with multi-level support)
      */
     public class CSVExtractionResult {
         @AuraEnabled public Boolean success;
-        @AuraEnabled public String masterCSV;
-        @AuraEnabled public String childCSV;
+        @AuraEnabled public List<CSVFileResult> csvFiles;
         @AuraEnabled public Integer masterRecordCount;
-        @AuraEnabled public Integer childRecordCount;
         @AuraEnabled public String message;
+    }
+
+    /**
+     * Individual CSV file result
+     */
+    public class CSVFileResult {
+        @AuraEnabled public String objectName;
+        @AuraEnabled public String csvContent;
+        @AuraEnabled public Integer recordCount;
+        @AuraEnabled public Integer level; // 0 = master, 1 = child, 2 = grandchild, etc.
+        @AuraEnabled public String parentObject;
+    }
+
+    /**
+     * Child extraction configuration
+     */
+    public class ChildExtractionConfig {
+        @AuraEnabled public String childObject;
+        @AuraEnabled public String relationshipField;
+        @AuraEnabled public List<ChildExtractionConfig> children; // For nested children
     }
 
     /**

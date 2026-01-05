@@ -22,3 +22,37 @@
 .slds-notify {
     margin-bottom: 1rem;
 }
+
+/* Tree Structure Styles */
+.child-tree-container {
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+.tree-node {
+    display: flex;
+    align-items: center;
+    padding: 0.25rem 0;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.tree-node:last-child {
+    border-bottom: none;
+}
+
+.expand-btn {
+    flex-shrink: 0;
+    margin-right: 0.25rem;
+}
+
+.child-checkbox {
+    flex-grow: 1;
+}
+
+.relationship-info {
+    font-size: 0.75rem;
+    color: #706e6b;
+    margin-left: 0.5rem;
+    white-space: nowrap;
+}
