@@ -171,12 +171,21 @@ export default class CsvExtractor extends LightningElement {
 
     handleChildToggle(event) {
         const nodeId = event.currentTarget.dataset.nodeId;
+        const isChecked = event.detail.checked;
         const node = this.findNodeById(nodeId, this.childSelectionTree);
 
         if (node) {
-            node.isSelected = !node.isSelected;
+            node.isSelected = isChecked;
+            console.log(`🔘 Child ${isChecked ? 'selected' : 'deselected'}:`, node.objectName);
+
+            // Force reactivity
             this.childSelectionTree = [...this.childSelectionTree];
+
+            // Rebuild extraction config
             this.buildChildExtractionConfig();
+
+            console.log(`📊 Selected children count:`, this.selectedChildrenConfig.length);
+            console.log(`📋 Current config:`, JSON.stringify(this.selectedChildrenConfig, null, 2));
         }
     }
 
@@ -209,13 +218,16 @@ export default class CsvExtractor extends LightningElement {
     }
 
     buildChildExtractionConfig() {
+        console.log('🔧 Building child extraction config...');
         this.selectedChildrenConfig = this.buildConfigFromNodes(this.childSelectionTree);
+        console.log('✅ Config built:', this.selectedChildrenConfig.length, 'items');
     }
 
     buildConfigFromNodes(nodes) {
         const configs = [];
         for (let node of nodes) {
             if (node.isSelected) {
+                console.log('  ✓ Adding to config:', node.objectName, 'via', node.relationshipField);
                 const config = {
                     childObject: node.objectName,
                     relationshipField: node.relationshipField,
@@ -225,6 +237,10 @@ export default class CsvExtractor extends LightningElement {
                     config.children = this.buildConfigFromNodes(node.children);
                 }
                 configs.push(config);
+            } else if (node.children && node.children.length > 0) {
+                // Even if this node isn't selected, check its children
+                const childConfigs = this.buildConfigFromNodes(node.children);
+                configs.push(...childConfigs);
             }
         }
         return configs;
