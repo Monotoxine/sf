@@ -1,31 +1,28 @@
 <template>
-    <lightning-card title="CSV Data Extractor" icon-name="custom:custom63">
+    <lightning-card >
 
-        <!-- Progress Indicator -->
         <div class="slds-p-around_medium">
             <lightning-progress-indicator current-step={currentStep} type="path" variant="base">
                 <lightning-progress-step label="Upload CSV" value="1"></lightning-progress-step>
                 <lightning-progress-step label="Select Objects" value="2"></lightning-progress-step>
-                <lightning-progress-step label="Review & Extract" value="3"></lightning-progress-step>
+                <lightning-progress-step label="Review &amp; Extract" value="3"></lightning-progress-step>
             </lightning-progress-indicator>
         </div>
 
-        <!-- Loading Spinner -->
         <template if:true={isLoading}>
             <lightning-spinner alternative-text="Loading..." size="medium"></lightning-spinner>
         </template>
 
         <div class="slds-p-around_medium">
 
-            <!-- STEP 1: Upload CSV -->
             <template if:true={isStep1}>
                 <div class="step-container">
                     <h2 class="slds-text-heading_medium slds-m-bottom_medium">
-                        Step 1: Upload CSV File with IDs
+                        Step 1: Upload CSV File
                     </h2>
 
                     <p class="slds-m-bottom_medium">
-                        Upload a CSV file containing DataMigration IDs (one ID per line).
+                        Upload a CSV file where the first column header is <b>TEKCO_DataMigrationId__c</b>.
                     </p>
 
                     <lightning-input
@@ -43,64 +40,43 @@
                             </p>
                         </div>
                     </template>
-
-                    <div class="slds-m-top_large">
-                        <lightning-button
-                            variant="brand"
-                            label="Next"
-                            onclick={handleNext}
-                            disabled={!canProceedStep1}
-                        ></lightning-button>
-                    </div>
                 </div>
             </template>
 
-            <!-- STEP 2: Select Objects -->
             <template if:true={isStep2}>
                 <div class="step-container">
                     <h2 class="slds-text-heading_medium slds-m-bottom_medium">
-                        Step 2: Select Master & Child Objects
+                        Step 2: Select Master &amp; Child Objects
                     </h2>
 
-                    <!-- Master Object Selection -->
                     <div class="slds-m-bottom_medium">
                         <lightning-combobox
                             name="masterObject"
                             label="Master Object *"
-                            placeholder="Select master object"
+                            placeholder="Select master object manually"
                             options={masterObjects}
                             value={selectedMasterObject}
                             onchange={handleMasterObjectChange}
                             required
                         ></lightning-combobox>
-                        <template if:true={detectedObjectText}>
-                            <p class="help-text slds-text-color_success">
-                                {detectedObjectText}
-                            </p>
-                        </template>
                         <p class="help-text">
-                            The master object is auto-detected from your CSV IDs
+                            Select the object that corresponds to the DataMigration IDs provided in your CSV.
                         </p>
                     </div>
 
-                    <!-- Child Objects Tree Selection -->
                     <template if:true={hasChildObjects}>
                         <div class="slds-m-bottom_medium">
                             <label class="slds-form-element__label">
                                 Child Objects (Optional)
                             </label>
-                            <p class="help-text slds-m-bottom_small">
-                                Select child objects to extract. Click arrow to expand and select nested children.
-                            </p>
-
+                            
                             <div class="slds-box child-tree-container">
                                 <template if:true={flattenedTree}>
                                     <template for:each={flattenedTree} for:item="node">
                                         <div key={node.id} class="tree-node" style={node.indentStyle}>
-                                            <!-- Expand/Collapse Button -->
                                             <lightning-button-icon
                                                 if:true={node.children}
-                                                icon-name={node.isExpanded ? 'utility:chevrondown' : 'utility:chevronright'}
+                                                icon-name={node.chevronIcon}
                                                 alternative-text="Expand"
                                                 variant="bare"
                                                 size="x-small"
@@ -109,7 +85,6 @@
                                                 class="expand-btn"
                                             ></lightning-button-icon>
 
-                                            <!-- Checkbox for Selection -->
                                             <lightning-input
                                                 type="checkbox"
                                                 label={node.objectLabel}
@@ -119,18 +94,11 @@
                                                 class="child-checkbox"
                                             ></lightning-input>
 
-                                            <!-- Relationship Info -->
-                                            <span class="relationship-info">
+                                            <span class="relationship-info slds-m-left_small slds-text-color_weak slds-text-body_small">
                                                 ({node.relationshipType}: {node.relationshipLabel})
                                             </span>
                                         </div>
                                     </template>
-                                </template>
-
-                                <template if:false={flattenedTree}>
-                                    <p class="slds-text-color_weak">
-                                        No child objects available for this master object
-                                    </p>
                                 </template>
                             </div>
 
@@ -151,76 +119,44 @@
                             variant="brand"
                             label="Next"
                             onclick={handleNext}
-                            disabled={!canProceedStep2}
+                            disabled={canProceedStep2}
+                            class="slds-m-left_small"
                         ></lightning-button>
                     </div>
                 </div>
             </template>
 
-            <!-- STEP 3: Review & Extract -->
             <template if:true={isStep3}>
                 <div class="step-container">
                     <h2 class="slds-text-heading_medium slds-m-bottom_medium">
-                        Step 3: Review & Extract
+                        Step 3: Review &amp; Extract
                     </h2>
 
-                    <!-- Extraction not started yet -->
                     <template if:false={extractionComplete}>
                         <div class="slds-box slds-m-bottom_medium">
                             <dl class="slds-dl_horizontal">
-                                <dt class="slds-dl_horizontal__label">
-                                    <p class="slds-truncate">CSV File:</p>
-                                </dt>
-                                <dd class="slds-dl_horizontal__detail">
-                                    <p>{uploadedFileName}</p>
-                                </dd>
+                                <dt class="slds-dl_horizontal__label">CSV File:</dt>
+                                <dd class="slds-dl_horizontal__detail">{uploadedFileName}</dd>
 
-                                <dt class="slds-dl_horizontal__label">
-                                    <p class="slds-truncate">IDs Count:</p>
-                                </dt>
-                                <dd class="slds-dl_horizontal__detail">
-                                    <p>{parsedIds.length}</p>
-                                </dd>
+                                <dt class="slds-dl_horizontal__label">IDs Count:</dt>
+                                <dd class="slds-dl_horizontal__detail">{parsedIds.length}</dd>
 
-                                <dt class="slds-dl_horizontal__label">
-                                    <p class="slds-truncate">Master Object:</p>
-                                </dt>
-                                <dd class="slds-dl_horizontal__detail">
-                                    <p>{selectedMasterObject}</p>
-                                </dd>
+                                <dt class="slds-dl_horizontal__label">Master Object:</dt>
+                                <dd class="slds-dl_horizontal__detail">{selectedMasterObject}</dd>
 
-                                <dt class="slds-dl_horizontal__label">
-                                    <p class="slds-truncate">Child Objects:</p>
-                                </dt>
+                                <dt class="slds-dl_horizontal__label">Child Objects:</dt>
                                 <dd class="slds-dl_horizontal__detail">
                                     <template if:true={selectedChildrenCount}>
-                                        <p>{selectedChildrenCount} child object(s) selected</p>
+                                        {selectedChildrenCount} selected
                                     </template>
-                                    <template if:false={selectedChildrenCount}>
-                                        <p class="slds-text-color_weak">No child objects selected</p>
-                                    </template>
+                                    <template if:false={selectedChildrenCount}>None</template>
                                 </dd>
                             </dl>
                         </div>
 
-                        <div class="slds-notify slds-notify_alert slds-theme_info" role="alert">
-                            <span class="slds-assistive-text">info</span>
-                            <h2>
-                                CSV files will be downloaded directly to your browser.
-                                No files will be saved in Salesforce.
-                            </h2>
-                        </div>
-
-                        <!-- Spinner while extracting -->
                         <template if:true={isExtracting}>
                             <div class="slds-align_absolute-center slds-m-top_large">
-                                <lightning-spinner
-                                    alternative-text="Extracting data..."
-                                    size="medium"
-                                ></lightning-spinner>
-                                <p class="slds-text-align_center slds-m-top_small">
-                                    Extracting data and preparing download...
-                                </p>
+                                <p>Extracting data...</p>
                             </div>
                         </template>
 
@@ -232,29 +168,22 @@
                             ></lightning-button>
                             <lightning-button
                                 variant="brand"
-                                label="Extract & Download"
+                                label="Extract &amp; Download"
                                 icon-name="utility:download"
-                                onclick={handleLaunchExtraction}
-                                disabled={!canLaunchExtraction}
+                                onclick={handleDownload}
+                                disabled={canLaunchExtraction}
+                                class="slds-m-left_small"
                             ></lightning-button>
                         </div>
                     </template>
 
-                    <!-- Extraction completed -->
                     <template if:true={extractionComplete}>
                         <div class="slds-notify slds-notify_alert slds-theme_success" role="alert">
-                            <span class="slds-assistive-text">success</span>
-                            <h2>
-                                ✓ Extraction completed! CSV files have been downloaded to your browser.
-                            </h2>
+                            <h2>✓ Extraction completed! Files downloaded.</h2>
                         </div>
-
                         <div class="slds-m-top_medium">
-                            <p class="slds-text-body_regular">
-                                {extractionSummary}
-                            </p>
+                            <p>{extractionSummary}</p>
                         </div>
-
                         <div class="slds-m-top_large">
                             <lightning-button
                                 variant="brand"
@@ -267,6 +196,5 @@
             </template>
 
         </div>
-
     </lightning-card>
 </template>
