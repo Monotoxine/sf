@@ -166,61 +166,76 @@ public with sharing class CSVExtractionController {
         return result;
     }
 
-    /**
-     * Parse CSV file and extract IDs with auto-detection of object type
-     */
     @AuraEnabled
     public static ParseCSVResult parseCSVFile(String base64Data, String fileName) {
         ParseCSVResult result = new ParseCSVResult();
-
         try {
-            // Decode base64
-            Blob csvBlob = EncodingUtil.base64Decode(base64Data);
-            String csvString = csvBlob.toString();
+            String csvString = EncodingUtil.base64Decode(base64Data).toString();
+            
+            // Split by line, handling both Windows (\r\n) and Unix (\n)
+            List<String> lines = csvString.split('\\r?\\n');
+            
+            if (lines.isEmpty()) {
+                throw new AuraHandledException('The file is empty.');
+            }
 
-            // Parse CSV
-            List<String> lines = csvString.split('\n');
+            // Identify the column index for the DataMigrationId
+            List<String> headers = lines[0].split(',');
+            Integer idColIndex = -1;
+            String headerName = 'TEKCO_DataMigrationId__c'; // Define expected header
+
+            for (Integer i = 0; i < headers.size(); i++) {
+                // Remove quotes and trim header to ensure exact match
+                String cleanHeader = headers[i].replace('"', '').trim(); 
+                if (cleanHeader.equalsIgnoreCase(headerName)) {
+                    idColIndex = i;
+                    break;
+                }
+            }
+
+            if (idColIndex == -1) {
+                result.success = false;
+                result.message = 'Error: Column "TEKCO_DataMigrationId__c" not found in CSV header.';
+                return result;
+            }
+
             Set<String> ids = new Set<String>();
+            
+            // Start from index 1 to skip header
+            for (Integer i = 1; i < lines.size(); i++) {
+                String currentLine = lines[i];
 
-            for (String line : lines) {
-                line = line.trim();
+                // FIX 1: Skip completely empty lines or lines with only whitespace
+                if (String.isBlank(currentLine)) continue;
 
-                // Skip empty lines
-                if (String.isBlank(line)) continue;
-
-                // Skip header if it doesn't look like an ID
-                if (!line.contains('-') && !line.startsWith('a')) continue;
-
-                // Clean and add ID
-                String cleanId = line.replace('\r', '').replace('"', '').trim();
-                if (String.isNotBlank(cleanId) && cleanId.length() >= 15) {
-                    ids.add(cleanId);
+                List<String> columns = currentLine.split(',');
+                
+                if (columns.size() > idColIndex) {
+                    String val = columns[idColIndex].replace('"', '').trim();
+                    
+                    // FIX 2: Enhanced Validation
+                    // Ensure value is not blank AND is not the header name repeated
+                    if (String.isNotBlank(val) && !val.equalsIgnoreCase(headerName)) {
+                        ids.add(val);
+                        // FIX 3: Debug to see exactly what IDs are being found
+                        System.debug('✅ Found ID: [' + val + ']'); 
+                    }
                 }
             }
 
             result.success = true;
             result.idCount = ids.size();
             result.ids = new List<String>(ids);
-
-            // Auto-detect object type from first ID
-            if (!ids.isEmpty()) {
-                String detectedObject = detectObjectFromId(new List<String>(ids)[0]);
-                result.detectedObject = detectedObject;
-                result.detectedObjectLabel = detectedObject != null ?
-                    Schema.getGlobalDescribe().get(detectedObject).getDescribe().getLabel() : '';
-            }
-
-            result.message = 'Successfully parsed ' + ids.size() + ' IDs' +
-                           (result.detectedObject != null ? ' from ' + result.detectedObjectLabel : '');
-
-            System.debug('✅ Parsed CSV: ' + ids.size() + ' IDs, Detected Object: ' + result.detectedObject);
-
+            result.message = 'Successfully parsed ' + ids.size() + ' Data Migration IDs.';
+            
+            // Debugging output
+            System.debug('Total IDs found: ' + ids.size());
+            System.debug('IDs: ' + ids);
+            
         } catch (Exception e) {
             result.success = false;
-            result.message = 'Error parsing CSV: ' + e.getMessage();
-            System.debug('❌ Error parsing CSV: ' + e.getMessage());
+            result.message = 'Parsing Error: ' + e.getMessage();
         }
-
         return result;
     }
 
@@ -271,30 +286,29 @@ public with sharing class CSVExtractionController {
         CSVExtractionResult result = new CSVExtractionResult();
 
         try {
-            // Validate inputs
+            // FIX 1: Do not throw Exceptions for validation, return the result object
             if (String.isBlank(masterObject)) {
-                throw new AuraHandledException('Master Object is required');
+                result.success = false;
+                result.message = 'Master Object is required';
+                return result;
             }
 
             if (ids == null || ids.isEmpty()) {
-                throw new AuraHandledException('No IDs provided');
+                result.success = false;
+                result.message = 'No IDs provided';
+                return result;
             }
 
-            System.debug('🔵 Starting direct CSV extraction');
-            System.debug('📍 Master: ' + masterObject + ', IDs: ' + ids.size() + ', Child Configs: ' +
-                        (childConfigs != null ? childConfigs.size() : 0));
+            System.debug('🔵 Starting direct CSV extraction for: ' + masterObject);
 
-            // Convert to Set
             Set<String> idSet = new Set<String>(ids);
 
             // Extract Master records
             String masterCSV = extractMasterRecords(masterObject, idSet);
-            result.masterRecordCount = countLines(masterCSV) - 1; // Exclude header
+            result.masterRecordCount = countLines(masterCSV) - 1; 
 
-            // Store all CSV results
             result.csvFiles = new List<CSVFileResult>();
 
-            // Add master CSV
             CSVFileResult masterFile = new CSVFileResult();
             masterFile.objectName = masterObject;
             masterFile.csvContent = masterCSV;
@@ -302,7 +316,6 @@ public with sharing class CSVExtractionController {
             masterFile.level = 0;
             result.csvFiles.add(masterFile);
 
-            // Extract Child records recursively if child configs provided
             if (childConfigs != null && !childConfigs.isEmpty()) {
                 extractChildRecordsRecursively(masterObject, idSet, childConfigs, result.csvFiles, 1);
             }
@@ -310,18 +323,17 @@ public with sharing class CSVExtractionController {
             result.success = true;
             result.message = 'Extraction completed successfully';
 
-            System.debug('✅ Extraction complete: ' + result.csvFiles.size() + ' CSV files generated');
-
         } catch (Exception e) {
             result.success = false;
-            result.message = 'Error extracting data: ' + e.getMessage();
+            // FIX 2: Include Stack Trace to find the real error location
+            result.message = 'Error extracting data: ' + e.getMessage() + ' (Line: ' + e.getLineNumber() + ')';
             System.debug('❌ Error: ' + e.getMessage());
             System.debug('❌ Stack: ' + e.getStackTraceString());
         }
 
         return result;
     }
-
+    
     /**
      * Extract child records recursively
      */
@@ -333,7 +345,7 @@ public with sharing class CSVExtractionController {
         Integer level
     ) {
         // Get parent record IDs (not DataMigration IDs)
-        String parentQuery = 'SELECT Id FROM ' + parentObject + ' WHERE DataMigrationId__c IN :parentIds';
+        String parentQuery = 'SELECT Id FROM ' + parentObject + ' WHERE TEKCO_DataMigrationId__c IN :parentIds';
         List<SObject> parentRecords = Database.query(parentQuery);
 
         Set<Id> parentRecordIds = new Set<Id>();
@@ -462,8 +474,8 @@ public with sharing class CSVExtractionController {
     private static String extractMasterRecords(String objectName, Set<String> ids) {
         // Build dynamic query
         String query = buildDynamicQuery(objectName);
-        query += ' WHERE DataMigrationId__c IN :ids';
-        query += ' ORDER BY DataMigrationId__c';
+        query += ' WHERE TEKCO_DataMigrationId__c IN :ids';
+        query += ' ORDER BY TEKCO_DataMigrationId__c';
 
         System.debug('🔍 Master Query: ' + query);
 
@@ -497,7 +509,10 @@ public with sharing class CSVExtractionController {
             if (!fieldDescribe.isAccessible()) continue;
 
             // Skip compound fields
-            if (fieldDescribe.isCompound()) continue;
+            Schema.DisplayType fieldType = fieldDescribe.getType();
+            if (fieldType == Schema.DisplayType.ADDRESS || fieldType == Schema.DisplayType.LOCATION) {
+                continue;
+            }
 
             fieldNames.add(fieldName);
         }
@@ -623,7 +638,7 @@ public with sharing class CSVExtractionController {
      */
     private static Boolean hasDataMigrationIdField(Schema.DescribeSObjectResult describe) {
         Map<String, Schema.SObjectField> fieldMap = describe.fields.getMap();
-        return fieldMap.containsKey('datamigrationid__c');
+        return fieldMap.containsKey('TEKCO_DataMigrationId__c');
     }
 
     // ==================== DTOs ====================
