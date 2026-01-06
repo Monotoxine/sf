@@ -22,8 +22,9 @@ export default class CsvExtractor extends LightningElement {
     @track selectedMasterObject = '';
 
     // Multi-level Child Selection
-    @track childSelectionTree = []; 
-    @track selectedChildrenConfig = []; 
+    @track childSelectionTree = [];
+    @track selectedChildrenConfig = [];
+    @track flattenedTreeCache = []; // Store flattened tree for rendering 
 
     // Extraction State
     @track isExtracting = false;
@@ -113,6 +114,7 @@ export default class CsvExtractor extends LightningElement {
         // Reset child selection tree
         this.childSelectionTree = [];
         this.selectedChildrenConfig = [];
+        this.flattenedTreeCache = [];
 
         // Load child objects for the selected master
         if (this.selectedMasterObject) {
@@ -156,6 +158,7 @@ export default class CsvExtractor extends LightningElement {
 
             // Force reactivity
             this.childSelectionTree = [...this.childSelectionTree];
+            this.rebuildFlattenedTree();
 
         } catch (error) {
             console.error('❌ Error loading child objects:', error);
@@ -180,6 +183,7 @@ export default class CsvExtractor extends LightningElement {
 
             // Force reactivity
             this.childSelectionTree = [...this.childSelectionTree];
+            this.rebuildFlattenedTree();
 
             // Rebuild extraction config
             this.buildChildExtractionConfig();
@@ -200,9 +204,11 @@ export default class CsvExtractor extends LightningElement {
 
             if (node.isExpanded && !node.hasLoadedChildren) {
                 await this.loadChildObjectsForParent(node.objectName, node, node.level + 1);
+            } else {
+                // If just toggling (no loading), rebuild flattened tree immediately
+                this.childSelectionTree = [...this.childSelectionTree];
+                this.rebuildFlattenedTree();
             }
-
-            this.childSelectionTree = [...this.childSelectionTree];
         }
     }
 
@@ -349,6 +355,7 @@ export default class CsvExtractor extends LightningElement {
         this.selectedMasterObject = '';
         this.childSelectionTree = [];
         this.selectedChildrenConfig = [];
+        this.flattenedTreeCache = [];
         this.extractionComplete = false;
         this.extractionResult = null;
     }
@@ -377,7 +384,12 @@ export default class CsvExtractor extends LightningElement {
     }
 
     get flattenedTree() {
-        return this.flattenNodes(this.childSelectionTree, 0);
+        return this.flattenedTreeCache;
+    }
+
+    rebuildFlattenedTree() {
+        this.flattenedTreeCache = this.flattenNodes(this.childSelectionTree, 0);
+        console.log('🔄 Flattened tree rebuilt:', this.flattenedTreeCache.length, 'nodes');
     }
 
     flattenNodes(nodes, indent) {
