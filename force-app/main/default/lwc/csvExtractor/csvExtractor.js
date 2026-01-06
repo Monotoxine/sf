@@ -249,35 +249,63 @@ export default class CsvExtractor extends LightningElement {
         this.currentStep--;
     }
 
-    handleDownload() {
-    // 1. Appel à la méthode Apex
-    extractCSVDirect({ 
-        masterObject: this.selectedMasterObject, // ex: 'Account'
-        ids: this.parsedIds,            // La liste des IDs parsés (ex: ['MOM_THERT_KPEIN5'])
-        childConfigs: null                 // ou votre config enfant si nécessaire
-    })
-    .then(result => {
-        if (result.success) {
-            console.log('Extraction réussie, fichiers générés :', result.csvFiles.length);
-            
-            // 2. Apex renvoie une liste de fichiers (Master + Enfants potentiels)
-            // On boucle pour télécharger chaque fichier généré
-            result.csvFiles.forEach(file => {
-                // file.csvContent contient le texte CSV brut
-                // file.objectName contient le nom de l'objet (pour le nom du fichier)
-                this.downloadCSVFile(file.csvContent, file.objectName + '_Export.csv');
+    async handleDownload() {
+        // Validation
+        if (!this.selectedMasterObject) {
+            this.showToast('Error', 'Master Object is required', 'error');
+            return;
+        }
+
+        if (!this.parsedIds || this.parsedIds.length === 0) {
+            this.showToast('Error', 'No IDs to extract', 'error');
+            return;
+        }
+
+        this.isLoading = true;
+        this.isExtracting = true;
+
+        try {
+            console.log('🚀 Starting extraction...');
+            console.log('📊 Master Object:', this.selectedMasterObject);
+            console.log('📊 Selected Children Config:', this.selectedChildrenConfig);
+
+            // Build child extraction config before calling Apex
+            this.buildChildExtractionConfig();
+
+            const result = await extractCSVDirect({
+                masterObject: this.selectedMasterObject,
+                ids: this.parsedIds,
+                childConfigs: this.selectedChildrenConfig.length > 0 ? this.selectedChildrenConfig : null
             });
 
-            // Feedback utilisateur
-            // (Vous pouvez ajouter un toast ici)
-        } else {
-            console.error('Erreur retournée par Apex :', result.message);
+            if (result.success) {
+                console.log('✅ Extraction successful:', result.csvFiles.length, 'file(s)');
+
+                this.extractionResult = result;
+                this.extractionComplete = true;
+
+                // Download each generated CSV file
+                result.csvFiles.forEach((file, index) => {
+                    setTimeout(() => {
+                        this.downloadCSVFile(file.csvContent, file.objectName + '_Export.csv');
+                    }, index * 500);
+                });
+
+                this.showToast('Success', 'Data extracted and downloaded successfully', 'success');
+            } else {
+                console.error('❌ Extraction failed:', result.message);
+                this.showToast('Error', result.message, 'error');
+            }
+
+        } catch (error) {
+            console.error('❌ Technical error:', error);
+            const errorMessage = error.body && error.body.message ? error.body.message : 'Unknown error occurred';
+            this.showToast('Error', 'Failed to extract data: ' + errorMessage, 'error');
+        } finally {
+            this.isLoading = false;
+            this.isExtracting = false;
         }
-    })
-    .catch(error => {
-        console.error('Erreur technique :', error);
-    });
-}
+    }
 
     downloadCSVFile(csvContent, fileName) {
     // Création d'un élément invisible <a> pour simuler le clic
