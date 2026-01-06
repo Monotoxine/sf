@@ -1,14 +1,13 @@
 import { LightningElement, track, wire } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getExtractableObjects from '@salesforce/apex/CSVExtractionController.getExtractableObjects';
-import getAllObjects from '@salesforce/apex/CSVExtractionController.getAllObjects';
-import validateRelationship from '@salesforce/apex/CSVExtractionController.validateRelationship';
+import getChildObjectsHierarchy from '@salesforce/apex/CSVExtractionController.getChildObjectsHierarchy';
 import parseCSVFile from '@salesforce/apex/CSVExtractionController.parseCSVFile';
 import extractCSVDirect from '@salesforce/apex/CSVExtractionController.extractCSVDirect';
 
 /**
  * CSV Extractor Component
- * Allows dynamic extraction of Parent-Child data with Governor Limits handling
+ * Allows dynamic extraction of Parent-Child data with tree-based hierarchical selection
  */
 export default class CsvExtractor extends LightningElement {
 
@@ -23,13 +22,13 @@ export default class CsvExtractor extends LightningElement {
 
     // Object Selection
     @track masterObjects = [];
-    @track childObjects = [];
     @track selectedMasterObject = '';
-    @track selectedChildObject = '';
 
-    // Relationship Validation
-    @track relationshipInfo = null;
-    @track hasValidRelationship = false;
+    // Child Objects Tree
+    @track childObjectsTree = [];
+    @track flattenedTree = [];
+    @track selectedChildObjects = new Set();
+    @track expandedNodes = new Set();
 
     // Extraction State
     @track isExtracting = false;
@@ -37,7 +36,7 @@ export default class CsvExtractor extends LightningElement {
     @track extractionResult = null;
 
     /**
-     * Wire to get Master objects (with DataMigrationId__c)
+     * Wire to get Master objects (with TEKCO_DataMigrationId__c)
      */
     @wire(getExtractableObjects)
     wiredMasterObjects({ error, data }) {
@@ -46,20 +45,6 @@ export default class CsvExtractor extends LightningElement {
             this.masterObjects = data;
         } else if (error) {
             console.error('❌ Error loading master objects:', error);
-            this.showToast('Error', 'Failed to load objects', 'error');
-        }
-    }
-
-    /**
-     * Wire to get all Child objects
-     */
-    @wire(getAllObjects)
-    wiredChildObjects({ error, data }) {
-        if (data) {
-            console.log('📦 Child objects loaded:', data.length);
-            this.childObjects = data;
-        } else if (error) {
-            console.error('❌ Error loading child objects:', error);
             this.showToast('Error', 'Failed to load objects', 'error');
         }
     }
@@ -130,66 +115,124 @@ export default class CsvExtractor extends LightningElement {
     /**
      * Handle Master Object change
      */
-    handleMasterObjectChange(event) {
+    async handleMasterObjectChange(event) {
         this.selectedMasterObject = event.detail.value;
         console.log('📍 Master object selected:', this.selectedMasterObject);
 
-        // Reset relationship validation
-        this.relationshipInfo = null;
-        this.hasValidRelationship = false;
+        // Reset child selections
+        this.selectedChildObjects.clear();
+        this.expandedNodes.clear();
+        this.childObjectsTree = [];
+        this.flattenedTree = [];
 
-        // Re-validate if child is already selected
-        if (this.selectedChildObject) {
-            this.validateRelationshipBetweenObjects();
-        }
-    }
-
-    /**
-     * Handle Child Object change
-     */
-    handleChildObjectChange(event) {
-        this.selectedChildObject = event.detail.value;
-        console.log('📍 Child object selected:', this.selectedChildObject);
-
-        // Validate relationship
+        // Load child objects hierarchy
         if (this.selectedMasterObject) {
-            this.validateRelationshipBetweenObjects();
+            await this.loadChildObjectsHierarchy();
         }
     }
 
     /**
-     * Validate relationship between Master and Child
+     * Load child objects hierarchy for selected master object
      */
-    async validateRelationshipBetweenObjects() {
-        if (!this.selectedMasterObject || !this.selectedChildObject) return;
-
+    async loadChildObjectsHierarchy() {
         this.isLoading = true;
 
         try {
-            const result = await validateRelationship({
-                masterObject: this.selectedMasterObject,
-                childObject: this.selectedChildObject
+            const result = await getChildObjectsHierarchy({
+                masterObject: this.selectedMasterObject
             });
 
-            this.relationshipInfo = result;
-            this.hasValidRelationship = result.hasRelationship;
-
-            if (result.hasRelationship) {
-                console.log('✅ Relationship validated:', result.relationshipField);
-                this.showToast('Relationship Found',
-                    `${result.relationshipLabel} (${result.relationshipType})`,
-                    'success');
-            } else {
-                console.log('⚠️ No relationship found');
-                this.showToast('No Relationship', result.message, 'warning');
-            }
+            console.log('🌳 Child objects hierarchy loaded:', result);
+            this.childObjectsTree = result || [];
+            this.buildFlattenedTree();
 
         } catch (error) {
-            console.error('❌ Error validating relationship:', error);
-            this.showToast('Error', 'Failed to validate relationship', 'error');
+            console.error('❌ Error loading child objects:', error);
+            this.showToast('Error', 'Failed to load child objects', 'error');
+            this.childObjectsTree = [];
+            this.flattenedTree = [];
         } finally {
             this.isLoading = false;
         }
+    }
+
+    /**
+     * Build flattened tree for rendering with indentation
+     */
+    buildFlattenedTree() {
+        const flattened = [];
+
+        const traverse = (nodes, level = 0, parentId = null) => {
+            if (!nodes || nodes.length === 0) return;
+
+            nodes.forEach((node, index) => {
+                const nodeId = parentId ? `${parentId}-${index}` : `node-${index}`;
+                const isExpanded = this.expandedNodes.has(nodeId);
+                const isSelected = this.selectedChildObjects.has(node.objectName);
+
+                flattened.push({
+                    id: nodeId,
+                    objectName: node.objectName,
+                    objectLabel: node.objectLabel,
+                    relationshipField: node.relationshipField,
+                    relationshipLabel: node.relationshipLabel,
+                    relationshipType: node.relationshipType,
+                    level: level,
+                    indentStyle: `padding-left: ${level * 20}px`,
+                    isExpanded: isExpanded,
+                    isSelected: isSelected,
+                    children: node.children,
+                    chevronIcon: isExpanded ? 'utility:chevrondown' : 'utility:chevronright'
+                });
+
+                // Add children if expanded
+                if (isExpanded && node.children && node.children.length > 0) {
+                    traverse(node.children, level + 1, nodeId);
+                }
+            });
+        };
+
+        traverse(this.childObjectsTree);
+        this.flattenedTree = flattened;
+    }
+
+    /**
+     * Handle expand/collapse node
+     */
+    handleExpandNode(event) {
+        const nodeId = event.currentTarget.dataset.nodeId;
+
+        if (this.expandedNodes.has(nodeId)) {
+            this.expandedNodes.delete(nodeId);
+        } else {
+            this.expandedNodes.add(nodeId);
+        }
+
+        this.buildFlattenedTree();
+    }
+
+    /**
+     * Handle child object selection toggle
+     */
+    handleChildToggle(event) {
+        const nodeId = event.currentTarget.dataset.nodeId;
+        const isChecked = event.detail.checked;
+
+        // Find the node in flattened tree
+        const node = this.flattenedTree.find(n => n.id === nodeId);
+
+        if (!node) return;
+
+        if (isChecked) {
+            this.selectedChildObjects.add(node.objectName);
+            console.log('✅ Child selected:', node.objectName);
+        } else {
+            this.selectedChildObjects.delete(node.objectName);
+            console.log('➖ Child deselected:', node.objectName);
+        }
+
+        // Rebuild tree to reflect selection
+        this.buildFlattenedTree();
     }
 
     /**
@@ -220,9 +263,9 @@ export default class CsvExtractor extends LightningElement {
     }
 
     /**
-     * Launch extraction and download CSV directly
+     * Handle extraction and download CSV files directly
      */
-    async handleLaunchExtraction() {
+    async handleDownload() {
         // Final validation
         if (!this.selectedMasterObject) {
             this.showToast('Error', 'Master Object is required', 'error');
@@ -239,38 +282,36 @@ export default class CsvExtractor extends LightningElement {
 
         try {
             console.log('🚀 Starting direct extraction...');
+            console.log('📊 Master Object:', this.selectedMasterObject);
+            console.log('📊 Selected Children:', Array.from(this.selectedChildObjects));
 
             const result = await extractCSVDirect({
                 masterObject: this.selectedMasterObject,
-                childObject: this.selectedChildObject || null,
+                childObjects: Array.from(this.selectedChildObjects),
                 ids: this.parsedIds
             });
 
             if (result.success) {
-                console.log('✅ Extraction successful:', {
-                    master: result.masterRecordCount,
-                    child: result.childRecordCount
-                });
+                console.log('✅ Extraction successful');
 
                 this.extractionResult = result;
                 this.extractionComplete = true;
-
-                this.showToast('Success',
-                    `Extracted ${result.masterRecordCount} master and ${result.childRecordCount} child records`,
-                    'success');
 
                 // Download Master CSV
                 if (result.masterCSV) {
                     this.downloadCSV(result.masterCSV, `${this.selectedMasterObject}.csv`);
                 }
 
-                // Download Child CSV
-                if (result.childCSV) {
-                    // Small delay to avoid browser blocking multiple downloads
-                    setTimeout(() => {
-                        this.downloadCSV(result.childCSV, `${this.selectedChildObject}.csv`);
-                    }, 500);
+                // Download Child CSVs
+                if (result.childCSVs && result.childCSVs.length > 0) {
+                    result.childCSVs.forEach((childCSV, index) => {
+                        setTimeout(() => {
+                            this.downloadCSV(childCSV.csvContent, `${childCSV.objectName}.csv`);
+                        }, (index + 1) * 500);
+                    });
                 }
+
+                this.showToast('Success', 'Data extracted and downloaded successfully', 'success');
 
             } else {
                 this.showToast('Error', result.message, 'error');
@@ -278,7 +319,8 @@ export default class CsvExtractor extends LightningElement {
 
         } catch (error) {
             console.error('❌ Error during extraction:', error);
-            this.showToast('Error', 'Failed to extract data: ' + error.body.message, 'error');
+            const errorMessage = error.body && error.body.message ? error.body.message : 'Unknown error occurred';
+            this.showToast('Error', 'Failed to extract data: ' + errorMessage, 'error');
         } finally {
             this.isLoading = false;
             this.isExtracting = false;
@@ -316,9 +358,10 @@ export default class CsvExtractor extends LightningElement {
         this.uploadedFileData = '';
         this.parsedIds = [];
         this.selectedMasterObject = '';
-        this.selectedChildObject = '';
-        this.relationshipInfo = null;
-        this.hasValidRelationship = false;
+        this.childObjectsTree = [];
+        this.flattenedTree = [];
+        this.selectedChildObjects = new Set();
+        this.expandedNodes = new Set();
         this.isExtracting = false;
         this.extractionComplete = false;
         this.extractionResult = null;
