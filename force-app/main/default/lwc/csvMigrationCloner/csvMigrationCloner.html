@@ -1,0 +1,295 @@
+<template>
+    <lightning-card title="CSV Data Migration Cloner" icon-name="custom:custom92">
+
+        <!-- Progress Indicator -->
+        <div class="slds-p-around_medium">
+            <lightning-progress-indicator current-step={currentStep} type="path" variant="base">
+                <lightning-progress-step label="Upload CSV" value="1"></lightning-progress-step>
+                <lightning-progress-step label="Select Object" value="2"></lightning-progress-step>
+                <lightning-progress-step label="Configure" value="3"></lightning-progress-step>
+                <lightning-progress-step label="Review & Clone" value="4"></lightning-progress-step>
+            </lightning-progress-indicator>
+        </div>
+
+        <!-- Loading Spinner -->
+        <template if:true={isLoading}>
+            <lightning-spinner alternative-text="Loading..." size="medium"></lightning-spinner>
+        </template>
+
+        <div class="slds-p-around_medium">
+
+            <!-- STEP 1: Upload CSV -->
+            <template if:true={isStep1}>
+                <div class="step-container">
+                    <h2 class="slds-text-heading_medium slds-m-bottom_medium">
+                        Step 1: Upload CSV File with DataMigration IDs
+                    </h2>
+
+                    <p class="slds-m-bottom_medium">
+                        Upload a CSV file containing DataMigration IDs (one ID per line).
+                    </p>
+
+                    <lightning-input
+                        type="file"
+                        label="Select CSV File"
+                        accept=".csv"
+                        onchange={handleFileUpload}
+                    ></lightning-input>
+
+                    <template if:true={uploadedFileName}>
+                        <div class="slds-m-top_medium">
+                            <lightning-badge label={uploadedFileName}></lightning-badge>
+                            <p class="slds-m-top_small slds-text-color_success">
+                                {idCountText}
+                            </p>
+                        </div>
+                    </template>
+
+                    <div class="slds-m-top_large">
+                        <lightning-button
+                            variant="brand"
+                            label="Next"
+                            onclick={handleNext}
+                            disabled={!canProceedStep1}
+                        ></lightning-button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- STEP 2: Select Master Object -->
+            <template if:true={isStep2}>
+                <div class="step-container">
+                    <h2 class="slds-text-heading_medium slds-m-bottom_medium">
+                        Step 2: Select Master Object
+                    </h2>
+
+                    <div class="slds-m-bottom_medium">
+                        <lightning-combobox
+                            name="masterObject"
+                            label="Master Object *"
+                            placeholder="Select master object"
+                            options={masterObjects}
+                            value={selectedMasterObject}
+                            onchange={handleMasterObjectChange}
+                            required
+                        ></lightning-combobox>
+                        <p class="help-text">
+                            Select the object that contains the DataMigration IDs to clone
+                        </p>
+                    </div>
+
+                    <!-- Related Objects Display -->
+                    <template if:true={hasRelatedObjects}>
+                        <div class="slds-m-top_large">
+                            <h3 class="slds-text-heading_small slds-m-bottom_small">
+                                Related Objects with Lookup/Master-Detail Relationships
+                            </h3>
+
+                            <div class="slds-box slds-m-bottom_medium">
+                                <p class="slds-m-bottom_small slds-text-color_weak">
+                                    Select the related objects you want to clone along with the master records:
+                                </p>
+
+                                <template for:each={relatedObjects} for:item="relObj">
+                                    <div key={relObj.apiName} class="slds-m-bottom_small">
+                                        <lightning-input
+                                            type="checkbox"
+                                            label={relObj.label}
+                                            data-object={relObj.apiName}
+                                            checked={relObj.selected}
+                                            onchange={handleRelatedObjectToggle}
+                                        ></lightning-input>
+                                        <p class="help-text slds-m-left_large">
+                                            {relObj.relationshipType} via {relObj.relationshipField}
+                                        </p>
+                                    </div>
+                                </template>
+
+                                <p class="slds-m-top_small slds-text-color_success">
+                                    {selectedRelatedObjectsCount} object(s) selected
+                                </p>
+                            </div>
+                        </div>
+                    </template>
+
+                    <div class="slds-m-top_large button-group">
+                        <lightning-button
+                            label="Previous"
+                            onclick={handlePrevious}
+                        ></lightning-button>
+                        <lightning-button
+                            variant="brand"
+                            label="Next"
+                            onclick={handleNext}
+                            disabled={!canProceedStep2}
+                        ></lightning-button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- STEP 3: Configure Migration -->
+            <template if:true={isStep3}>
+                <div class="step-container">
+                    <h2 class="slds-text-heading_medium slds-m-bottom_medium">
+                        Step 3: Configure Migration Suffix
+                    </h2>
+
+                    <div class="slds-box slds-m-bottom_medium">
+                        <p class="slds-m-bottom_small">
+                            Enter a suffix to append to the DataMigrationId__c field for cloned records.
+                        </p>
+
+                        <lightning-input
+                            type="text"
+                            label="Migration Suffix *"
+                            placeholder="e.g., _CLONE, _V2, _TEST"
+                            value={migrationSuffix}
+                            onchange={handleSuffixChange}
+                            required
+                        ></lightning-input>
+
+                        <div class="slds-m-top_medium">
+                            <p class="slds-text-color_weak">
+                                Example: If original ID is "MIG-001" and suffix is "_CLONE",
+                                the new ID will be "MIG-001_CLONE"
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="slds-notify slds-notify_alert slds-theme_warning" role="alert">
+                        <span class="slds-assistive-text">warning</span>
+                        <h2>
+                            Make sure the suffix is unique to avoid conflicts with existing DataMigration IDs
+                        </h2>
+                    </div>
+
+                    <div class="slds-m-top_large button-group">
+                        <lightning-button
+                            label="Previous"
+                            onclick={handlePrevious}
+                        ></lightning-button>
+                        <lightning-button
+                            variant="brand"
+                            label="Next"
+                            onclick={handleNext}
+                            disabled={!canProceedStep3}
+                        ></lightning-button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- STEP 4: Review & Clone -->
+            <template if:true={isStep4}>
+                <div class="step-container">
+                    <h2 class="slds-text-heading_medium slds-m-bottom_medium">
+                        Step 4: Review & Clone
+                    </h2>
+
+                    <!-- Cloning not started yet -->
+                    <template if:false={cloningComplete}>
+                        <div class="slds-box slds-m-bottom_medium">
+                            <dl class="slds-dl_horizontal">
+                                <dt class="slds-dl_horizontal__label">
+                                    <p class="slds-truncate">CSV File:</p>
+                                </dt>
+                                <dd class="slds-dl_horizontal__detail">
+                                    <p>{uploadedFileName}</p>
+                                </dd>
+
+                                <dt class="slds-dl_horizontal__label">
+                                    <p class="slds-truncate">IDs Count:</p>
+                                </dt>
+                                <dd class="slds-dl_horizontal__detail">
+                                    <p>{parsedIds.length}</p>
+                                </dd>
+
+                                <dt class="slds-dl_horizontal__label">
+                                    <p class="slds-truncate">Master Object:</p>
+                                </dt>
+                                <dd class="slds-dl_horizontal__detail">
+                                    <p>{selectedMasterObject}</p>
+                                </dd>
+
+                                <dt class="slds-dl_horizontal__label">
+                                    <p class="slds-truncate">Related Objects:</p>
+                                </dt>
+                                <dd class="slds-dl_horizontal__detail">
+                                    <p>{selectedRelatedObjectsCount} selected</p>
+                                </dd>
+
+                                <dt class="slds-dl_horizontal__label">
+                                    <p class="slds-truncate">Migration Suffix:</p>
+                                </dt>
+                                <dd class="slds-dl_horizontal__detail">
+                                    <p>{migrationSuffix}</p>
+                                </dd>
+                            </dl>
+                        </div>
+
+                        <div class="slds-notify slds-notify_alert slds-theme_info" role="alert">
+                            <span class="slds-assistive-text">info</span>
+                            <h2>
+                                This will create clones of all selected objects in the same org with new DataMigration IDs
+                            </h2>
+                        </div>
+
+                        <!-- Spinner while cloning -->
+                        <template if:true={isCloning}>
+                            <div class="slds-align_absolute-center slds-m-top_large">
+                                <lightning-spinner
+                                    alternative-text="Cloning records..."
+                                    size="medium"
+                                ></lightning-spinner>
+                                <p class="slds-text-align_center slds-m-top_small">
+                                    Cloning records... This may take a few moments.
+                                </p>
+                            </div>
+                        </template>
+
+                        <div class="slds-m-top_large button-group">
+                            <lightning-button
+                                label="Previous"
+                                onclick={handlePrevious}
+                                disabled={isCloning}
+                            ></lightning-button>
+                            <lightning-button
+                                variant="brand"
+                                label="Start Cloning"
+                                icon-name="utility:copy"
+                                onclick={handleLaunchCloning}
+                                disabled={!canLaunchCloning}
+                            ></lightning-button>
+                        </div>
+                    </template>
+
+                    <!-- Cloning completed -->
+                    <template if:true={cloningComplete}>
+                        <div class="slds-notify slds-notify_alert slds-theme_success" role="alert">
+                            <span class="slds-assistive-text">success</span>
+                            <h2>
+                                ✓ Cloning completed successfully!
+                            </h2>
+                        </div>
+
+                        <div class="slds-m-top_medium slds-box">
+                            <h3 class="slds-text-heading_small slds-m-bottom_small">
+                                Cloning Summary:
+                            </h3>
+                            <pre class="summary-text">{cloningSummary}</pre>
+                        </div>
+
+                        <div class="slds-m-top_large">
+                            <lightning-button
+                                variant="brand"
+                                label="Start New Migration"
+                                onclick={handleReset}
+                            ></lightning-button>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+        </div>
+
+    </lightning-card>
+</template>
