@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Strategy_Param_1__c</fullName>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Strategy Parameter 1</label>
+    <description>Optional parameter passed to the strategy class. Interpretation is strategy-specific. Examples: EMAIL_GENERIC uses param1 as the email domain (e.g. "airliquide.com"); SEQUENCE_NUMBER uses param1 as the desired sequence length; LOREM_IPSUM uses param1 as a custom text override.</description>
+    <type>Text</type>
+    <length>255</length>
+    <unique>false</unique>
+    <externalId>false</externalId>
+    <required>false</required>
+</CustomField>

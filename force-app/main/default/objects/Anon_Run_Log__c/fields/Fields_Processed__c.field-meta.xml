@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Fields_Processed__c</fullName>
+    <label>Fields Processed</label>
+    <description>JSON array of field API names that were anonymized in this run (e.g. ["FirstName","LastName","PersonEmail"]).</description>
+    <type>LongTextArea</type>
+    <length>32768</length>
+    <visibleLines>4</visibleLines>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+</CustomField>

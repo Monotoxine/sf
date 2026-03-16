@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Brand_Field_API_Name__c</fullName>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Brand Filter Field API Name</label>
+    <description>API name of the field that holds the Brand/Subsidiary value on this object (e.g. Brand__c, Division__c). Used to scope the anonymization to a specific brand when the admin provides a brand filter in the UI.</description>
+    <type>Text</type>
+    <length>255</length>
+    <unique>false</unique>
+    <externalId>false</externalId>
+    <required>false</required>
+</CustomField>

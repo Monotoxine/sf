@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Is_Brand_Source__c</fullName>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Is Brand Source</label>
+    <description>Mark exactly one object config as the Brand Source. The LWC will query this object's Brand_Field_API_Name__c field for distinct values to populate the Brand filter dropdown. If none is flagged, the brand filter uses free-text input.</description>
+    <type>Checkbox</type>
+    <defaultValue>false</defaultValue>
+</CustomField>

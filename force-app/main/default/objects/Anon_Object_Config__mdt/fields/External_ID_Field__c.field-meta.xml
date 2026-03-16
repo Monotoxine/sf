@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>External_ID_Field__c</fullName>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>External ID Field API Name</label>
+    <description>API name of the field used as an external identifier in anonymization strategies (e.g. SAP_External_ID__c). Used by strategies like FIRST_LETTER_PLUS_EXTERNAL_ID and EMAIL_GENERIC.</description>
+    <type>Text</type>
+    <length>255</length>
+    <unique>false</unique>
+    <externalId>false</externalId>
+    <required>false</required>
+</CustomField>

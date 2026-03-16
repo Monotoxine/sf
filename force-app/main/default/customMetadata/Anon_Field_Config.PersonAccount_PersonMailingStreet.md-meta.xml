@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>PersonAccount PersonMailingStreet</label>
+    <protected>false</protected>
+    <values>
+        <field>Object_Config_Name__c</field>
+        <value xsi:type="xsd:string">PersonAccount</value>
+    </values>
+    <values>
+        <field>Field_API_Name__c</field>
+        <value xsi:type="xsd:string">PersonMailingStreet</value>
+    </values>
+    <values>
+        <field>Field_Label__c</field>
+        <value xsi:type="xsd:string">Mailing Street</value>
+    </values>
+    <values>
+        <field>Field_Type__c</field>
+        <value xsi:type="xsd:string">TEXT</value>
+    </values>
+    <!--
+        Strategy: Replace leading street number with random 1–20, preserve street name.
+        param1 = max of range (default 20), param2 = min of range (default 1).
+    -->
+    <values>
+        <field>Strategy_Class_Name__c</field>
+        <value xsi:type="xsd:string">AnonymizeStreetNumberRandomize</value>
+    </values>
+    <values>
+        <field>Strategy_Param_1__c</field>
+        <value xsi:type="xsd:string">20</value>
+    </values>
+    <values>
+        <field>Strategy_Param_2__c</field>
+        <value xsi:type="xsd:string">1</value>
+    </values>
+    <values>
+        <field>Is_Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Execution_Order__c</field>
+        <value xsi:type="xsd:double">110</value>
+    </values>
+</CustomMetadata>

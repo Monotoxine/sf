@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Records_Failed__c</fullName>
+    <label>Records Failed</label>
+    <description>Number of records that could not be anonymized due to DML errors.</description>
+    <type>Number</type>
+    <precision>18</precision>
+    <scale>0</scale>
+    <unique>false</unique>
+    <externalId>false</externalId>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+</CustomField>

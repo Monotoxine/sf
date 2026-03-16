@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Object_Config_Name__c</fullName>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Object Config Developer Name</label>
+    <description>DeveloperName of the Anon_Object_Config__mdt record this field belongs to. Must match exactly (case-sensitive).</description>
+    <type>Text</type>
+    <length>255</length>
+    <unique>false</unique>
+    <externalId>false</externalId>
+    <required>true</required>
+</CustomField>

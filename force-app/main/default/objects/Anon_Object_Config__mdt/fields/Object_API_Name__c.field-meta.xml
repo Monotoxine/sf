@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Object_API_Name__c</fullName>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Object API Name</label>
+    <description>Salesforce API name of the object to anonymize (e.g. Account, Contact, PersonAccount).</description>
+    <type>Text</type>
+    <length>255</length>
+    <unique>false</unique>
+    <externalId>false</externalId>
+    <required>true</required>
+</CustomField>

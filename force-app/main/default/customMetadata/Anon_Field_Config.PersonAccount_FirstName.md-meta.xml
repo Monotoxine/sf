@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>PersonAccount FirstName</label>
+    <protected>false</protected>
+    <values>
+        <field>Object_Config_Name__c</field>
+        <value xsi:type="xsd:string">PersonAccount</value>
+    </values>
+    <values>
+        <field>Field_API_Name__c</field>
+        <value xsi:type="xsd:string">FirstName</value>
+    </values>
+    <values>
+        <field>Field_Label__c</field>
+        <value xsi:type="xsd:string">First Name</value>
+    </values>
+    <values>
+        <field>Field_Type__c</field>
+        <value xsi:type="xsd:string">NAME</value>
+    </values>
+    <!-- Strategy: First letter of FirstName + SAP ExternalID -->
+    <values>
+        <field>Strategy_Class_Name__c</field>
+        <value xsi:type="xsd:string">AnonymizeFirstLetterPlusExternalId</value>
+    </values>
+    <values>
+        <field>Is_Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Execution_Order__c</field>
+        <value xsi:type="xsd:double">10</value>
+    </values>
+</CustomMetadata>

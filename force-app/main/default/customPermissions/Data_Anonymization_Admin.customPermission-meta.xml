@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomPermission xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Grants access to the Data Anonymization system. Users with this permission can view the anonymization UI, preview scope, and trigger anonymization jobs. This permission is checked both client-side (LWC) and server-side (Apex) — removing it from a profile immediately blocks all access. Assign only to trusted admins operating on sandbox/scratch orgs.</description>
+    <label>Data Anonymization Admin</label>
+    <requiresPermission>false</requiresPermission>
+</CustomPermission>

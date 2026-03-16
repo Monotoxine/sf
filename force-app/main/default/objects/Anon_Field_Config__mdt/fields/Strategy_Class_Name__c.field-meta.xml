@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Strategy_Class_Name__c</fullName>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Strategy Apex Class Name</label>
+    <description>Fully-qualified Apex class name that implements IAnonymizationStrategy for this field (e.g. AnonymizePhoneMask, AnonymizeEmailGeneric). The engine instantiates this class dynamically via Type.forName(). To add a new strategy: deploy the Apex class, then reference it here — no changes to existing code.</description>
+    <type>Text</type>
+    <length>255</length>
+    <unique>false</unique>
+    <externalId>false</externalId>
+    <required>true</required>
+</CustomField>

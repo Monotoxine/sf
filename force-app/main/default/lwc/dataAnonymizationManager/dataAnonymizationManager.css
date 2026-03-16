@@ -1,0 +1,78 @@
+/* ── Environment banners ───────────────────────────────────────────────────── */
+
+.da-sandbox-banner {
+    border-radius: 0.25rem;
+    margin-bottom: 0.75rem;
+}
+
+.da-prod-block {
+    border-radius: 0.25rem;
+    padding: 1.5rem;
+    text-align: center;
+}
+
+/* ── Section headers ──────────────────────────────────────────────────────── */
+
+.da-section-header {
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--lwc-colorTextDefault, #080707);
+    padding: 0.5rem 0.75rem;
+}
+
+/* ── Scrollable checkbox lists ────────────────────────────────────────────── */
+
+.da-scrollbox {
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid var(--lwc-colorBorderInput, #dddbda);
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    background: var(--lwc-colorBackgroundInput, #ffffff);
+}
+
+.da-scrollbox .slds-checkbox {
+    padding: 0.25rem 0;
+    border-bottom: 1px solid var(--lwc-colorBorderSeparator, #e5e5e5);
+}
+
+.da-scrollbox .slds-checkbox:last-child {
+    border-bottom: none;
+}
+
+/* ── Field label with badge ───────────────────────────────────────────────── */
+
+.da-field-label {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex-wrap: wrap;
+}
+
+.da-badge {
+    font-size: 0.65rem;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Toast notifications ──────────────────────────────────────────────────── */
+
+.da-toast {
+    position: relative;
+    display: flex;
+    align-items: center;
+    border-radius: 0.25rem;
+    padding: 0.75rem 1rem;
+    margin-top: 1rem;
+}
+
+/* ── Confirm modal ────────────────────────────────────────────────────────── */
+
+.slds-modal__container {
+    max-width: 640px;
+}

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>PersonAccount PersonEmail</label>
+    <protected>false</protected>
+    <values>
+        <field>Object_Config_Name__c</field>
+        <value xsi:type="xsd:string">PersonAccount</value>
+    </values>
+    <values>
+        <field>Field_API_Name__c</field>
+        <value xsi:type="xsd:string">PersonEmail</value>
+    </values>
+    <values>
+        <field>Field_Label__c</field>
+        <value xsi:type="xsd:string">Email</value>
+    </values>
+    <values>
+        <field>Field_Type__c</field>
+        <value xsi:type="xsd:string">EMAIL</value>
+    </values>
+    <!--
+        Strategy: sf_sap+{ExternalID}@airliquide.com
+        param1 = email domain   (e.g. airliquide.com)
+        param2 = email prefix   (e.g. sf_sap)
+        Result: sf_sap+12345678@airliquide.com
+        → Update param1/param2 to match your org's domain/prefix.
+    -->
+    <values>
+        <field>Strategy_Class_Name__c</field>
+        <value xsi:type="xsd:string">AnonymizeEmailGeneric</value>
+    </values>
+    <values>
+        <field>Strategy_Param_1__c</field>
+        <value xsi:type="xsd:string">airliquide.com</value>
+    </values>
+    <values>
+        <field>Strategy_Param_2__c</field>
+        <value xsi:type="xsd:string">sf_sap</value>
+    </values>
+    <values>
+        <field>Is_Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Execution_Order__c</field>
+        <value xsi:type="xsd:double">60</value>
+    </values>
+</CustomMetadata>

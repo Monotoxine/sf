@@ -1,0 +1,342 @@
+<template>
+    <!-- ── Access denied ──────────────────────────────────────────────────── -->
+    <template lwc:if={isAccessDenied}>
+        <div class="slds-illustration slds-illustration_small slds-m-around_large">
+            <div class="slds-illustration__actions slds-illustration__actions_after">
+                <lightning-icon icon-name="utility:lock" size="large" variant="error"></lightning-icon>
+                <h3 class="slds-text-heading_medium slds-m-top_medium">Access Denied</h3>
+                <p class="slds-text-body_regular slds-m-top_small">
+                    The <strong>Data_Anonymization_Admin</strong> custom permission is required to use this tool.
+                    Contact your Salesforce Administrator.
+                </p>
+            </div>
+        </div>
+    </template>
+
+    <!-- ── Production org hard-block ─────────────────────────────────────── -->
+    <template lwc:elseif={isProductionOrg}>
+        <div class="slds-notify slds-notify_alert slds-theme_error da-prod-block" role="alert">
+            <lightning-icon icon-name="utility:error" variant="inverse" size="small"
+                class="slds-m-right_small"></lightning-icon>
+            <h2 class="slds-text-heading_small">
+                ⛔ PRODUCTION ORG — Data Anonymization is disabled.
+                This tool may only run on sandbox or scratch orgs.
+            </h2>
+        </div>
+    </template>
+
+    <!-- ── Main UI ────────────────────────────────────────────────────────── -->
+    <template lwc:else>
+
+        <!-- Sandbox banner -->
+        <div class="slds-notify slds-notify_alert slds-theme_warning da-sandbox-banner" role="status">
+            <lightning-icon icon-name="utility:warning" size="x-small"
+                class="slds-m-right_x-small"></lightning-icon>
+            <strong>SANDBOX / SCRATCH ORG</strong> — Anonymization is active on this environment.
+        </div>
+
+        <!-- Page header -->
+        <lightning-card title="Data Anonymization Manager" icon-name="utility:shield">
+
+            <div class="slds-var-p-around_medium">
+
+                <!-- ── Step 1: Filters ──────────────────────────────────── -->
+                <div class="slds-section slds-is-open">
+                    <h3 class="slds-section__title slds-theme_shade da-section-header">
+                        <span class="slds-truncate slds-p-horizontal_small">Step 1 — Select Scope</span>
+                    </h3>
+                    <div class="slds-section__content slds-var-p-top_small">
+
+                        <div class="slds-grid slds-wrap slds-gutters">
+
+                            <!-- Brand / Subsidiary filter -->
+                            <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                                <template lwc:if={hasBrandOptions}>
+                                    <lightning-combobox
+                                        label="Brand / Subsidiary"
+                                        placeholder="— All brands —"
+                                        value={selectedBrand}
+                                        options={brandOptions}
+                                        onchange={handleBrandChange}>
+                                    </lightning-combobox>
+                                </template>
+                                <template lwc:else>
+                                    <lightning-input
+                                        label="Brand / Subsidiary (free text)"
+                                        placeholder="Leave empty for all brands"
+                                        value={selectedBrand}
+                                        onchange={handleBrandChange}>
+                                    </lightning-input>
+                                </template>
+                            </div>
+
+                            <!-- Object multi-select -->
+                            <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                                <div class="slds-form-element">
+                                    <label class="slds-form-element__label">Objects to Anonymize</label>
+                                    <div class="slds-form-element__control da-scrollbox">
+                                        <template for:each={objectOptions} for:item="opt">
+                                            <div key={opt.value} class="slds-checkbox">
+                                                <input type="checkbox"
+                                                    id={opt.checkboxId}
+                                                    value={opt.value}
+                                                    checked={opt.checked}
+                                                    onchange={handleObjectToggle} />
+                                                <label class="slds-checkbox__label" for={opt.checkboxId}>
+                                                    <span class="slds-checkbox_faux"></span>
+                                                    <span class="slds-form-element__label">{opt.label}</span>
+                                                </label>
+                                            </div>
+                                        </template>
+                                        <template lwc:if={isLoadingObjects}>
+                                            <lightning-spinner size="small" variant="brand"></lightning-spinner>
+                                        </template>
+                                        <template lwc:if={noObjectsAvailable}>
+                                            <p class="slds-text-color_weak slds-text-body_small">
+                                                No active object configs found. Add records to Anon_Object_Config__mdt.
+                                            </p>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Field multi-select (filtered by selected objects) -->
+                            <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                                <div class="slds-form-element">
+                                    <label class="slds-form-element__label">
+                                        Fields
+                                        <span class="slds-text-color_weak"> (select objects first)</span>
+                                    </label>
+                                    <div class="slds-form-element__control da-scrollbox">
+                                        <template for:each={fieldOptions} for:item="opt">
+                                            <div key={opt.value} class="slds-checkbox">
+                                                <input type="checkbox"
+                                                    id={opt.checkboxId}
+                                                    value={opt.value}
+                                                    checked={opt.checked}
+                                                    onchange={handleFieldToggle} />
+                                                <label class="slds-checkbox__label" for={opt.checkboxId}>
+                                                    <span class="slds-checkbox_faux"></span>
+                                                    <span class="slds-form-element__label da-field-label">
+                                                        <span class="da-field-name">{opt.fieldLabel}</span>
+                                                        <lightning-badge
+                                                            label={opt.fieldType}
+                                                            class="da-badge">
+                                                        </lightning-badge>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                        </template>
+                                        <template lwc:if={noFieldsAvailable}>
+                                            <p class="slds-text-color_weak slds-text-body_small">
+                                                Select at least one object to see its fields.
+                                            </p>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div><!-- /grid -->
+
+                        <!-- Filter actions -->
+                        <div class="slds-var-m-top_medium">
+                            <lightning-button
+                                label="Preview Scope"
+                                icon-name="utility:preview"
+                                onclick={handlePreview}
+                                disabled={isPreviewDisabled}
+                                variant="neutral">
+                            </lightning-button>
+                            <lightning-button
+                                label="Select All Fields"
+                                onclick={handleSelectAllFields}
+                                variant="base"
+                                class="slds-m-left_small">
+                            </lightning-button>
+                        </div>
+
+                    </div>
+                </div><!-- /Step 1 -->
+
+                <!-- ── Step 2: Preview ──────────────────────────────────── -->
+                <template lwc:if={showPreview}>
+                    <div class="slds-section slds-is-open slds-var-m-top_large">
+                        <h3 class="slds-section__title slds-theme_shade da-section-header">
+                            <span class="slds-truncate slds-p-horizontal_small">
+                                Step 2 — Preview
+                                <template lwc:if={isLoadingPreview}>
+                                    <lightning-spinner size="x-small" variant="brand"
+                                        class="slds-m-left_small"></lightning-spinner>
+                                </template>
+                            </span>
+                        </h3>
+                        <div class="slds-section__content">
+                            <lightning-datatable
+                                key-field="objectConfigName"
+                                data={previewData}
+                                columns={previewColumns}
+                                hide-checkbox-column>
+                            </lightning-datatable>
+
+                            <template lwc:if={previewTotalRecords}>
+                                <div class="slds-var-m-top_small slds-text-body_regular">
+                                    <strong>Total records to anonymize: </strong>
+                                    <span class="slds-badge slds-badge_inverse">{previewTotalRecords}</span>
+                                    across
+                                    <span class="slds-badge slds-badge_inverse">{selectedObjectCount}</span>
+                                    object(s) and
+                                    <span class="slds-badge slds-badge_inverse">{selectedFieldCount}</span>
+                                    field(s).
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- ── Step 3: Launch ───────────────────────────────── -->
+                    <div class="slds-section slds-is-open slds-var-m-top_large">
+                        <h3 class="slds-section__title slds-theme_shade da-section-header">
+                            <span class="slds-truncate slds-p-horizontal_small">Step 3 — Launch</span>
+                        </h3>
+                        <div class="slds-section__content slds-var-p-top_small">
+
+                            <template lwc:if={isRunning}>
+                                <div class="slds-notify slds-notify_toast slds-theme_success da-toast"
+                                    role="status">
+                                    <lightning-spinner size="small" variant="inverse"
+                                        class="slds-m-right_small"></lightning-spinner>
+                                    <strong>Anonymization in progress</strong> — Run Group ID:
+                                    <code>{currentRunGroupId}</code>
+                                    <lightning-button
+                                        label="Refresh Status"
+                                        icon-name="utility:refresh"
+                                        onclick={handleRefreshStatus}
+                                        variant="inverse"
+                                        size="small"
+                                        class="slds-m-left_medium">
+                                    </lightning-button>
+                                </div>
+                            </template>
+
+                            <template lwc:else>
+                                <lightning-button
+                                    label="Launch Anonymization"
+                                    icon-name="utility:play"
+                                    onclick={handleLaunchConfirmOpen}
+                                    variant="destructive"
+                                    disabled={isLaunchDisabled}>
+                                </lightning-button>
+                                <p class="slds-text-body_small slds-text-color_weak slds-var-m-top_x-small">
+                                    This action is irreversible. Ensure you are on a sandbox or scratch org.
+                                    All selected records will be anonymized immediately.
+                                </p>
+                            </template>
+
+                        </div>
+                    </div>
+                </template>
+
+                <!-- ── Confirmation modal ──────────────────────────────── -->
+                <template lwc:if={showConfirmModal}>
+                    <section role="dialog" tabindex="-1" aria-modal="true"
+                        aria-labelledby="confirmModalTitle"
+                        class="slds-modal slds-fade-in-open">
+                        <div class="slds-modal__container">
+                            <header class="slds-modal__header slds-theme_error">
+                                <lightning-icon icon-name="utility:warning" variant="inverse"
+                                    size="small" class="slds-m-right_small"></lightning-icon>
+                                <h2 id="confirmModalTitle" class="slds-modal__title">
+                                    Confirm Data Anonymization
+                                </h2>
+                            </header>
+                            <div class="slds-modal__content slds-var-p-around_medium">
+                                <p>You are about to <strong>permanently anonymize</strong> data on:</p>
+                                <ul class="slds-list_dotted slds-var-m-top_small">
+                                    <template for:each={previewData} for:item="entry">
+                                        <li key={entry.objectConfigName}>
+                                            <strong>{entry.objectLabel}</strong>:
+                                            {entry.recordCount} records, {entry.fieldCount} fields
+                                            <template lwc:if={selectedBrand}>
+                                                (Brand: <em>{selectedBrand}</em>)
+                                            </template>
+                                        </li>
+                                    </template>
+                                </ul>
+                                <p class="slds-var-m-top_medium slds-text-color_error">
+                                    <strong>This operation cannot be undone.</strong>
+                                    Confirm you are operating on a sandbox or scratch org.
+                                </p>
+                            </div>
+                            <footer class="slds-modal__footer">
+                                <lightning-button
+                                    label="Cancel"
+                                    onclick={handleLaunchConfirmClose}
+                                    variant="neutral">
+                                </lightning-button>
+                                <lightning-button
+                                    label="Yes, Anonymize Now"
+                                    onclick={handleLaunch}
+                                    variant="destructive"
+                                    class="slds-m-left_small">
+                                </lightning-button>
+                            </footer>
+                        </div>
+                    </section>
+                    <div class="slds-backdrop slds-backdrop_open"></div>
+                </template>
+
+                <!-- ── Run History ─────────────────────────────────────── -->
+                <div class="slds-section slds-is-open slds-var-m-top_large">
+                    <h3 class="slds-section__title slds-theme_shade da-section-header">
+                        <span class="slds-truncate slds-p-horizontal_small">
+                            Recent Anonymization Runs
+                            <lightning-button
+                                label="Refresh"
+                                icon-name="utility:refresh"
+                                onclick={handleRefreshHistory}
+                                variant="base"
+                                size="small"
+                                class="slds-m-left_small">
+                            </lightning-button>
+                        </span>
+                    </h3>
+                    <div class="slds-section__content">
+                        <template lwc:if={isLoadingHistory}>
+                            <lightning-spinner size="small" variant="brand"></lightning-spinner>
+                        </template>
+                        <template lwc:else>
+                            <template lwc:if={hasRunHistory}>
+                                <lightning-datatable
+                                    key-field="Id"
+                                    data={runHistory}
+                                    columns={historyColumns}
+                                    hide-checkbox-column>
+                                </lightning-datatable>
+                            </template>
+                            <template lwc:else>
+                                <p class="slds-text-color_weak slds-text-body_small slds-var-p-around_small">
+                                    No anonymization runs found.
+                                </p>
+                            </template>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- ── Toast notifications ─────────────────────────────── -->
+                <template lwc:if={toastMessage}>
+                    <div class={toastClass} role="status">
+                        <lightning-icon icon-name={toastIcon} size="small"
+                            variant="inverse" class="slds-m-right_small"></lightning-icon>
+                        <p>{toastMessage}</p>
+                        <lightning-button-icon
+                            icon-name="utility:close"
+                            variant="bare-inverse"
+                            onclick={handleDismissToast}
+                            class="slds-notify__close">
+                        </lightning-button-icon>
+                    </div>
+                </template>
+
+            </div><!-- /card body -->
+        </lightning-card>
+    </template>
+</template>

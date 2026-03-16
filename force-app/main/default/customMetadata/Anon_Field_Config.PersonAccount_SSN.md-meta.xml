@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>PersonAccount Social Security Number</label>
+    <protected>false</protected>
+    <values>
+        <field>Object_Config_Name__c</field>
+        <value xsi:type="xsd:string">PersonAccount</value>
+    </values>
+    <values>
+        <field>Field_API_Name__c</field>
+        <value xsi:type="xsd:string">ACCCO_SocialSecurityNumber__pc</value>
+    </values>
+    <values>
+        <field>Field_Label__c</field>
+        <value xsi:type="xsd:string">Social Security Number</value>
+    </values>
+    <values>
+        <field>Field_Type__c</field>
+        <value xsi:type="xsd:string">SSN</value>
+    </values>
+    <!--
+        Strategy: Generate a sequence 1234567891234... matching the country-specific length.
+        param1 = target length as integer string.
+        Update param1 to the required SSN length for your country (e.g. "15" for France, "9" for US).
+    -->
+    <values>
+        <field>Strategy_Class_Name__c</field>
+        <value xsi:type="xsd:string">AnonymizeSequenceNumber</value>
+    </values>
+    <values>
+        <field>Strategy_Param_1__c</field>
+        <value xsi:type="xsd:string">15</value>
+    </values>
+    <values>
+        <field>Is_Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>Execution_Order__c</field>
+        <value xsi:type="xsd:double">80</value>
+    </values>
+</CustomMetadata>
