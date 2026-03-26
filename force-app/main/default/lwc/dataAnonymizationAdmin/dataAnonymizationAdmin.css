@@ -1,0 +1,19 @@
+.slds-badge.slds-theme_success {
+    background-color: #2e844a;
+    color: #fff;
+}
+
+.slds-badge.slds-theme_info {
+    background-color: #0176d3;
+    color: #fff;
+}
+
+.slds-badge.slds-theme_warning {
+    background-color: #dd7a01;
+    color: #fff;
+}
+
+.slds-badge.slds-theme_error {
+    background-color: #ba0517;
+    color: #fff;
+}
