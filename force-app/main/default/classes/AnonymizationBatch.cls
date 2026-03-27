@@ -191,17 +191,28 @@ public class AnonymizationBatch implements Database.Batchable<SObject>, Database
      * Loads Anon_Object_Config__mdt records for a given object + brand.
      */
     private static List<Anon_Object_Config__mdt> loadFieldConfigs(String objectName, String brand) {
-        List<Anon_Object_Config__mdt> configs = [
-            SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
-                   Brand__c, Is_Active__c, Order__c, Batch_Size__c,
-                   Condition_Field__c, Condition_Value__c
-            FROM Anon_Object_Config__mdt
-            WHERE Object_API_Name__c = :objectName
-              AND Is_Active__c = true
-              AND (Brand__c = :brand OR Brand__c = 'ALL' OR Brand__c = null OR Brand__c = '')
-            ORDER BY Order__c ASC NULLS LAST
-        ];
-        return configs;
+        if (String.isBlank(brand)) {
+            return [
+                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
+                       Brand__c, Is_Active__c, Order__c, Batch_Size__c,
+                       Condition_Field__c, Condition_Value__c
+                FROM Anon_Object_Config__mdt
+                WHERE Object_API_Name__c = :objectName
+                  AND Is_Active__c = true
+                ORDER BY Order__c ASC NULLS LAST
+            ];
+        } else {
+            return [
+                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
+                       Brand__c, Is_Active__c, Order__c, Batch_Size__c,
+                       Condition_Field__c, Condition_Value__c
+                FROM Anon_Object_Config__mdt
+                WHERE Object_API_Name__c = :objectName
+                  AND Is_Active__c = true
+                  AND (Brand__c = :brand OR Brand__c = 'ALL')
+                ORDER BY Order__c ASC NULLS LAST
+            ];
+        }
     }
 
     private void updateAuditLog() {

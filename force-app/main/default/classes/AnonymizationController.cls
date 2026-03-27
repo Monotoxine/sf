@@ -33,12 +33,20 @@ public with sharing class AnonymizationController {
     @AuraEnabled(cacheable=true)
     public static List<String> getObjects(String brand) {
         Set<String> objects = new Set<String>();
-        for (Anon_Object_Config__mdt cfg : [
-            SELECT Object_API_Name__c FROM Anon_Object_Config__mdt
-            WHERE Is_Active__c = true
-              AND (Brand__c = :brand OR Brand__c = 'ALL'
-                   OR Brand__c = null OR :brand = null OR :brand = '')
-        ]) {
+        List<Anon_Object_Config__mdt> configs;
+        if (String.isBlank(brand)) {
+            configs = [
+                SELECT Object_API_Name__c FROM Anon_Object_Config__mdt
+                WHERE Is_Active__c = true
+            ];
+        } else {
+            configs = [
+                SELECT Object_API_Name__c FROM Anon_Object_Config__mdt
+                WHERE Is_Active__c = true
+                  AND (Brand__c = :brand OR Brand__c = 'ALL')
+            ];
+        }
+        for (Anon_Object_Config__mdt cfg : configs) {
             if (String.isNotBlank(cfg.Object_API_Name__c)) {
                 objects.add(cfg.Object_API_Name__c);
             }
@@ -53,16 +61,7 @@ public with sharing class AnonymizationController {
      */
     @AuraEnabled(cacheable=true)
     public static List<FieldConfigDTO> getFieldConfigs(String objectApiName, String brand) {
-        List<Anon_Object_Config__mdt> configs = [
-            SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
-                   Brand__c, Is_Active__c, Order__c
-            FROM Anon_Object_Config__mdt
-            WHERE Is_Active__c = true
-              AND (Object_API_Name__c = :objectApiName OR :objectApiName = null OR :objectApiName = '')
-              AND (Brand__c = :brand OR Brand__c = 'ALL'
-                   OR Brand__c = null OR :brand = null OR :brand = '')
-            ORDER BY Object_API_Name__c, Order__c ASC NULLS LAST
-        ];
+        List<Anon_Object_Config__mdt> configs = queryFieldConfigs(objectApiName, brand);
 
         Map<String, Anon_Pattern__mdt> patterns = getPatternMap();
         List<FieldConfigDTO> result = new List<FieldConfigDTO>();
@@ -204,18 +203,71 @@ public with sharing class AnonymizationController {
     }
 
     private static List<Anon_Object_Config__mdt> loadFieldConfigs(String objectName, String brand) {
-        return [
-            SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
-                   Brand__c, Is_Active__c, Order__c, Batch_Size__c,
-                   Condition_Field__c, Condition_Value__c
-            FROM Anon_Object_Config__mdt
-            WHERE Object_API_Name__c = :objectName
-              AND Is_Active__c = true
-              AND (Brand__c = :brand OR Brand__c = 'ALL'
-                   OR Brand__c = null OR Brand__c = ''
-                   OR :brand = null OR :brand = '')
-            ORDER BY Order__c ASC NULLS LAST
-        ];
+        if (String.isBlank(brand)) {
+            return [
+                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
+                       Brand__c, Is_Active__c, Order__c, Batch_Size__c,
+                       Condition_Field__c, Condition_Value__c
+                FROM Anon_Object_Config__mdt
+                WHERE Object_API_Name__c = :objectName
+                  AND Is_Active__c = true
+                ORDER BY Order__c ASC NULLS LAST
+            ];
+        } else {
+            return [
+                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
+                       Brand__c, Is_Active__c, Order__c, Batch_Size__c,
+                       Condition_Field__c, Condition_Value__c
+                FROM Anon_Object_Config__mdt
+                WHERE Object_API_Name__c = :objectName
+                  AND Is_Active__c = true
+                  AND (Brand__c = :brand OR Brand__c = 'ALL')
+                ORDER BY Order__c ASC NULLS LAST
+            ];
+        }
+    }
+
+    private static List<Anon_Object_Config__mdt> queryFieldConfigs(String objectApiName, String brand) {
+        Boolean hasObject = String.isNotBlank(objectApiName);
+        Boolean hasBrand  = String.isNotBlank(brand);
+
+        if (hasObject && hasBrand) {
+            return [
+                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
+                       Brand__c, Is_Active__c, Order__c
+                FROM Anon_Object_Config__mdt
+                WHERE Is_Active__c = true
+                  AND Object_API_Name__c = :objectApiName
+                  AND (Brand__c = :brand OR Brand__c = 'ALL')
+                ORDER BY Object_API_Name__c, Order__c ASC NULLS LAST
+            ];
+        } else if (hasObject) {
+            return [
+                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
+                       Brand__c, Is_Active__c, Order__c
+                FROM Anon_Object_Config__mdt
+                WHERE Is_Active__c = true
+                  AND Object_API_Name__c = :objectApiName
+                ORDER BY Object_API_Name__c, Order__c ASC NULLS LAST
+            ];
+        } else if (hasBrand) {
+            return [
+                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
+                       Brand__c, Is_Active__c, Order__c
+                FROM Anon_Object_Config__mdt
+                WHERE Is_Active__c = true
+                  AND (Brand__c = :brand OR Brand__c = 'ALL')
+                ORDER BY Object_API_Name__c, Order__c ASC NULLS LAST
+            ];
+        } else {
+            return [
+                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
+                       Brand__c, Is_Active__c, Order__c
+                FROM Anon_Object_Config__mdt
+                WHERE Is_Active__c = true
+                ORDER BY Object_API_Name__c, Order__c ASC NULLS LAST
+            ];
+        }
     }
 
     // ─── DTOs ─────────────────────────────────────────────────────────────────
