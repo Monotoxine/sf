@@ -162,23 +162,17 @@
 		<members>Anonymization_Audit_Log__c.Start_Time__c</members>
 		<members>Anonymization_Audit_Log__c.Status__c</members>
 		<members>Anonymization_Audit_Log__c.Triggered_By__c</members>
-		<!-- Anon_Pattern__mdt -->
-		<members>Anon_Pattern__mdt.Base_Email__c</members>
-		<members>Anon_Pattern__mdt.Description__c</members>
-		<members>Anon_Pattern__mdt.External_Id_Field__c</members>
-		<members>Anon_Pattern__mdt.Is_Active__c</members>
-		<members>Anon_Pattern__mdt.Pattern_Type__c</members>
-		<members>Anon_Pattern__mdt.SSN_Length__c</members>
-		<!-- Anon_Object_Config__mdt -->
-		<members>Anon_Object_Config__mdt.Batch_Size__c</members>
-		<members>Anon_Object_Config__mdt.Brand__c</members>
-		<members>Anon_Object_Config__mdt.Condition_Field__c</members>
-		<members>Anon_Object_Config__mdt.Condition_Value__c</members>
-		<members>Anon_Object_Config__mdt.Field_API_Name__c</members>
-		<members>Anon_Object_Config__mdt.Is_Active__c</members>
-		<members>Anon_Object_Config__mdt.Object_API_Name__c</members>
-		<members>Anon_Object_Config__mdt.Order__c</members>
-		<members>Anon_Object_Config__mdt.Pattern_Type__c</members>
+		<!-- TEKCO_AnonymizationPattern__mdt -->
+		<members>TEKCO_AnonymizationPattern__mdt.Base_Email__c</members>
+		<members>TEKCO_AnonymizationPattern__mdt.Description__c</members>
+		<members>TEKCO_AnonymizationPattern__mdt.External_Id_Field__c</members>
+		<members>TEKCO_AnonymizationPattern__mdt.Is_Active__c</members>
+		<members>TEKCO_AnonymizationPattern__mdt.SSN_Length__c</members>
+		<!-- TEKCO_AnonymizationFieldConfig__mdt -->
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Field_API_Name__c</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Is_Active__c</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Object_API_Name__c</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Pattern_Type__c</members>
 		<name>CustomField</name>
 	</types>
 	<types>
@@ -188,8 +182,8 @@
 		<members>LDCT_affiliate__c</members>
 		<members>LDCT_speaker_and_product__c</members>
 		<members>Anonymization_Audit_Log__c</members>
-		<members>Anon_Pattern__mdt</members>
-		<members>Anon_Object_Config__mdt</members>
+		<members>TEKCO_AnonymizationPattern__mdt</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt</members>
 		<name>CustomObject</name>
 	</types>
 	<types>
@@ -217,36 +211,41 @@
 		<name>CustomPermission</name>
 	</types>
 	<types>
-		<members>Anon_Pattern__mdt.ADDRESS_STREET_RANDOM</members>
-		<members>Anon_Pattern__mdt.EMAIL_PLUS_EXTERNALID</members>
-		<members>Anon_Pattern__mdt.KEEP</members>
-		<members>Anon_Pattern__mdt.LOREM_IPSUM</members>
-		<members>Anon_Pattern__mdt.NAME_FIRST_LETTER</members>
-		<members>Anon_Pattern__mdt.PHONE_MASK</members>
-		<members>Anon_Pattern__mdt.SSN_SEQUENTIAL</members>
-		<members>Anon_Object_Config__mdt.Account_ACCCO_Email__c</members>
-		<members>Anon_Object_Config__mdt.Account_ACCCO_SocialSecurityNumber__pc</members>
-		<members>Anon_Object_Config__mdt.Account_ACCES_SecondEmail__c</members>
-		<members>Anon_Object_Config__mdt.Account_ACCMG_RecallEmail__c</members>
-		<members>Anon_Object_Config__mdt.Account_BillingCity</members>
-		<members>Anon_Object_Config__mdt.Account_BillingStreet</members>
-		<members>Anon_Object_Config__mdt.Account_Description</members>
-		<members>Anon_Object_Config__mdt.Account_FUNCA_InvoiceEmail__c</members>
-		<members>Anon_Object_Config__mdt.Account_FirstName</members>
-		<members>Anon_Object_Config__mdt.Account_LastName</members>
-		<members>Anon_Object_Config__mdt.Account_PASCO_OtherPhone1__c</members>
-		<members>Anon_Object_Config__mdt.Account_PASCO_OtherPhone2__c</members>
-		<members>Anon_Object_Config__mdt.Account_PersonEmail</members>
-		<members>Anon_Object_Config__mdt.Account_PersonMailingCity</members>
-		<members>Anon_Object_Config__mdt.Account_PersonMailingStreet</members>
-		<members>Anon_Object_Config__mdt.Account_PersonMobilePhone</members>
-		<members>Anon_Object_Config__mdt.Account_PersonOtherPhone</members>
-		<members>Anon_Object_Config__mdt.Account_Phone</members>
-		<members>Anon_Object_Config__mdt.Account_ShippingCity</members>
-		<members>Anon_Object_Config__mdt.Account_ShippingStreet</members>
-		<members>Anon_Object_Config__mdt.Account_TEKCO_PersonEmail__c</members>
-		<members>Anon_Object_Config__mdt.Account_TEKCO_PersonMobilePhone__c</members>
-		<members>Anon_Object_Config__mdt.Account_TEKCO_PersonOtherPhone__c</members>
+		<!-- TEKCO_AnonymizationPattern__mdt records -->
+		<members>TEKCO_AnonymizationPattern__mdt.ADDRESS_STREET_RANDOM</members>
+		<members>TEKCO_AnonymizationPattern__mdt.DELETE_CONTENT_DOCUMENT</members>
+		<members>TEKCO_AnonymizationPattern__mdt.EMAIL_MESSAGE_LOREM</members>
+		<members>TEKCO_AnonymizationPattern__mdt.EMAIL_PLUS_EXTERNALID</members>
+		<members>TEKCO_AnonymizationPattern__mdt.EMAIL_PLUS_EXTERNALID_SUBDOMAIN</members>
+		<members>TEKCO_AnonymizationPattern__mdt.KEEP</members>
+		<members>TEKCO_AnonymizationPattern__mdt.LOREM_IPSUM</members>
+		<members>TEKCO_AnonymizationPattern__mdt.NAME_FIRST_LETTER</members>
+		<members>TEKCO_AnonymizationPattern__mdt.PHONE_MASK</members>
+		<members>TEKCO_AnonymizationPattern__mdt.SSN_SEQUENTIAL</members>
+		<!-- TEKCO_AnonymizationFieldConfig__mdt records -->
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_ACCCO_Email__c</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_ACCCO_SocialSecurityNumber__pc</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_ACCES_SecondEmail__c</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_ACCMG_RecallEmail__c</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_BillingCity</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_BillingStreet</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_Description</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_FUNCA_InvoiceEmail__c</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_FirstName</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_LastName</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_PASCO_OtherPhone1__c</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_PASCO_OtherPhone2__c</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_PersonEmail</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_PersonMailingCity</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_PersonMailingStreet</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_PersonMobilePhone</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_PersonOtherPhone</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_Phone</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_ShippingCity</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_ShippingStreet</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_TEKCO_PersonEmail__c</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_TEKCO_PersonMobilePhone__c</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_TEKCO_PersonOtherPhone__c</members>
 		<name>CustomMetadata</name>
 	</types>
 	<version>65.0</version>

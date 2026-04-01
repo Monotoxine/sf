@@ -1,19 +1,12 @@
-.slds-badge.slds-theme_success {
-    background-color: #2e844a;
+.badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
     color: #fff;
 }
-
-.slds-badge.slds-theme_info {
-    background-color: #0176d3;
-    color: #fff;
-}
-
-.slds-badge.slds-theme_warning {
-    background-color: #dd7a01;
-    color: #fff;
-}
-
-.slds-badge.slds-theme_error {
-    background-color: #ba0517;
-    color: #fff;
-}
+.badge-success { background-color: #2e844a; }
+.badge-running { background-color: #0176d3; }
+.badge-partial { background-color: #dd7a01; }
+.badge-failed  { background-color: #ba0517; }

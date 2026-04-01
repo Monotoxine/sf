@@ -1,16 +1,18 @@
 /**
  * AnonymizationPatternService
- * Pure static service that applies anonymization patterns to field values.
- * Each method matches a Pattern_Type__c value from Anon_Pattern__mdt.
+ * Applies anonymization patterns defined in TEKCO_AnonymizationPattern__mdt.
  *
- * Patterns supported:
- *   NAME_FIRST_LETTER       - First letter of value + ExternalId
- *   PHONE_MASK              - First 4 chars + zeros to original length
- *   EMAIL_PLUS_EXTERNALID   - base+ExternalId@domain
- *   SSN_SEQUENTIAL          - Sequential digits 1234... to configured length
- *   LOREM_IPSUM             - Fixed lorem ipsum text
- *   ADDRESS_STREET_RANDOM   - Extract street number + add random 1-20
- *   KEEP                    - No change
+ * Pattern types:
+ *   NAME_FIRST_LETTER              - First letter + ExternalId
+ *   PHONE_MASK                     - First 4 chars + zeros
+ *   EMAIL_PLUS_EXTERNALID          - base+ExternalId@domain
+ *   EMAIL_PLUS_EXTERNALID_SUBDOMAIN- base+ExternalId+orgSubdomain@domain
+ *   SSN_SEQUENTIAL                 - Sequential digits to configured length
+ *   LOREM_IPSUM                    - Fixed lorem ipsum text
+ *   KEEP                           - No change
+ *   ADDRESS_STREET_RANDOM          - Street number + random 1-20
+ *   DELETE_CONTENT_DOCUMENT        - Handled by dedicated batch (skip here)
+ *   EMAIL_MESSAGE_LOREM            - Handled by dedicated batch (skip here)
  */
 public class AnonymizationPatternService {
 
@@ -18,22 +20,41 @@ public class AnonymizationPatternService {
         'Lorem ipsum dolor sit amet, consectetur adipiscing elit. ' +
         'Morbi diam diam, vestibulum non aliquam in, dictum quis eros.';
 
+    // Cached org subdomain — computed once per transaction
+    private static String orgSubdomain {
+        get {
+            if (orgSubdomain == null) {
+                try {
+                    String host = URL.getOrgDomainUrl().getHost();
+                    // host is like "mycompany--uat1.sandbox.my.salesforce.com"
+                    orgSubdomain = host.substringBefore('.');
+                } catch (Exception e) {
+                    orgSubdomain = 'sandbox';
+                }
+            }
+            return orgSubdomain;
+        }
+        set;
+    }
+
     /**
-     * Main dispatcher. Routes to the correct pattern method.
+     * Main dispatcher — routes to the correct algorithm.
+     * Returns null for special patterns (DELETE_CONTENT_DOCUMENT, EMAIL_MESSAGE_LOREM)
+     * which are handled by their own batch classes.
      *
-     * @param patternType  Value of Pattern_Type__c on Anon_Pattern__mdt
-     * @param currentValue Current field value as String (null-safe)
-     * @param record       The SObject being processed (to read ExternalId)
-     * @param pattern      The Anon_Pattern__mdt config record
-     * @return             The anonymized value, or null to leave unchanged
+     * @param patternType  DeveloperName of TEKCO_AnonymizationPattern__mdt record
+     * @param currentValue Current field value (String, null-safe)
+     * @param record       SObject being processed (to read ExternalId)
+     * @param pattern      The TEKCO_AnonymizationPattern__mdt config
+     * @return             Anonymized value, or null to skip this field
      */
     public static String applyPattern(
         String patternType,
         String currentValue,
         SObject record,
-        Anon_Pattern__mdt pattern
+        TEKCO_AnonymizationPattern__mdt pattern
     ) {
-        if (patternType == null) return currentValue;
+        if (String.isBlank(patternType)) return currentValue;
 
         switch on patternType {
             when 'NAME_FIRST_LETTER' {
@@ -43,7 +64,10 @@ public class AnonymizationPatternService {
                 return applyPhoneMask(currentValue);
             }
             when 'EMAIL_PLUS_EXTERNALID' {
-                return applyEmailPlusExternalId(currentValue, record, pattern);
+                return applyEmailPlusExternalId(currentValue, record, pattern, false);
+            }
+            when 'EMAIL_PLUS_EXTERNALID_SUBDOMAIN' {
+                return applyEmailPlusExternalId(currentValue, record, pattern, true);
             }
             when 'SSN_SEQUENTIAL' {
                 return applySsnSequential(pattern);
@@ -57,92 +81,85 @@ public class AnonymizationPatternService {
             when 'KEEP' {
                 return currentValue;
             }
+            when 'DELETE_CONTENT_DOCUMENT', 'EMAIL_MESSAGE_LOREM' {
+                return null; // handled by dedicated batches
+            }
             when else {
                 return currentValue;
             }
         }
     }
 
-    // ─── Pattern Implementations ──────────────────────────────────────────────
+    // ── Pattern Implementations ───────────────────────────────────────────────
 
     /**
-     * NAME_FIRST_LETTER
-     * Ex: "Jean" + ExternalId "EXT001" → "JEXT001"
+     * NAME_FIRST_LETTER: first letter of value + ExternalId value
+     * Ex: "Jean" + "EXT001" → "JEXT001"
      */
     private static String applyNameFirstLetter(
         String currentValue,
         SObject record,
-        Anon_Pattern__mdt pattern
+        TEKCO_AnonymizationPattern__mdt pattern
     ) {
         if (String.isBlank(currentValue)) return currentValue;
-
         String firstLetter = currentValue.substring(0, 1).toUpperCase();
-        String externalId = getExternalId(record, pattern);
-        return firstLetter + (String.isBlank(externalId) ? 'ANON' : externalId);
+        String extId = getExternalId(record, pattern);
+        return firstLetter + (String.isBlank(extId) ? 'ANON' : extId);
     }
 
     /**
-     * PHONE_MASK
-     * Keep first 4 chars, replace the rest with zeros.
-     * Ex: "+33123456789" (12 chars) → "+33100000000"
-     * Ex: "+33612345678" (12 chars) → "+33600000000"
+     * PHONE_MASK: keep first 4 chars, replace rest with zeros
+     * Ex: "+33123456789" → "+33100000000"
      */
     private static String applyPhoneMask(String currentValue) {
         if (String.isBlank(currentValue)) return currentValue;
-
         String cleaned = currentValue.trim();
-        Integer totalLength = cleaned.length();
-        if (totalLength <= 4) return cleaned;
-
-        String prefix = cleaned.substring(0, 4);
-        Integer zerosNeeded = totalLength - 4;
-        String zeros = '0'.repeat(zerosNeeded);
-        return prefix + zeros;
+        Integer total = cleaned.length();
+        if (total <= 4) return cleaned;
+        return cleaned.substring(0, 4) + '0'.repeat(total - 4);
     }
 
     /**
-     * EMAIL_PLUS_EXTERNALID
-     * Ex: "sf_sap@airliquide.com" + ExternalId "EXT001"
-     *   → "sf_sap+EXT001@airliquide.com"
-     *
-     * If Base_Email__c is configured, uses that as the base instead of current value.
+     * EMAIL_PLUS_EXTERNALID / EMAIL_PLUS_EXTERNALID_SUBDOMAIN
+     * Ex: "sf_sap@airliquide.com" + "EXT001" → "sf_sap+EXT001@airliquide.com"
+     * With subdomain: "sf_sap+EXT001+myorg--uat1@airliquide.com"
      */
     private static String applyEmailPlusExternalId(
         String currentValue,
         SObject record,
-        Anon_Pattern__mdt pattern
+        TEKCO_AnonymizationPattern__mdt pattern,
+        Boolean appendSubdomain
     ) {
-        String externalId = getExternalId(record, pattern);
-        if (String.isBlank(externalId)) externalId = 'ANON';
+        String extId = getExternalId(record, pattern);
+        if (String.isBlank(extId)) extId = 'ANON';
 
-        // Use Base_Email__c if configured, else derive from current value
         String baseEmail = String.isNotBlank(pattern.Base_Email__c)
             ? pattern.Base_Email__c
             : currentValue;
 
         if (String.isBlank(baseEmail)) return currentValue;
 
-        // Split base email into local and domain parts
-        Integer atIndex = baseEmail.indexOf('@');
-        if (atIndex < 0) return currentValue;
+        Integer atIdx = baseEmail.indexOf('@');
+        if (atIdx < 0) return currentValue;
 
-        String localPart = baseEmail.substring(0, atIndex);
-        String domain = baseEmail.substring(atIndex); // includes @
+        String localPart = baseEmail.substring(0, atIdx);
+        String domain    = baseEmail.substring(atIdx);
 
-        return localPart + '+' + externalId + domain;
+        String alias = appendSubdomain
+            ? localPart + '+' + extId + '+' + orgSubdomain + domain
+            : localPart + '+' + extId + domain;
+
+        return alias;
     }
 
     /**
-     * SSN_SEQUENTIAL
-     * Generates "123456789012..." to SSN_Length__c digits.
-     * Cycles 1-9 then repeats.
+     * SSN_SEQUENTIAL: sequential digits cycling 1-9 to configured length
      * Ex: length 13 → "1234567891234"
      */
-    private static String applySsnSequential(Anon_Pattern__mdt pattern) {
+    private static String applySsnSequential(TEKCO_AnonymizationPattern__mdt pattern) {
         Integer length = (pattern.SSN_Length__c != null)
             ? Integer.valueOf(pattern.SSN_Length__c)
             : 15;
-
         String result = '';
         for (Integer i = 0; i < length; i++) {
             result += String.valueOf(Math.mod(i, 9) + 1);
@@ -151,44 +168,27 @@ public class AnonymizationPatternService {
     }
 
     /**
-     * ADDRESS_STREET_RANDOM
-     * Finds the leading number in the street, adds a random value between 1 and 20.
-     * Ex: "123 Rue de la Paix" → "137 Rue de la Paix" (added 14)
-     * If no number found, returns original value unchanged.
+     * ADDRESS_STREET_RANDOM: extract leading number, add random 1-20
+     * Ex: "123 Rue de la Paix" → "137 Rue de la Paix"
      */
     private static String applyAddressStreetRandom(String currentValue) {
         if (String.isBlank(currentValue)) return currentValue;
-
         String trimmed = currentValue.trim();
-
-        // Extract leading number
         Integer i = 0;
         while (i < trimmed.length() && trimmed.substring(i, i + 1).isNumeric()) {
             i++;
         }
-
-        if (i == 0) return currentValue; // No leading number found
-
+        if (i == 0) return currentValue;
         Integer streetNumber = Integer.valueOf(trimmed.substring(0, i));
         String remainder = trimmed.substring(i);
-
-        // Random between 1 and 20
         Integer randomAdd = Integer.valueOf(Math.random() * 20) + 1;
-        Integer newNumber = streetNumber + randomAdd;
-
-        return String.valueOf(newNumber) + remainder;
+        return String.valueOf(streetNumber + randomAdd) + remainder;
     }
 
-    // ─── Helpers ──────────────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /**
-     * Safely reads the ExternalId from the SObject using the field name
-     * configured in pattern.External_Id_Field__c.
-     */
-    private static String getExternalId(SObject record, Anon_Pattern__mdt pattern) {
-        if (record == null || String.isBlank(pattern.External_Id_Field__c)) {
-            return '';
-        }
+    private static String getExternalId(SObject record, TEKCO_AnonymizationPattern__mdt pattern) {
+        if (record == null || String.isBlank(pattern.External_Id_Field__c)) return '';
         try {
             Object val = record.get(pattern.External_Id_Field__c);
             return val != null ? String.valueOf(val) : '';

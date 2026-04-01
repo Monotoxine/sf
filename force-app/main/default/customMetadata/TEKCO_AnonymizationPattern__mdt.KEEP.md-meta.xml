@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <label>Keep</label>
+    <protected>false</protected>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">No change — keep the original value as-is</value>
+    </values>
+    <values>
+        <field>External_Id_Field__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Base_Email__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>SSN_Length__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>Is_Active__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+</CustomMetadata>

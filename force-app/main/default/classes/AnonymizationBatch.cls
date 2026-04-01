@@ -1,78 +1,78 @@
 /**
  * AnonymizationBatch
- * Batch Apex that anonymizes one Salesforce object at a time.
- * Chains automatically to the next object when done.
+ * Processes one Salesforce object per batch execution.
+ * Chains to the next object on finish().
+ *
+ * Brand filter: added as a dynamic WHERE clause on TEKCO_Brand__c
+ * so only records belonging to the selected brands are anonymized.
  *
  * Double sandbox guard:
- *   1. AnonymizationController checks before enqueuing (LWC entry point)
- *   2. This batch checks again in start() before any DML
- *
- * Governor limit protections:
- *   - Only queries the specific fields needed (no SELECT *)
- *   - Database.update with allOrNone=false for partial success
- *   - Database.Stateful to accumulate counters across chunks
- *   - Configurable batch size (default 200)
+ *   1. AnonymizationController checks before enqueuing
+ *   2. start() checks again before any DML
  */
 public class AnonymizationBatch implements Database.Batchable<SObject>, Database.Stateful {
 
-    // ─── State (preserved across chunks via Database.Stateful) ───────────────
+    // ── State (preserved across chunks) ──────────────────────────────────────
     private String objectApiName;
-    private List<Anon_Object_Config__mdt> fieldConfigs;
-    private Map<String, Anon_Pattern__mdt> patternsByType;
+    private List<TEKCO_AnonymizationFieldConfig__mdt> fieldConfigs;
+    private Map<String, TEKCO_AnonymizationPattern__mdt> patternsByType;
+    private List<String> selectedBrands;
     private Id auditLogId;
-    private Integer batchSize;
+    private List<String> remainingObjects;
 
     private Integer recordsProcessed = 0;
     private Integer recordsFailed    = 0;
     private List<String> errors      = new List<String>();
 
-    // For chaining: ordered list of remaining object names after this one
-    private List<String> remainingObjectNames;
-    private String brandFilter;
+    private static final Integer DEFAULT_BATCH_SIZE = 200;
 
-    // ─── Constructor ─────────────────────────────────────────────────────────
+    // ── Constructor ───────────────────────────────────────────────────────────
 
     public AnonymizationBatch(
         String objectApiName,
-        List<Anon_Object_Config__mdt> fieldConfigs,
-        Map<String, Anon_Pattern__mdt> patternsByType,
+        List<TEKCO_AnonymizationFieldConfig__mdt> fieldConfigs,
+        Map<String, TEKCO_AnonymizationPattern__mdt> patternsByType,
+        List<String> selectedBrands,
         Id auditLogId,
-        List<String> remainingObjectNames,
-        String brandFilter,
-        Integer batchSize
+        List<String> remainingObjects
     ) {
-        this.objectApiName        = objectApiName;
-        this.fieldConfigs         = fieldConfigs;
-        this.patternsByType       = patternsByType;
-        this.auditLogId           = auditLogId;
-        this.remainingObjectNames = remainingObjectNames != null ? remainingObjectNames : new List<String>();
-        this.brandFilter          = brandFilter;
-        this.batchSize            = (batchSize != null && batchSize > 0) ? batchSize : 200;
+        this.objectApiName   = objectApiName;
+        this.fieldConfigs    = fieldConfigs;
+        this.patternsByType  = patternsByType;
+        this.selectedBrands  = selectedBrands != null ? selectedBrands : new List<String>();
+        this.auditLogId      = auditLogId;
+        this.remainingObjects = remainingObjects != null ? remainingObjects : new List<String>();
     }
 
-    // ─── Batchable Interface ──────────────────────────────────────────────────
+    // ── Batchable Interface ───────────────────────────────────────────────────
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
-        // DOUBLE GUARD: abort before any DML if not sandbox
         AnonymizationSandboxGuard.assertIsSandbox();
 
-        // Build field set: always include Id + ExternalId fields used by patterns
+        // Build SELECT field list — only query what is needed
         Set<String> fieldSet = new Set<String>{ 'Id' };
-        for (Anon_Object_Config__mdt cfg : fieldConfigs) {
-            if (cfg.Pattern_Type__c != 'KEEP') {
-                fieldSet.add(cfg.Field_API_Name__c);
+        for (TEKCO_AnonymizationFieldConfig__mdt cfg : fieldConfigs) {
+            String pType = cfg.Pattern_Type__c;
+            // Skip special patterns handled by dedicated batches
+            if (pType == 'DELETE_CONTENT_DOCUMENT' || pType == 'EMAIL_MESSAGE_LOREM' || pType == 'KEEP') {
+                continue;
             }
-            // Also include the ExternalId field if referenced by the pattern
-            Anon_Pattern__mdt pattern = patternsByType.get(cfg.Pattern_Type__c);
+            fieldSet.add(cfg.Field_API_Name__c);
+            TEKCO_AnonymizationPattern__mdt pattern = patternsByType.get(pType);
             if (pattern != null && String.isNotBlank(pattern.External_Id_Field__c)) {
                 fieldSet.add(pattern.External_Id_Field__c);
             }
         }
 
-        String query = 'SELECT ' + String.join(new List<String>(fieldSet), ', ')
-                     + ' FROM ' + objectApiName;
+        String soql = 'SELECT ' + String.join(new List<String>(fieldSet), ', ')
+                    + ' FROM ' + objectApiName;
 
-        return Database.getQueryLocator(query);
+        // Apply brand filter if brands were selected and field exists on object
+        if (!selectedBrands.isEmpty()) {
+            soql += ' WHERE TEKCO_Brand__c IN :selectedBrands';
+        }
+
+        return Database.getQueryLocator(soql);
     }
 
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
@@ -81,22 +81,24 @@ public class AnonymizationBatch implements Database.Batchable<SObject>, Database
         for (SObject record : scope) {
             Boolean modified = false;
 
-            for (Anon_Object_Config__mdt cfg : fieldConfigs) {
-                // Skip KEEP pattern — no change needed
-                if (cfg.Pattern_Type__c == 'KEEP') continue;
+            for (TEKCO_AnonymizationFieldConfig__mdt cfg : fieldConfigs) {
+                String pType = cfg.Pattern_Type__c;
+                if (pType == 'KEEP' || pType == 'DELETE_CONTENT_DOCUMENT' || pType == 'EMAIL_MESSAGE_LOREM') {
+                    continue;
+                }
 
-                Anon_Pattern__mdt pattern = patternsByType.get(cfg.Pattern_Type__c);
+                TEKCO_AnonymizationPattern__mdt pattern = patternsByType.get(pType);
                 if (pattern == null || !pattern.Is_Active__c) continue;
 
-                // Optional condition check (e.g., only for portal users)
-                if (!meetsCondition(record, cfg)) continue;
+                String currentValue;
+                try {
+                    currentValue = (String) record.get(cfg.Field_API_Name__c);
+                } catch (Exception e) {
+                    continue;
+                }
 
-                String currentValue = (String) record.get(cfg.Field_API_Name__c);
                 String newValue = AnonymizationPatternService.applyPattern(
-                    cfg.Pattern_Type__c,
-                    currentValue,
-                    record,
-                    pattern
+                    pType, currentValue, record, pattern
                 );
 
                 if (newValue != null && newValue != currentValue) {
@@ -105,144 +107,77 @@ public class AnonymizationBatch implements Database.Batchable<SObject>, Database
                 }
             }
 
-            if (modified) {
-                toUpdate.add(record);
-            }
+            if (modified) toUpdate.add(record);
         }
 
         if (toUpdate.isEmpty()) return;
 
-        // allOrNone = false: partial failures don't roll back the entire chunk
         Database.SaveResult[] results = Database.update(toUpdate, false);
-        for (Database.SaveResult result : results) {
-            if (result.isSuccess()) {
+        for (Database.SaveResult r : results) {
+            if (r.isSuccess()) {
                 recordsProcessed++;
             } else {
                 recordsFailed++;
-                if (errors.size() < 50) { // cap error list to avoid heap issues
+                if (errors.size() < 50) {
                     List<String> msgs = new List<String>();
-                    for (Database.Error err : result.getErrors()) {
+                    for (Database.Error err : r.getErrors()) {
                         msgs.add(err.getMessage());
                     }
-                    errors.add(result.getId() + ': ' + String.join(msgs, '; '));
+                    errors.add(r.getId() + ': ' + String.join(msgs, '; '));
                 }
             }
         }
     }
 
     public void finish(Database.BatchableContext bc) {
-        // Update audit log for this object
-        updateAuditLog();
+        updateAuditLog(false);
 
-        // Chain to next object if any
-        if (!remainingObjectNames.isEmpty()) {
-            String nextObject = remainingObjectNames.remove(0);
-            List<Anon_Object_Config__mdt> nextConfigs = loadFieldConfigs(nextObject, brandFilter);
+        if (!remainingObjects.isEmpty()) {
+            String nextObj = remainingObjects.remove(0);
+            List<TEKCO_AnonymizationFieldConfig__mdt> nextConfigs = loadFieldConfigs(nextObj);
 
             if (!nextConfigs.isEmpty()) {
-                Integer nextBatchSize = Integer.valueOf(nextConfigs[0].Batch_Size__c != null
-                    ? nextConfigs[0].Batch_Size__c : 200);
-
-                AnonymizationBatch nextBatch = new AnonymizationBatch(
-                    nextObject,
-                    nextConfigs,
-                    patternsByType,
-                    auditLogId,
-                    remainingObjectNames,
-                    brandFilter,
-                    nextBatchSize
+                Database.executeBatch(
+                    new AnonymizationBatch(nextObj, nextConfigs, patternsByType, selectedBrands, auditLogId, remainingObjects),
+                    DEFAULT_BATCH_SIZE
                 );
-                Database.executeBatch(nextBatch, nextBatchSize);
             } else {
-                // No config for next object, skip and continue chain
-                new AnonymizationBatch(
-                    nextObject,
-                    new List<Anon_Object_Config__mdt>(),
-                    patternsByType,
-                    auditLogId,
-                    remainingObjectNames,
-                    brandFilter,
-                    200
-                ).finish(null);
+                // No config for this object — skip and continue chain
+                new AnonymizationBatch(nextObj, new List<TEKCO_AnonymizationFieldConfig__mdt>(), patternsByType, selectedBrands, auditLogId, remainingObjects)
+                    .finish(null);
             }
         } else {
-            // All objects processed — mark audit log complete
-            finalizeAuditLog();
+            updateAuditLog(true);
         }
     }
 
-    // ─── Private Helpers ──────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /**
-     * Checks optional condition: if Condition_Field__c is set, the record's
-     * field value must equal Condition_Value__c.
-     */
-    private Boolean meetsCondition(SObject record, Anon_Object_Config__mdt cfg) {
-        if (String.isBlank(cfg.Condition_Field__c)) return true;
-        try {
-            Object fieldVal = record.get(cfg.Condition_Field__c);
-            return String.valueOf(fieldVal) == cfg.Condition_Value__c;
-        } catch (Exception e) {
-            return false;
-        }
+    private static List<TEKCO_AnonymizationFieldConfig__mdt> loadFieldConfigs(String objectName) {
+        return [
+            SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c, Is_Active__c
+            FROM TEKCO_AnonymizationFieldConfig__mdt
+            WHERE Object_API_Name__c = :objectName
+              AND Is_Active__c = true
+        ];
     }
 
-    /**
-     * Loads Anon_Object_Config__mdt records for a given object + brand.
-     */
-    private static List<Anon_Object_Config__mdt> loadFieldConfigs(String objectName, String brand) {
-        if (String.isBlank(brand)) {
-            return [
-                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
-                       Brand__c, Is_Active__c, Order__c, Batch_Size__c,
-                       Condition_Field__c, Condition_Value__c
-                FROM Anon_Object_Config__mdt
-                WHERE Object_API_Name__c = :objectName
-                  AND Is_Active__c = true
-                ORDER BY Order__c ASC NULLS LAST
-            ];
-        } else {
-            return [
-                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
-                       Brand__c, Is_Active__c, Order__c, Batch_Size__c,
-                       Condition_Field__c, Condition_Value__c
-                FROM Anon_Object_Config__mdt
-                WHERE Object_API_Name__c = :objectName
-                  AND Is_Active__c = true
-                  AND (Brand__c = :brand OR Brand__c = 'ALL')
-                ORDER BY Order__c ASC NULLS LAST
-            ];
-        }
-    }
-
-    private void updateAuditLog() {
+    private void updateAuditLog(Boolean isFinal) {
         if (auditLogId == null) return;
         try {
             Anonymization_Audit_Log__c log = new Anonymization_Audit_Log__c(
-                Id               = auditLogId,
+                Id                   = auditLogId,
                 Records_Processed__c = recordsProcessed,
                 Records_Failed__c    = recordsFailed,
-                Status__c            = recordsFailed > 0 ? 'Partial' : 'Running',
+                Status__c            = isFinal
+                    ? (recordsFailed > 0 ? 'Partial' : 'Success')
+                    : 'Running',
+                End_Time__c          = isFinal ? Datetime.now() : null,
                 Error_Message__c     = errors.isEmpty() ? null : String.join(errors, '\n')
             );
             update log;
         } catch (Exception e) {
-            // Log update failure must not break the chain
-        }
-    }
-
-    private void finalizeAuditLog() {
-        if (auditLogId == null) return;
-        try {
-            Anonymization_Audit_Log__c log = new Anonymization_Audit_Log__c(
-                Id               = auditLogId,
-                Status__c        = recordsFailed > 0 ? 'Partial' : 'Success',
-                End_Time__c      = Datetime.now(),
-                Error_Message__c = errors.isEmpty() ? null : String.join(errors, '\n')
-            );
-            update log;
-        } catch (Exception e) {
-            // Silent — audit log failure must not surface as a user error
+            // Silent — audit log failure must not break the chain
         }
     }
 }

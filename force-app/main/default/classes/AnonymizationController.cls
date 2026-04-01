@@ -2,51 +2,54 @@
  * AnonymizationController
  * @AuraEnabled controller for the dataAnonymizationAdmin LWC.
  *
- * Permission guard: all write methods check the "Anonymize_Data" custom permission.
- * Sandbox guard: called before any batch is started.
+ * Brands: read directly from the TEKCO_Brand__c picklist on Account via Schema describe.
+ * Objects: derived from active TEKCO_AnonymizationFieldConfig__mdt records.
+ * Permission guard: Anonymize_Data custom permission.
+ * Sandbox guard: double-checked at controller + batch level.
  */
 public with sharing class AnonymizationController {
 
-    // ─── Read Methods (cacheable) ─────────────────────────────────────────────
+    // ── Read Methods ─────────────────────────────────────────────────────────
 
     /**
-     * Returns distinct brand values configured in Anon_Object_Config__mdt.
+     * Returns all active picklist values from Account.TEKCO_Brand__c.
+     * No CMT configuration needed — reads directly from the field schema.
      */
     @AuraEnabled(cacheable=true)
     public static List<String> getBrands() {
-        Set<String> brands = new Set<String>();
-        for (Anon_Object_Config__mdt cfg : [
-            SELECT Brand__c FROM Anon_Object_Config__mdt WHERE Is_Active__c = true
-        ]) {
-            if (String.isNotBlank(cfg.Brand__c) && cfg.Brand__c != 'ALL') {
-                brands.add(cfg.Brand__c);
+        List<String> brands = new List<String>();
+        try {
+            Schema.DescribeFieldResult fieldDesc =
+                Schema.SObjectType.Account.fields.getMap()
+                    .get('TEKCO_Brand__c')
+                    .getDescribe();
+
+            for (Schema.PicklistEntry entry : fieldDesc.getPicklistValues()) {
+                if (entry.isActive()) {
+                    brands.add(entry.getValue());
+                }
             }
+        } catch (Exception e) {
+            throw new AuraHandledException(
+                'Could not load Brand picklist. Check that TEKCO_Brand__c exists on Account. Error: ' + e.getMessage()
+            );
         }
-        List<String> result = new List<String>(brands);
-        result.sort();
-        return result;
+        brands.sort();
+        return brands;
     }
 
     /**
-     * Returns distinct object API names for a given brand (or all if blank).
+     * Returns distinct object API names from active TEKCO_AnonymizationFieldConfig__mdt records.
+     * These implicitly define the anonymization scope.
      */
     @AuraEnabled(cacheable=true)
-    public static List<String> getObjects(String brand) {
+    public static List<String> getObjects() {
         Set<String> objects = new Set<String>();
-        List<Anon_Object_Config__mdt> configs;
-        if (String.isBlank(brand)) {
-            configs = [
-                SELECT Object_API_Name__c FROM Anon_Object_Config__mdt
-                WHERE Is_Active__c = true
-            ];
-        } else {
-            configs = [
-                SELECT Object_API_Name__c FROM Anon_Object_Config__mdt
-                WHERE Is_Active__c = true
-                  AND (Brand__c = :brand OR Brand__c = 'ALL')
-            ];
-        }
-        for (Anon_Object_Config__mdt cfg : configs) {
+        for (TEKCO_AnonymizationFieldConfig__mdt cfg : [
+            SELECT Object_API_Name__c
+            FROM TEKCO_AnonymizationFieldConfig__mdt
+            WHERE Is_Active__c = true
+        ]) {
             if (String.isNotBlank(cfg.Object_API_Name__c)) {
                 objects.add(cfg.Object_API_Name__c);
             }
@@ -57,52 +60,66 @@ public with sharing class AnonymizationController {
     }
 
     /**
-     * Returns field configs for a given object + brand, enriched with pattern info.
+     * Returns field configs for a given object, enriched with pattern description.
      */
     @AuraEnabled(cacheable=true)
-    public static List<FieldConfigDTO> getFieldConfigs(String objectApiName, String brand) {
-        List<Anon_Object_Config__mdt> configs = queryFieldConfigs(objectApiName, brand);
+    public static List<FieldConfigDTO> getFieldConfigs(String objectApiName) {
+        List<TEKCO_AnonymizationFieldConfig__mdt> configs;
+        if (String.isBlank(objectApiName)) {
+            configs = [
+                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c, Is_Active__c
+                FROM TEKCO_AnonymizationFieldConfig__mdt
+                WHERE Is_Active__c = true
+                ORDER BY Object_API_Name__c, Field_API_Name__c
+            ];
+        } else {
+            configs = [
+                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c, Is_Active__c
+                FROM TEKCO_AnonymizationFieldConfig__mdt
+                WHERE Is_Active__c = true
+                  AND Object_API_Name__c = :objectApiName
+                ORDER BY Field_API_Name__c
+            ];
+        }
 
-        Map<String, Anon_Pattern__mdt> patterns = getPatternMap();
+        Map<String, TEKCO_AnonymizationPattern__mdt> patterns = getPatternMap();
         List<FieldConfigDTO> result = new List<FieldConfigDTO>();
 
-        for (Anon_Object_Config__mdt cfg : configs) {
+        for (TEKCO_AnonymizationFieldConfig__mdt cfg : configs) {
             FieldConfigDTO dto = new FieldConfigDTO();
-            dto.objectApiName  = cfg.Object_API_Name__c;
-            dto.fieldApiName   = cfg.Field_API_Name__c;
-            dto.patternType    = cfg.Pattern_Type__c;
-            dto.brand          = cfg.Brand__c;
-
-            Anon_Pattern__mdt pattern = patterns.get(cfg.Pattern_Type__c);
+            dto.objectApiName = cfg.Object_API_Name__c;
+            dto.fieldApiName  = cfg.Field_API_Name__c;
+            dto.patternType   = cfg.Pattern_Type__c;
+            TEKCO_AnonymizationPattern__mdt pattern = patterns.get(cfg.Pattern_Type__c);
             dto.patternDescription = (pattern != null && String.isNotBlank(pattern.Description__c))
                 ? pattern.Description__c
                 : cfg.Pattern_Type__c;
-
             result.add(dto);
         }
         return result;
     }
 
     /**
-     * Returns an approximate count of records for a given object.
-     * Used for the "preview" panel in the LWC.
+     * Returns an approximate record count for a given object + brand filter.
+     * selectedBrands empty = no filter applied.
      */
     @AuraEnabled(cacheable=false)
-    public static Integer getRecordCount(String objectApiName) {
+    public static Integer getRecordCount(String objectApiName, List<String> selectedBrands) {
         if (String.isBlank(objectApiName)) return 0;
         try {
-            // Dynamic SOQL count — safe: objectApiName comes from CMT (admin-controlled)
-            List<AggregateResult> result = Database.query(
-                'SELECT COUNT(Id) cnt FROM ' + objectApiName
-            );
+            String soql = 'SELECT COUNT(Id) cnt FROM ' + objectApiName;
+            if (selectedBrands != null && !selectedBrands.isEmpty()) {
+                soql += ' WHERE TEKCO_Brand__c IN :selectedBrands';
+            }
+            List<AggregateResult> result = Database.query(soql);
             return Integer.valueOf(result[0].get('cnt'));
         } catch (Exception e) {
-            return -1; // -1 signals "could not count" in the UI
+            return -1;
         }
     }
 
     /**
-     * Returns the last 20 audit log records, most recent first.
+     * Returns the last 20 audit log records.
      */
     @AuraEnabled(cacheable=false)
     public static List<Anonymization_Audit_Log__c> getAuditLogs() {
@@ -117,166 +134,97 @@ public with sharing class AnonymizationController {
         ];
     }
 
-    // ─── Write Methods ────────────────────────────────────────────────────────
+    // ── Write Methods ─────────────────────────────────────────────────────────
 
     /**
-     * Launches the anonymization batch for the selected objects/brand.
-     * Requires the "Anonymize_Data" custom permission.
-     * Blocks if not a sandbox (double guard).
-     *
-     * @param brand           Brand filter (null = all)
-     * @param objectApiNames  List of objects to process (null/empty = all configured)
-     * @return                The Anonymization_Audit_Log__c Id
+     * Launches the anonymization batch.
+     * @param selectedBrands  Brand values to filter records (empty = all brands)
+     * @param selectedObjects Object API names to process (empty = all configured)
+     * @return                Anonymization_Audit_Log__c Id
      */
     @AuraEnabled
-    public static Id startAnonymization(String brand, List<String> objectApiNames) {
-        // 1. Permission check
+    public static Id startAnonymization(List<String> selectedBrands, List<String> selectedObjects) {
         if (!FeatureManagement.checkPermission('Anonymize_Data')) {
             throw new AuraHandledException(
-                'Permission denied: you need the "Anonymize Data" custom permission.'
+                'Permission denied: the "Anonymize Data" custom permission is required.'
             );
         }
 
-        // 2. Sandbox check (first guard — controller level)
         AnonymizationSandboxGuard.assertIsSandbox();
 
-        // 3. Resolve object list from CMT if not specified
-        if (objectApiNames == null || objectApiNames.isEmpty()) {
-            objectApiNames = getObjects(brand);
+        if (selectedObjects == null || selectedObjects.isEmpty()) {
+            selectedObjects = getObjects();
         }
-        if (objectApiNames.isEmpty()) {
-            throw new AuraHandledException('No active anonymization config found for the selected filters.');
+        if (selectedObjects.isEmpty()) {
+            throw new AuraHandledException('No active field configurations found. Check TEKCO_AnonymizationFieldConfig__mdt records.');
         }
 
-        // 4. Load all patterns once (shared across all batches in the chain)
-        Map<String, Anon_Pattern__mdt> patternsByType = getPatternMap();
+        Map<String, TEKCO_AnonymizationPattern__mdt> patternsByType = getPatternMap();
 
-        // 5. Create the audit log record
+        String brandLabel = (selectedBrands == null || selectedBrands.isEmpty())
+            ? 'ALL'
+            : String.join(selectedBrands, ', ');
+
         Anonymization_Audit_Log__c auditLog = new Anonymization_Audit_Log__c(
-            Triggered_By__c  = UserInfo.getUserId(),
-            Brand_Filter__c  = String.isNotBlank(brand) ? brand : 'ALL',
-            Object_API_Name__c = String.join(objectApiNames, ', '),
-            Status__c        = 'Running',
-            Start_Time__c    = Datetime.now()
+            Triggered_By__c    = UserInfo.getUserId(),
+            Brand_Filter__c    = brandLabel,
+            Object_API_Name__c = String.join(selectedObjects, ', '),
+            Status__c          = 'Running',
+            Start_Time__c      = Datetime.now()
         );
         insert auditLog;
 
-        // 6. Build chained object list and start first batch
-        String firstObject = objectApiNames.remove(0); // mutates list → becomes "remaining"
-        List<Anon_Object_Config__mdt> firstConfigs = loadFieldConfigs(firstObject, brand);
-        Integer firstBatchSize = (firstConfigs.isEmpty() || firstConfigs[0].Batch_Size__c == null)
-            ? 200
-            : Integer.valueOf(firstConfigs[0].Batch_Size__c);
+        String firstObject = selectedObjects.remove(0);
+        List<TEKCO_AnonymizationFieldConfig__mdt> firstConfigs = loadFieldConfigs(firstObject);
 
-        AnonymizationBatch batch = new AnonymizationBatch(
-            firstObject,
-            firstConfigs,
-            patternsByType,
-            auditLog.Id,
-            objectApiNames, // remaining objects
-            brand,
-            firstBatchSize
+        Id jobId = Database.executeBatch(
+            new AnonymizationBatch(
+                firstObject,
+                firstConfigs,
+                patternsByType,
+                selectedBrands,
+                auditLog.Id,
+                selectedObjects
+            ),
+            200
         );
 
-        Id jobId = Database.executeBatch(batch, firstBatchSize);
-
-        // 7. Store job ID on audit log
         auditLog.Job_Id__c = String.valueOf(jobId);
         update auditLog;
 
         return auditLog.Id;
     }
 
-    // ─── Internal Helpers ─────────────────────────────────────────────────────
+    // ── Internal Helpers ──────────────────────────────────────────────────────
 
-    private static Map<String, Anon_Pattern__mdt> getPatternMap() {
-        Map<String, Anon_Pattern__mdt> result = new Map<String, Anon_Pattern__mdt>();
-        for (Anon_Pattern__mdt p : [
-            SELECT Pattern_Type__c, Base_Email__c, External_Id_Field__c,
-                   SSN_Length__c, Is_Active__c, Description__c
-            FROM Anon_Pattern__mdt
+    private static Map<String, TEKCO_AnonymizationPattern__mdt> getPatternMap() {
+        Map<String, TEKCO_AnonymizationPattern__mdt> result = new Map<String, TEKCO_AnonymizationPattern__mdt>();
+        for (TEKCO_AnonymizationPattern__mdt p : [
+            SELECT DeveloperName, Description__c, Base_Email__c,
+                   External_Id_Field__c, SSN_Length__c, Is_Active__c
+            FROM TEKCO_AnonymizationPattern__mdt
             WHERE Is_Active__c = true
         ]) {
-            result.put(p.Pattern_Type__c, p);
+            result.put(p.DeveloperName, p);
         }
         return result;
     }
 
-    private static List<Anon_Object_Config__mdt> loadFieldConfigs(String objectName, String brand) {
-        if (String.isBlank(brand)) {
-            return [
-                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
-                       Brand__c, Is_Active__c, Order__c, Batch_Size__c,
-                       Condition_Field__c, Condition_Value__c
-                FROM Anon_Object_Config__mdt
-                WHERE Object_API_Name__c = :objectName
-                  AND Is_Active__c = true
-                ORDER BY Order__c ASC NULLS LAST
-            ];
-        } else {
-            return [
-                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
-                       Brand__c, Is_Active__c, Order__c, Batch_Size__c,
-                       Condition_Field__c, Condition_Value__c
-                FROM Anon_Object_Config__mdt
-                WHERE Object_API_Name__c = :objectName
-                  AND Is_Active__c = true
-                  AND (Brand__c = :brand OR Brand__c = 'ALL')
-                ORDER BY Order__c ASC NULLS LAST
-            ];
-        }
+    private static List<TEKCO_AnonymizationFieldConfig__mdt> loadFieldConfigs(String objectName) {
+        return [
+            SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c, Is_Active__c
+            FROM TEKCO_AnonymizationFieldConfig__mdt
+            WHERE Object_API_Name__c = :objectName
+              AND Is_Active__c = true
+        ];
     }
 
-    private static List<Anon_Object_Config__mdt> queryFieldConfigs(String objectApiName, String brand) {
-        Boolean hasObject = String.isNotBlank(objectApiName);
-        Boolean hasBrand  = String.isNotBlank(brand);
-
-        if (hasObject && hasBrand) {
-            return [
-                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
-                       Brand__c, Is_Active__c, Order__c
-                FROM Anon_Object_Config__mdt
-                WHERE Is_Active__c = true
-                  AND Object_API_Name__c = :objectApiName
-                  AND (Brand__c = :brand OR Brand__c = 'ALL')
-                ORDER BY Object_API_Name__c, Order__c ASC NULLS LAST
-            ];
-        } else if (hasObject) {
-            return [
-                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
-                       Brand__c, Is_Active__c, Order__c
-                FROM Anon_Object_Config__mdt
-                WHERE Is_Active__c = true
-                  AND Object_API_Name__c = :objectApiName
-                ORDER BY Object_API_Name__c, Order__c ASC NULLS LAST
-            ];
-        } else if (hasBrand) {
-            return [
-                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
-                       Brand__c, Is_Active__c, Order__c
-                FROM Anon_Object_Config__mdt
-                WHERE Is_Active__c = true
-                  AND (Brand__c = :brand OR Brand__c = 'ALL')
-                ORDER BY Object_API_Name__c, Order__c ASC NULLS LAST
-            ];
-        } else {
-            return [
-                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
-                       Brand__c, Is_Active__c, Order__c
-                FROM Anon_Object_Config__mdt
-                WHERE Is_Active__c = true
-                ORDER BY Object_API_Name__c, Order__c ASC NULLS LAST
-            ];
-        }
-    }
-
-    // ─── DTOs ─────────────────────────────────────────────────────────────────
+    // ── DTOs ──────────────────────────────────────────────────────────────────
 
     public class FieldConfigDTO {
         @AuraEnabled public String objectApiName;
         @AuraEnabled public String fieldApiName;
         @AuraEnabled public String patternType;
         @AuraEnabled public String patternDescription;
-        @AuraEnabled public String brand;
     }
 }

@@ -4,7 +4,6 @@
         <!-- Permission warning -->
         <template if:true={permissionWarning}>
             <div class="slds-notify slds-notify_alert slds-theme_error slds-m-around_medium" role="alert">
-                <span class="slds-assistive-text">Error</span>
                 <lightning-icon icon-name="utility:error" size="small" class="slds-m-right_x-small"></lightning-icon>
                 {permissionWarning}
             </div>
@@ -12,75 +11,105 @@
 
         <div class="slds-p-around_medium">
 
-            <!-- ─── Filters ──────────────────────────────────────────────── -->
-            <div class="slds-grid slds-gutters slds-m-bottom_medium">
-                <div class="slds-col slds-size_1-of-3">
-                    <lightning-combobox
-                        label="Brand"
-                        placeholder="-- All Brands --"
-                        options={brandOptions}
-                        value={selectedBrand}
-                        onchange={handleBrandChange}>
-                    </lightning-combobox>
+            <!-- ── Filters ──────────────────────────────────────────────── -->
+            <div class="slds-grid slds-gutters slds-m-bottom_medium slds-wrap">
+
+                <!-- Brand multi-select -->
+                <div class="slds-col slds-size_1-of-2">
+                    <div class="slds-form-element">
+                        <div class="slds-grid slds-grid_align-spread">
+                            <label class="slds-form-element__label">Brands</label>
+                            <lightning-button
+                                label="Select All"
+                                variant="base"
+                                class="slds-m-bottom_xx-small"
+                                onclick={handleSelectAllBrands}>
+                            </lightning-button>
+                        </div>
+                        <lightning-dual-listbox
+                            name="brands"
+                            source-label="Available"
+                            selected-label="Selected"
+                            options={brandOptions}
+                            value={selectedBrands}
+                            onchange={handleBrandChange}
+                            size="5">
+                        </lightning-dual-listbox>
+                    </div>
                 </div>
-                <div class="slds-col slds-size_1-of-3">
-                    <lightning-combobox
-                        label="Object"
-                        placeholder="-- All Objects --"
-                        options={objectOptions}
-                        value={selectedObject}
-                        onchange={handleObjectChange}>
-                    </lightning-combobox>
-                </div>
-                <div class="slds-col slds-size_1-of-3 slds-align-bottom">
-                    <lightning-button
-                        label="Preview"
-                        icon-name="utility:preview"
-                        onclick={handlePreview}
-                        class="slds-m-right_small">
-                    </lightning-button>
+
+                <!-- Object multi-select -->
+                <div class="slds-col slds-size_1-of-2">
+                    <div class="slds-form-element">
+                        <div class="slds-grid slds-grid_align-spread">
+                            <label class="slds-form-element__label">Objects</label>
+                            <lightning-button
+                                label="Select All"
+                                variant="base"
+                                class="slds-m-bottom_xx-small"
+                                onclick={handleSelectAllObjects}>
+                            </lightning-button>
+                        </div>
+                        <lightning-dual-listbox
+                            name="objects"
+                            source-label="Available"
+                            selected-label="Selected"
+                            options={objectOptions}
+                            value={selectedObjects}
+                            onchange={handleObjectChange}
+                            size="5">
+                        </lightning-dual-listbox>
+                    </div>
                 </div>
             </div>
 
-            <!-- ─── Preview Panel ────────────────────────────────────────── -->
+            <!-- Preview button -->
+            <div class="slds-m-bottom_medium">
+                <lightning-button
+                    label="Preview Scope"
+                    icon-name="utility:preview"
+                    onclick={handlePreview}>
+                </lightning-button>
+            </div>
+
+            <!-- ── Preview panel ─────────────────────────────────────────── -->
             <template if:true={isLoadingPreview}>
                 <lightning-spinner alternative-text="Loading preview..." size="small"></lightning-spinner>
             </template>
 
             <template if:true={hasPreview}>
                 <div class="slds-box slds-theme_shade slds-m-bottom_medium">
-                    <h3 class="slds-text-heading_small slds-m-bottom_small">Anonymization Scope Preview</h3>
+                    <h3 class="slds-text-heading_small slds-m-bottom_small">Scope Preview</h3>
                     <template for:each={previewByObject} for:item="obj">
-                        <div key={obj.objectApiName} class="slds-grid slds-gutters slds-m-bottom_x-small">
+                        <div key={obj.objectApiName} class="slds-grid slds-m-bottom_xx-small">
                             <div class="slds-col slds-size_1-of-3">
                                 <strong>{obj.objectApiName}</strong>
                             </div>
-                            <div class="slds-col slds-size_2-of-3">
-                                <span class="slds-badge">{obj.count} records</span>
-                                <span class="slds-m-left_x-small slds-text-color_weak">{obj.countLabel}</span>
+                            <div class="slds-col">
+                                <span class="slds-badge">{obj.countLabel}</span>
                             </div>
                         </div>
                     </template>
                 </div>
             </template>
 
-            <!-- ─── Field Config Table ───────────────────────────────────── -->
+            <!-- ── Field config table ────────────────────────────────────── -->
             <template if:true={isLoading}>
-                <lightning-spinner alternative-text="Loading field configs..." size="small"></lightning-spinner>
+                <lightning-spinner alternative-text="Loading..." size="small"></lightning-spinner>
             </template>
 
             <template if:true={hasFieldConfigs}>
                 <div class="slds-m-bottom_medium">
-                    <h3 class="slds-text-heading_small slds-m-bottom_small">Fields to be Anonymized</h3>
+                    <h3 class="slds-text-heading_small slds-m-bottom_small">Fields to Anonymize</h3>
                     <template for:each={fieldConfigsByObject} for:item="group">
                         <div key={group.objectApiName} class="slds-m-bottom_small">
-                            <div class="slds-text-title_caps slds-m-bottom_xx-small">{group.objectApiName}</div>
+                            <p class="slds-text-title_caps slds-m-bottom_xx-small">{group.objectApiName}</p>
                             <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_col-bordered">
                                 <thead>
                                     <tr class="slds-line-height_reset">
-                                        <th scope="col"><div class="slds-truncate">Field</div></th>
-                                        <th scope="col"><div class="slds-truncate">Pattern Type</div></th>
-                                        <th scope="col"><div class="slds-truncate">Description</div></th>
+                                        <th><div class="slds-truncate">Field</div></th>
+                                        <th><div class="slds-truncate">Pattern</div></th>
+                                        <th><div class="slds-truncate">Description</div></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -100,7 +129,7 @@
                 </div>
             </template>
 
-            <!-- ─── Error Message ────────────────────────────────────────── -->
+            <!-- ── Error ─────────────────────────────────────────────────── -->
             <template if:true={errorMessage}>
                 <div class="slds-notify slds-notify_alert slds-theme_error slds-m-bottom_medium" role="alert">
                     <lightning-icon icon-name="utility:error" size="small" class="slds-m-right_x-small"></lightning-icon>
@@ -108,13 +137,13 @@
                 </div>
             </template>
 
-            <!-- ─── Launch Button ────────────────────────────────────────── -->
+            <!-- ── Launch button ─────────────────────────────────────────── -->
             <div class="slds-m-bottom_large">
                 <lightning-button
-                    label={startButtonLabel}
+                    label={startLabel}
                     variant="destructive"
                     icon-name="utility:shield"
-                    disabled={startButtonDisabled}
+                    disabled={startDisabled}
                     onclick={handleStart}>
                 </lightning-button>
                 <template if:true={isRunning}>
@@ -122,33 +151,29 @@
                 </template>
             </div>
 
-            <!-- ─── Audit Log ─────────────────────────────────────────────── -->
+            <!-- ── Audit log ─────────────────────────────────────────────── -->
             <div class="slds-m-top_large">
-                <div class="slds-grid slds-gutters slds-m-bottom_small">
-                    <div class="slds-col">
-                        <h3 class="slds-text-heading_small">Recent Anonymization Runs</h3>
-                    </div>
-                    <div class="slds-col slds-no-flex">
-                        <lightning-button-icon
-                            icon-name="utility:refresh"
-                            alternative-text="Refresh logs"
-                            onclick={handleRefreshLogs}>
-                        </lightning-button-icon>
-                    </div>
+                <div class="slds-grid slds-grid_align-spread slds-m-bottom_small">
+                    <h3 class="slds-text-heading_small">Recent Runs</h3>
+                    <lightning-button-icon
+                        icon-name="utility:refresh"
+                        alternative-text="Refresh"
+                        onclick={handleRefreshLogs}>
+                    </lightning-button-icon>
                 </div>
 
                 <template if:true={hasAuditLogs}>
                     <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_col-bordered">
                         <thead>
                             <tr class="slds-line-height_reset">
-                                <th scope="col"><div class="slds-truncate">Log #</div></th>
-                                <th scope="col"><div class="slds-truncate">Object(s)</div></th>
-                                <th scope="col"><div class="slds-truncate">Brand</div></th>
-                                <th scope="col"><div class="slds-truncate">Status</div></th>
-                                <th scope="col"><div class="slds-truncate">Processed</div></th>
-                                <th scope="col"><div class="slds-truncate">Failed</div></th>
-                                <th scope="col"><div class="slds-truncate">Triggered By</div></th>
-                                <th scope="col"><div class="slds-truncate">Started</div></th>
+                                <th><div class="slds-truncate">Log #</div></th>
+                                <th><div class="slds-truncate">Object(s)</div></th>
+                                <th><div class="slds-truncate">Brands</div></th>
+                                <th><div class="slds-truncate">Status</div></th>
+                                <th><div class="slds-truncate">Processed</div></th>
+                                <th><div class="slds-truncate">Failed</div></th>
+                                <th><div class="slds-truncate">By</div></th>
+                                <th><div class="slds-truncate">Started</div></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -157,21 +182,18 @@
                                     <td><div class="slds-truncate">{log.Name}</div></td>
                                     <td><div class="slds-truncate">{log.Object_API_Name__c}</div></td>
                                     <td><div class="slds-truncate">{log.Brand_Filter__c}</div></td>
-                                    <td><div class="slds-truncate">
-                                        <span class={log.statusClass}>{log.Status__c}</span>
-                                    </div></td>
+                                    <td><span class={log.statusClass}>{log.Status__c}</span></td>
                                     <td><div class="slds-truncate">{log.Records_Processed__c}</div></td>
                                     <td><div class="slds-truncate">{log.Records_Failed__c}</div></td>
                                     <td><div class="slds-truncate">{log.Triggered_By__r.Name}</div></td>
-                                    <td><div class="slds-truncate">{log.startTimeFormatted}</div></td>
+                                    <td><div class="slds-truncate">{log.startFormatted}</div></td>
                                 </tr>
                             </template>
                         </tbody>
                     </table>
                 </template>
-
                 <template if:false={hasAuditLogs}>
-                    <p class="slds-text-color_weak slds-m-top_small">No anonymization runs yet.</p>
+                    <p class="slds-text-color_weak slds-m-top_small">No runs yet.</p>
                 </template>
             </div>
 
