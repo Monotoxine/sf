@@ -3,6 +3,6 @@
     <fullName>Description__c</fullName>
     <fieldManageability>DeveloperControlled</fieldManageability>
     <label>Description</label>
-    <length>1000</length>
+    <length>255</length>
     <type>Text</type>
 </CustomField>

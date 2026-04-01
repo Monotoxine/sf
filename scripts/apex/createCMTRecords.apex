@@ -1,118 +1,198 @@
 /**
  * createCMTRecords.apex
  *
- * Creates / updates all TEKCO_AnonymizationPattern__mdt and
- * TEKCO_AnonymizationFieldConfig__mdt records via direct DML upsert.
+ * Creates all TEKCO_AnonymizationPattern__mdt and TEKCO_AnonymizationFieldConfig__mdt
+ * Custom Metadata Type records via the Metadata API.
  *
  * Run with:
  *   sf apex run --file scripts/apex/createCMTRecords.apex
+ *
+ * NOTE: CMT records cannot be created via DML — Metadata.DeployContainer is required.
+ * The deploy is asynchronous; check Setup > Deployment Status for results.
  */
 
+Metadata.DeployContainer container = new Metadata.DeployContainer();
+
 // ─────────────────────────────────────────────────────────────────────────────
-// TEKCO_AnonymizationPattern__mdt  (10 records)
+// Helper closure (inner class workaround via method)
 // ─────────────────────────────────────────────────────────────────────────────
 
-List<TEKCO_AnonymizationPattern__mdt> patterns = new List<TEKCO_AnonymizationPattern__mdt>{
-    new TEKCO_AnonymizationPattern__mdt(
-        DeveloperName        = 'NAME_FIRST_LETTER',
-        MasterLabel          = 'Name First Letter',
-        Description__c       = 'Keep only the first letter of the field value (e.g. "John" → "J.")',
-        External_Id_Field__c = 'TEKCO_ExternalId__c',
-        Is_Active__c         = true
-    ),
-    new TEKCO_AnonymizationPattern__mdt(
-        DeveloperName  = 'PHONE_MASK',
-        MasterLabel    = 'Phone Mask',
-        Description__c = 'Keep first 4 digits, replace remaining digits with zeros (e.g. "+33612345678" → "+336 00 00 00 00")',
-        Is_Active__c   = true
-    ),
-    new TEKCO_AnonymizationPattern__mdt(
-        DeveloperName        = 'EMAIL_PLUS_EXTERNALID',
-        MasterLabel          = 'Email Plus External Id',
-        Description__c       = 'Replace email with base email + plus-addressing using the record external ID (e.g. sf_sap+EXT123@airliquide.com)',
-        Base_Email__c        = 'sf_sap@airliquide.com',
-        External_Id_Field__c = 'TEKCO_ExternalId__c',
-        Is_Active__c         = true
-    ),
-    new TEKCO_AnonymizationPattern__mdt(
-        DeveloperName        = 'EMAIL_PLUS_EXTERNALID_SUBDOMAIN',
-        MasterLabel          = 'Email Plus External Id Subdomain',
-        Description__c       = 'Same as EMAIL_PLUS_EXTERNALID but also appends the org subdomain to ensure uniqueness across orgs',
-        Base_Email__c        = 'sf_sap@airliquide.com',
-        External_Id_Field__c = 'TEKCO_ExternalId__c',
-        Is_Active__c         = true
-    ),
-    new TEKCO_AnonymizationPattern__mdt(
-        DeveloperName  = 'SSN_SEQUENTIAL',
-        MasterLabel    = 'SSN Sequential',
-        Description__c = 'Replace with a sequential fake SSN of configurable length (e.g. "000000000000001")',
-        SSN_Length__c  = 15,
-        Is_Active__c   = true
-    ),
-    new TEKCO_AnonymizationPattern__mdt(
-        DeveloperName  = 'LOREM_IPSUM',
-        MasterLabel    = 'Lorem Ipsum',
-        Description__c = 'Replace free-text fields with a fixed Lorem Ipsum placeholder string',
-        Is_Active__c   = true
-    ),
-    new TEKCO_AnonymizationPattern__mdt(
-        DeveloperName  = 'KEEP',
-        MasterLabel    = 'Keep',
-        Description__c = 'Do not anonymize — keep the original value as-is (e.g. city names for analytics)',
-        Is_Active__c   = true
-    ),
-    new TEKCO_AnonymizationPattern__mdt(
-        DeveloperName  = 'ADDRESS_STREET_RANDOM',
-        MasterLabel    = 'Address Street Random',
-        Description__c = 'Replace street address with a generic anonymized placeholder (e.g. "1 Rue Anonyme")',
-        Is_Active__c   = true
-    ),
-    new TEKCO_AnonymizationPattern__mdt(
-        DeveloperName  = 'DELETE_CONTENT_DOCUMENT',
-        MasterLabel    = 'Delete Content Document',
-        Description__c = 'Delete all ContentDocument (files/attachments) linked to anonymized records — handled by a dedicated batch, not a field update',
-        Is_Active__c   = true
-    ),
-    new TEKCO_AnonymizationPattern__mdt(
-        DeveloperName  = 'EMAIL_MESSAGE_LOREM',
-        MasterLabel    = 'Email Message Lorem',
-        Description__c = 'Replace EmailMessage body/subject/addresses linked to anonymized records with Lorem Ipsum — handled by a dedicated batch',
-        Is_Active__c   = true
-    )
+// ─────────────────────────────────────────────────────────────────────────────
+// TEKCO_AnonymizationPattern__mdt records
+// ─────────────────────────────────────────────────────────────────────────────
+
+// 1. NAME_FIRST_LETTER
+{
+    Metadata.CustomMetadata r = new Metadata.CustomMetadata();
+    r.fullName = 'TEKCO_AnonymizationPattern__mdt.NAME_FIRST_LETTER';
+    r.label   = 'Name First Letter';
+    Metadata.CustomMetadataValue v;
+
+    v = new Metadata.CustomMetadataValue(); v.field = 'Description__c';        v.value = 'Keep only the first letter of the field value (e.g. "John" → "J.")'; r.values.add(v);
+    v = new Metadata.CustomMetadataValue(); v.field = 'External_Id_Field__c';  v.value = 'TEKCO_ExternalId__c'; r.values.add(v);
+    v = new Metadata.CustomMetadataValue(); v.field = 'Is_Active__c';          v.value = true; r.values.add(v);
+    container.addMetadata(r);
+}
+
+// 2. PHONE_MASK
+{
+    Metadata.CustomMetadata r = new Metadata.CustomMetadata();
+    r.fullName = 'TEKCO_AnonymizationPattern__mdt.PHONE_MASK';
+    r.label   = 'Phone Mask';
+    Metadata.CustomMetadataValue v;
+
+    v = new Metadata.CustomMetadataValue(); v.field = 'Description__c'; v.value = 'Keep first 4 digits, replace remaining digits with zeros (e.g. "+33612345678" → "+336 00 00 00 00")'; r.values.add(v);
+    v = new Metadata.CustomMetadataValue(); v.field = 'Is_Active__c';   v.value = true; r.values.add(v);
+    container.addMetadata(r);
+}
+
+// 3. EMAIL_PLUS_EXTERNALID
+{
+    Metadata.CustomMetadata r = new Metadata.CustomMetadata();
+    r.fullName = 'TEKCO_AnonymizationPattern__mdt.EMAIL_PLUS_EXTERNALID';
+    r.label   = 'Email Plus External Id';
+    Metadata.CustomMetadataValue v;
+
+    v = new Metadata.CustomMetadataValue(); v.field = 'Description__c';       v.value = 'Replace email with base email + plus-addressing using the record external ID (e.g. sf_sap+EXT123@airliquide.com)'; r.values.add(v);
+    v = new Metadata.CustomMetadataValue(); v.field = 'Base_Email__c';        v.value = 'sf_sap@airliquide.com'; r.values.add(v);
+    v = new Metadata.CustomMetadataValue(); v.field = 'External_Id_Field__c'; v.value = 'TEKCO_ExternalId__c'; r.values.add(v);
+    v = new Metadata.CustomMetadataValue(); v.field = 'Is_Active__c';         v.value = true; r.values.add(v);
+    container.addMetadata(r);
+}
+
+// 4. EMAIL_PLUS_EXTERNALID_SUBDOMAIN
+{
+    Metadata.CustomMetadata r = new Metadata.CustomMetadata();
+    r.fullName = 'TEKCO_AnonymizationPattern__mdt.EMAIL_PLUS_EXTERNALID_SUBDOMAIN';
+    r.label   = 'Email Plus External Id Subdomain';
+    Metadata.CustomMetadataValue v;
+
+    v = new Metadata.CustomMetadataValue(); v.field = 'Description__c';       v.value = 'Same as EMAIL_PLUS_EXTERNALID but also appends the org subdomain to ensure uniqueness across orgs'; r.values.add(v);
+    v = new Metadata.CustomMetadataValue(); v.field = 'Base_Email__c';        v.value = 'sf_sap@airliquide.com'; r.values.add(v);
+    v = new Metadata.CustomMetadataValue(); v.field = 'External_Id_Field__c'; v.value = 'TEKCO_ExternalId__c'; r.values.add(v);
+    v = new Metadata.CustomMetadataValue(); v.field = 'Is_Active__c';         v.value = true; r.values.add(v);
+    container.addMetadata(r);
+}
+
+// 5. SSN_SEQUENTIAL
+{
+    Metadata.CustomMetadata r = new Metadata.CustomMetadata();
+    r.fullName = 'TEKCO_AnonymizationPattern__mdt.SSN_SEQUENTIAL';
+    r.label   = 'SSN Sequential';
+    Metadata.CustomMetadataValue v;
+
+    v = new Metadata.CustomMetadataValue(); v.field = 'Description__c'; v.value = 'Replace with a sequential fake SSN of configurable length (e.g. "000000000000001")'; r.values.add(v);
+    v = new Metadata.CustomMetadataValue(); v.field = 'SSN_Length__c';  v.value = 15; r.values.add(v);
+    v = new Metadata.CustomMetadataValue(); v.field = 'Is_Active__c';   v.value = true; r.values.add(v);
+    container.addMetadata(r);
+}
+
+// 6. LOREM_IPSUM
+{
+    Metadata.CustomMetadata r = new Metadata.CustomMetadata();
+    r.fullName = 'TEKCO_AnonymizationPattern__mdt.LOREM_IPSUM';
+    r.label   = 'Lorem Ipsum';
+    Metadata.CustomMetadataValue v;
+
+    v = new Metadata.CustomMetadataValue(); v.field = 'Description__c'; v.value = 'Replace free-text fields with a fixed Lorem Ipsum placeholder string'; r.values.add(v);
+    v = new Metadata.CustomMetadataValue(); v.field = 'Is_Active__c';   v.value = true; r.values.add(v);
+    container.addMetadata(r);
+}
+
+// 7. KEEP
+{
+    Metadata.CustomMetadata r = new Metadata.CustomMetadata();
+    r.fullName = 'TEKCO_AnonymizationPattern__mdt.KEEP';
+    r.label   = 'Keep';
+    Metadata.CustomMetadataValue v;
+
+    v = new Metadata.CustomMetadataValue(); v.field = 'Description__c'; v.value = 'Do not anonymize — keep the original value as-is (e.g. city names for analytics)'; r.values.add(v);
+    v = new Metadata.CustomMetadataValue(); v.field = 'Is_Active__c';   v.value = true; r.values.add(v);
+    container.addMetadata(r);
+}
+
+// 8. ADDRESS_STREET_RANDOM
+{
+    Metadata.CustomMetadata r = new Metadata.CustomMetadata();
+    r.fullName = 'TEKCO_AnonymizationPattern__mdt.ADDRESS_STREET_RANDOM';
+    r.label   = 'Address Street Random';
+    Metadata.CustomMetadataValue v;
+
+    v = new Metadata.CustomMetadataValue(); v.field = 'Description__c'; v.value = 'Replace street address with a generic anonymized placeholder (e.g. "1 Rue Anonyme")'; r.values.add(v);
+    v = new Metadata.CustomMetadataValue(); v.field = 'Is_Active__c';   v.value = true; r.values.add(v);
+    container.addMetadata(r);
+}
+
+// 9. DELETE_CONTENT_DOCUMENT
+{
+    Metadata.CustomMetadata r = new Metadata.CustomMetadata();
+    r.fullName = 'TEKCO_AnonymizationPattern__mdt.DELETE_CONTENT_DOCUMENT';
+    r.label   = 'Delete Content Document';
+    Metadata.CustomMetadataValue v;
+
+    v = new Metadata.CustomMetadataValue(); v.field = 'Description__c'; v.value = 'Delete all ContentDocument (files/attachments) linked to anonymized records — handled by a dedicated batch, not a field update'; r.values.add(v);
+    v = new Metadata.CustomMetadataValue(); v.field = 'Is_Active__c';   v.value = true; r.values.add(v);
+    container.addMetadata(r);
+}
+
+// 10. EMAIL_MESSAGE_LOREM
+{
+    Metadata.CustomMetadata r = new Metadata.CustomMetadata();
+    r.fullName = 'TEKCO_AnonymizationPattern__mdt.EMAIL_MESSAGE_LOREM';
+    r.label   = 'Email Message Lorem';
+    Metadata.CustomMetadataValue v;
+
+    v = new Metadata.CustomMetadataValue(); v.field = 'Description__c'; v.value = 'Replace EmailMessage body/subject/addresses linked to anonymized records with Lorem Ipsum — handled by a dedicated batch'; r.values.add(v);
+    v = new Metadata.CustomMetadataValue(); v.field = 'Is_Active__c';   v.value = true; r.values.add(v);
+    container.addMetadata(r);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TEKCO_AnonymizationFieldConfig__mdt records  (Account — 23 records)
+// ─────────────────────────────────────────────────────────────────────────────
+
+List<List<String>> fieldMappings = new List<List<String>>{
+    new List<String>{'Account_FirstName',                   'Account',  'FirstName',                       'NAME_FIRST_LETTER'},
+    new List<String>{'Account_LastName',                    'Account',  'LastName',                        'NAME_FIRST_LETTER'},
+    new List<String>{'Account_Phone',                       'Account',  'Phone',                           'PHONE_MASK'},
+    new List<String>{'Account_PersonMobilePhone',           'Account',  'PersonMobilePhone',               'PHONE_MASK'},
+    new List<String>{'Account_TEKCO_PersonMobilePhone',  'Account',  'TEKCO_PersonMobilePhone__c',      'PHONE_MASK'},
+    new List<String>{'Account_PersonOtherPhone',            'Account',  'PersonOtherPhone',                'PHONE_MASK'},
+    new List<String>{'Account_PASCO_OtherPhone1',        'Account',  'PASCO_OtherPhone1__c',            'PHONE_MASK'},
+    new List<String>{'Account_PASCO_OtherPhone2',        'Account',  'PASCO_OtherPhone2__c',            'PHONE_MASK'},
+    new List<String>{'Account_TEKCO_PersonOtherPhone',   'Account',  'TEKCO_PersonOtherPhone__c',       'PHONE_MASK'},
+    new List<String>{'Account_PersonEmail',                 'Account',  'PersonEmail',                     'EMAIL_PLUS_EXTERNALID'},
+    new List<String>{'Account_ACCES_SecondEmail',        'Account',  'ACCES_SecondEmail__c',            'EMAIL_PLUS_EXTERNALID'},
+    new List<String>{'Account_ACCCO_Email',              'Account',  'ACCCO_Email__c',                  'EMAIL_PLUS_EXTERNALID'},
+    new List<String>{'Account_TEKCO_PersonEmail',        'Account',  'TEKCO_PersonEmail__c',            'EMAIL_PLUS_EXTERNALID'},
+    new List<String>{'Account_FUNCA_InvoiceEmail',       'Account',  'FUNCA_InvoiceEmail__c',           'EMAIL_PLUS_EXTERNALID'},
+    new List<String>{'Account_ACCMG_RecallEmail',        'Account',  'ACCMG_RecallEmail__c',            'EMAIL_PLUS_EXTERNALID'},
+    new List<String>{'Account_ACCCO_SocialSecurityNumber', 'Account', 'ACCCO_SocialSecurityNumber__pc','SSN_SEQUENTIAL'},
+    new List<String>{'Account_Description',                 'Account',  'Description',                     'LOREM_IPSUM'},
+    new List<String>{'Account_PersonMailingStreet',         'Account',  'PersonMailingStreet',             'ADDRESS_STREET_RANDOM'},
+    new List<String>{'Account_PersonMailingCity',           'Account',  'PersonMailingCity',               'KEEP'},
+    new List<String>{'Account_BillingStreet',               'Account',  'BillingStreet',                   'ADDRESS_STREET_RANDOM'},
+    new List<String>{'Account_BillingCity',                 'Account',  'BillingCity',                     'KEEP'},
+    new List<String>{'Account_ShippingStreet',              'Account',  'ShippingStreet',                  'ADDRESS_STREET_RANDOM'},
+    new List<String>{'Account_ShippingCity',                'Account',  'ShippingCity',                    'KEEP'}
 };
 
-upsert patterns TEKCO_AnonymizationPattern__mdt.Fields.DeveloperName;
-System.debug('Patterns OK: ' + patterns.size() + ' records upserted.');
+for (List<String> m : fieldMappings) {
+    Metadata.CustomMetadata r = new Metadata.CustomMetadata();
+    r.fullName = 'TEKCO_AnonymizationFieldConfig__mdt.' + m[0];
+    r.label   = m[0].replace('_', ' ');
+    Metadata.CustomMetadataValue v;
+
+    v = new Metadata.CustomMetadataValue(); v.field = 'Object_API_Name__c'; v.value = m[1]; r.values.add(v);
+    v = new Metadata.CustomMetadataValue(); v.field = 'Field_API_Name__c';  v.value = m[2]; r.values.add(v);
+    v = new Metadata.CustomMetadataValue(); v.field = 'Pattern_Type__c';    v.value = m[3]; r.values.add(v);
+    v = new Metadata.CustomMetadataValue(); v.field = 'Is_Active__c';       v.value = true;  r.values.add(v);
+    container.addMetadata(r);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TEKCO_AnonymizationFieldConfig__mdt  (23 Account field mappings)
+// Enqueue deployment
 // ─────────────────────────────────────────────────────────────────────────────
-
-List<TEKCO_AnonymizationFieldConfig__mdt> configs = new List<TEKCO_AnonymizationFieldConfig__mdt>{
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_FirstName',                    MasterLabel='Account FirstName',                    Object_API_Name__c='Account', Field_API_Name__c='FirstName',                       Pattern_Type__c='NAME_FIRST_LETTER',  Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_LastName',                     MasterLabel='Account LastName',                     Object_API_Name__c='Account', Field_API_Name__c='LastName',                        Pattern_Type__c='NAME_FIRST_LETTER',  Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_Phone',                        MasterLabel='Account Phone',                        Object_API_Name__c='Account', Field_API_Name__c='Phone',                           Pattern_Type__c='PHONE_MASK',         Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_PersonMobilePhone',            MasterLabel='Account PersonMobilePhone',            Object_API_Name__c='Account', Field_API_Name__c='PersonMobilePhone',               Pattern_Type__c='PHONE_MASK',         Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_TEKCO_PersonMobilePhone__c',   MasterLabel='Account TEKCO PersonMobilePhone',      Object_API_Name__c='Account', Field_API_Name__c='TEKCO_PersonMobilePhone__c',      Pattern_Type__c='PHONE_MASK',         Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_PersonOtherPhone',             MasterLabel='Account PersonOtherPhone',             Object_API_Name__c='Account', Field_API_Name__c='PersonOtherPhone',                Pattern_Type__c='PHONE_MASK',         Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_PASCO_OtherPhone1__c',         MasterLabel='Account PASCO OtherPhone1',            Object_API_Name__c='Account', Field_API_Name__c='PASCO_OtherPhone1__c',            Pattern_Type__c='PHONE_MASK',         Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_PASCO_OtherPhone2__c',         MasterLabel='Account PASCO OtherPhone2',            Object_API_Name__c='Account', Field_API_Name__c='PASCO_OtherPhone2__c',            Pattern_Type__c='PHONE_MASK',         Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_TEKCO_PersonOtherPhone__c',    MasterLabel='Account TEKCO PersonOtherPhone',       Object_API_Name__c='Account', Field_API_Name__c='TEKCO_PersonOtherPhone__c',       Pattern_Type__c='PHONE_MASK',         Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_PersonEmail',                  MasterLabel='Account PersonEmail',                  Object_API_Name__c='Account', Field_API_Name__c='PersonEmail',                     Pattern_Type__c='EMAIL_PLUS_EXTERNALID', Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_ACCES_SecondEmail__c',         MasterLabel='Account ACCES SecondEmail',            Object_API_Name__c='Account', Field_API_Name__c='ACCES_SecondEmail__c',            Pattern_Type__c='EMAIL_PLUS_EXTERNALID', Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_ACCCO_Email__c',               MasterLabel='Account ACCCO Email',                  Object_API_Name__c='Account', Field_API_Name__c='ACCCO_Email__c',                  Pattern_Type__c='EMAIL_PLUS_EXTERNALID', Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_TEKCO_PersonEmail__c',         MasterLabel='Account TEKCO PersonEmail',            Object_API_Name__c='Account', Field_API_Name__c='TEKCO_PersonEmail__c',            Pattern_Type__c='EMAIL_PLUS_EXTERNALID', Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_FUNCA_InvoiceEmail__c',        MasterLabel='Account FUNCA InvoiceEmail',           Object_API_Name__c='Account', Field_API_Name__c='FUNCA_InvoiceEmail__c',           Pattern_Type__c='EMAIL_PLUS_EXTERNALID', Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_ACCMG_RecallEmail__c',         MasterLabel='Account ACCMG RecallEmail',            Object_API_Name__c='Account', Field_API_Name__c='ACCMG_RecallEmail__c',            Pattern_Type__c='EMAIL_PLUS_EXTERNALID', Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_ACCCO_SocialSecurityNumber__pc', MasterLabel='Account ACCCO SocialSecurityNumber', Object_API_Name__c='Account', Field_API_Name__c='ACCCO_SocialSecurityNumber__pc',  Pattern_Type__c='SSN_SEQUENTIAL',     Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_Description',                  MasterLabel='Account Description',                  Object_API_Name__c='Account', Field_API_Name__c='Description',                     Pattern_Type__c='LOREM_IPSUM',        Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_PersonMailingStreet',          MasterLabel='Account PersonMailingStreet',          Object_API_Name__c='Account', Field_API_Name__c='PersonMailingStreet',             Pattern_Type__c='ADDRESS_STREET_RANDOM', Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_PersonMailingCity',            MasterLabel='Account PersonMailingCity',            Object_API_Name__c='Account', Field_API_Name__c='PersonMailingCity',               Pattern_Type__c='KEEP',               Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_BillingStreet',                MasterLabel='Account BillingStreet',                Object_API_Name__c='Account', Field_API_Name__c='BillingStreet',                   Pattern_Type__c='ADDRESS_STREET_RANDOM', Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_BillingCity',                  MasterLabel='Account BillingCity',                  Object_API_Name__c='Account', Field_API_Name__c='BillingCity',                     Pattern_Type__c='KEEP',               Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_ShippingStreet',               MasterLabel='Account ShippingStreet',               Object_API_Name__c='Account', Field_API_Name__c='ShippingStreet',                  Pattern_Type__c='ADDRESS_STREET_RANDOM', Is_Active__c=true),
-    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_ShippingCity',                 MasterLabel='Account ShippingCity',                 Object_API_Name__c='Account', Field_API_Name__c='ShippingCity',                    Pattern_Type__c='KEEP',               Is_Active__c=true)
-};
-
-upsert configs TEKCO_AnonymizationFieldConfig__mdt.Fields.DeveloperName;
-System.debug('Field configs OK: ' + configs.size() + ' records upserted.');
+Id jobId = Metadata.Operations.enqueueDeployment(container, null);
+System.debug('CMT deployment enqueued. Job ID: ' + jobId);
+System.debug('Check progress: Setup → Deployment Status');
