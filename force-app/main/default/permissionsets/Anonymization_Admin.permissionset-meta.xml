@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>Anonymization Admin</label>
+    <description>Grants the Anonymize_Data custom permission and full access to the Anonymization_Audit_Log__c object. Assign to admins who run sandbox data anonymization.</description>
+    <hasActivationRequired>false</hasActivationRequired>
+
+    <!-- Custom Permissions -->
+    <customPermissions>
+        <enabled>true</enabled>
+        <name>Anonymize_Data</name>
+    </customPermissions>
+    <customPermissions>
+        <enabled>true</enabled>
+        <name>CXFCO_BypassCustomValidations</name>
+    </customPermissions>
+    <customPermissions>
+        <enabled>true</enabled>
+        <name>CXFCO_BypassOutboundSynchronization</name>
+    </customPermissions>
+
+    <!-- Object: Anonymization_Audit_Log__c — full CRUD -->
+    <objectPermissions>
+        <allowCreate>true</allowCreate>
+        <allowDelete>true</allowDelete>
+        <allowEdit>true</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>true</modifyAllRecords>
+        <viewAllRecords>true</viewAllRecords>
+        <object>Anonymization_Audit_Log__c</object>
+    </objectPermissions>
+
+    <!-- Field permissions — all custom fields read + edit -->
+    <fieldPermissions>
+        <editable>true</editable>
+        <readable>true</readable>
+        <field>Anonymization_Audit_Log__c.Brand_Filter__c</field>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <readable>true</readable>
+        <field>Anonymization_Audit_Log__c.End_Time__c</field>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <readable>true</readable>
+        <field>Anonymization_Audit_Log__c.Error_Message__c</field>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <readable>true</readable>
+        <field>Anonymization_Audit_Log__c.Fields_Anonymized__c</field>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <readable>true</readable>
+        <field>Anonymization_Audit_Log__c.Job_Id__c</field>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <readable>true</readable>
+        <field>Anonymization_Audit_Log__c.Object_API_Name__c</field>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <readable>true</readable>
+        <field>Anonymization_Audit_Log__c.Records_Failed__c</field>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <readable>true</readable>
+        <field>Anonymization_Audit_Log__c.Records_Processed__c</field>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <readable>true</readable>
+        <field>Anonymization_Audit_Log__c.Start_Time__c</field>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <readable>true</readable>
+        <field>Anonymization_Audit_Log__c.Status__c</field>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <readable>true</readable>
+        <field>Anonymization_Audit_Log__c.Triggered_By__c</field>
+    </fieldPermissions>
+</PermissionSet>

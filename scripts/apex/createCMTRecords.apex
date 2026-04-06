@@ -148,51 +148,53 @@ Metadata.DeployContainer container = new Metadata.DeployContainer();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TEKCO_AnonymizationFieldConfig__mdt records  (Account — 23 records)
+// TEKCO_AnonymizationFieldConfig__mdt  (23 Account field mappings)
 // ─────────────────────────────────────────────────────────────────────────────
 
-List<List<String>> fieldMappings = new List<List<String>>{
-    new List<String>{'Account_FirstName',                   'Account',  'FirstName',                       'NAME_FIRST_LETTER'},
-    new List<String>{'Account_LastName',                    'Account',  'LastName',                        'NAME_FIRST_LETTER'},
-    new List<String>{'Account_Phone',                       'Account',  'Phone',                           'PHONE_MASK'},
-    new List<String>{'Account_PersonMobilePhone',           'Account',  'PersonMobilePhone',               'PHONE_MASK'},
-    new List<String>{'Account_TEKCO_PersonMobilePhone',  'Account',  'TEKCO_PersonMobilePhone__c',      'PHONE_MASK'},
-    new List<String>{'Account_PersonOtherPhone',            'Account',  'PersonOtherPhone',                'PHONE_MASK'},
-    new List<String>{'Account_PASCO_OtherPhone1',        'Account',  'PASCO_OtherPhone1__c',            'PHONE_MASK'},
-    new List<String>{'Account_PASCO_OtherPhone2',        'Account',  'PASCO_OtherPhone2__c',            'PHONE_MASK'},
-    new List<String>{'Account_TEKCO_PersonOtherPhone',   'Account',  'TEKCO_PersonOtherPhone__c',       'PHONE_MASK'},
-    new List<String>{'Account_PersonEmail',                 'Account',  'PersonEmail',                     'EMAIL_PLUS_EXTERNALID'},
-    new List<String>{'Account_ACCES_SecondEmail',        'Account',  'ACCES_SecondEmail__c',            'EMAIL_PLUS_EXTERNALID'},
-    new List<String>{'Account_ACCCO_Email',              'Account',  'ACCCO_Email__c',                  'EMAIL_PLUS_EXTERNALID'},
-    new List<String>{'Account_TEKCO_PersonEmail',        'Account',  'TEKCO_PersonEmail__c',            'EMAIL_PLUS_EXTERNALID'},
-    new List<String>{'Account_FUNCA_InvoiceEmail',       'Account',  'FUNCA_InvoiceEmail__c',           'EMAIL_PLUS_EXTERNALID'},
-    new List<String>{'Account_ACCMG_RecallEmail',        'Account',  'ACCMG_RecallEmail__c',            'EMAIL_PLUS_EXTERNALID'},
-    new List<String>{'Account_ACCCO_SocialSecurityNumber', 'Account', 'ACCCO_SocialSecurityNumber__pc','SSN_SEQUENTIAL'},
-    new List<String>{'Account_Description',                 'Account',  'Description',                     'LOREM_IPSUM'},
-    new List<String>{'Account_PersonMailingStreet',         'Account',  'PersonMailingStreet',             'ADDRESS_STREET_RANDOM'},
-    new List<String>{'Account_PersonMailingCity',           'Account',  'PersonMailingCity',               'KEEP'},
-    new List<String>{'Account_BillingStreet',               'Account',  'BillingStreet',                   'ADDRESS_STREET_RANDOM'},
-    new List<String>{'Account_BillingCity',                 'Account',  'BillingCity',                     'KEEP'},
-    new List<String>{'Account_ShippingStreet',              'Account',  'ShippingStreet',                  'ADDRESS_STREET_RANDOM'},
-    new List<String>{'Account_ShippingCity',                'Account',  'ShippingCity',                    'KEEP'}
+// ─────────────────────────────────────────────────────────────────────────────
+// TEKCO_AnonymizationFieldConfig__mdt records  (Account — 24 records)
+//
+// New fields:
+//   Record_Type_Developer_Name__c — optional RT filter (blank = all RTs)
+//   Delete_History__c             — true = erase field history after anonymization
+//
+// Pattern DELETE_CONTENT_DOCUMENT uses Field_API_Name__c = 'ContentDocument'
+// as a placeholder (no real field). Triggers ContentDocumentBatch for Account.
+// ─────────────────────────────────────────────────────────────────────────────
+
+List<TEKCO_AnonymizationFieldConfig__mdt> configs = new List<TEKCO_AnonymizationFieldConfig__mdt>{
+    // Names — history deleted
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_FirstName',                    MasterLabel='Account FirstName',                    Object_API_Name__c='Account', Field_API_Name__c='FirstName',                       Pattern_Type__c='NAME_FIRST_LETTER',     Is_Active__c=true, Delete_History__c=true,  Record_Type_Developer_Name__c=null),
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_LastName',                     MasterLabel='Account LastName',                     Object_API_Name__c='Account', Field_API_Name__c='LastName',                        Pattern_Type__c='NAME_FIRST_LETTER',     Is_Active__c=true, Delete_History__c=true,  Record_Type_Developer_Name__c=null),
+    // Phones
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_Phone',                        MasterLabel='Account Phone',                        Object_API_Name__c='Account', Field_API_Name__c='Phone',                           Pattern_Type__c='PHONE_MASK',            Is_Active__c=true, Delete_History__c=false, Record_Type_Developer_Name__c=null),
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_PersonMobilePhone',            MasterLabel='Account PersonMobilePhone',            Object_API_Name__c='Account', Field_API_Name__c='PersonMobilePhone',               Pattern_Type__c='PHONE_MASK',            Is_Active__c=true, Delete_History__c=false, Record_Type_Developer_Name__c=null),
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_TEKCO_PersonMobilePhone__c',   MasterLabel='Account TEKCO PersonMobilePhone',      Object_API_Name__c='Account', Field_API_Name__c='TEKCO_PersonMobilePhone__c',      Pattern_Type__c='PHONE_MASK',            Is_Active__c=true, Delete_History__c=false, Record_Type_Developer_Name__c=null),
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_PersonOtherPhone',             MasterLabel='Account PersonOtherPhone',             Object_API_Name__c='Account', Field_API_Name__c='PersonOtherPhone',                Pattern_Type__c='PHONE_MASK',            Is_Active__c=true, Delete_History__c=false, Record_Type_Developer_Name__c=null),
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_PASCO_OtherPhone1__c',         MasterLabel='Account PASCO OtherPhone1',            Object_API_Name__c='Account', Field_API_Name__c='PASCO_OtherPhone1__c',            Pattern_Type__c='PHONE_MASK',            Is_Active__c=true, Delete_History__c=false, Record_Type_Developer_Name__c=null),
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_PASCO_OtherPhone2__c',         MasterLabel='Account PASCO OtherPhone2',            Object_API_Name__c='Account', Field_API_Name__c='PASCO_OtherPhone2__c',            Pattern_Type__c='PHONE_MASK',            Is_Active__c=true, Delete_History__c=false, Record_Type_Developer_Name__c=null),
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_TEKCO_PersonOtherPhone__c',    MasterLabel='Account TEKCO PersonOtherPhone',       Object_API_Name__c='Account', Field_API_Name__c='TEKCO_PersonOtherPhone__c',       Pattern_Type__c='PHONE_MASK',            Is_Active__c=true, Delete_History__c=false, Record_Type_Developer_Name__c=null),
+    // Emails — history deleted
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_PersonEmail',                  MasterLabel='Account PersonEmail',                  Object_API_Name__c='Account', Field_API_Name__c='PersonEmail',                     Pattern_Type__c='EMAIL_PLUS_EXTERNALID', Is_Active__c=true, Delete_History__c=true,  Record_Type_Developer_Name__c=null),
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_ACCES_SecondEmail__c',         MasterLabel='Account ACCES SecondEmail',            Object_API_Name__c='Account', Field_API_Name__c='ACCES_SecondEmail__c',            Pattern_Type__c='EMAIL_PLUS_EXTERNALID', Is_Active__c=true, Delete_History__c=true,  Record_Type_Developer_Name__c=null),
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_ACCCO_Email__c',               MasterLabel='Account ACCCO Email',                  Object_API_Name__c='Account', Field_API_Name__c='ACCCO_Email__c',                  Pattern_Type__c='EMAIL_PLUS_EXTERNALID', Is_Active__c=true, Delete_History__c=true,  Record_Type_Developer_Name__c=null),
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_TEKCO_PersonEmail__c',         MasterLabel='Account TEKCO PersonEmail',            Object_API_Name__c='Account', Field_API_Name__c='TEKCO_PersonEmail__c',            Pattern_Type__c='EMAIL_PLUS_EXTERNALID', Is_Active__c=true, Delete_History__c=true,  Record_Type_Developer_Name__c=null),
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_FUNCA_InvoiceEmail__c',        MasterLabel='Account FUNCA InvoiceEmail',           Object_API_Name__c='Account', Field_API_Name__c='FUNCA_InvoiceEmail__c',           Pattern_Type__c='EMAIL_PLUS_EXTERNALID', Is_Active__c=true, Delete_History__c=true,  Record_Type_Developer_Name__c=null),
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_ACCMG_RecallEmail__c',         MasterLabel='Account ACCMG RecallEmail',            Object_API_Name__c='Account', Field_API_Name__c='ACCMG_RecallEmail__c',            Pattern_Type__c='EMAIL_PLUS_EXTERNALID', Is_Active__c=true, Delete_History__c=true,  Record_Type_Developer_Name__c=null),
+    // SSN — history deleted
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_ACCCO_SocialSecurityNumber__pc', MasterLabel='Account ACCCO SocialSecurityNumber', Object_API_Name__c='Account', Field_API_Name__c='ACCCO_SocialSecurityNumber__pc',  Pattern_Type__c='SSN_SEQUENTIAL',        Is_Active__c=true, Delete_History__c=true,  Record_Type_Developer_Name__c=null),
+    // Free text
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_Description',                  MasterLabel='Account Description',                  Object_API_Name__c='Account', Field_API_Name__c='Description',                     Pattern_Type__c='LOREM_IPSUM',           Is_Active__c=true, Delete_History__c=false, Record_Type_Developer_Name__c=null),
+    // Addresses
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_PersonMailingStreet',          MasterLabel='Account PersonMailingStreet',          Object_API_Name__c='Account', Field_API_Name__c='PersonMailingStreet',             Pattern_Type__c='ADDRESS_STREET_RANDOM', Is_Active__c=true, Delete_History__c=false, Record_Type_Developer_Name__c=null),
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_PersonMailingCity',            MasterLabel='Account PersonMailingCity',            Object_API_Name__c='Account', Field_API_Name__c='PersonMailingCity',               Pattern_Type__c='KEEP',                  Is_Active__c=true, Delete_History__c=false, Record_Type_Developer_Name__c=null),
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_BillingStreet',                MasterLabel='Account BillingStreet',                Object_API_Name__c='Account', Field_API_Name__c='BillingStreet',                   Pattern_Type__c='ADDRESS_STREET_RANDOM', Is_Active__c=true, Delete_History__c=false, Record_Type_Developer_Name__c=null),
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_BillingCity',                  MasterLabel='Account BillingCity',                  Object_API_Name__c='Account', Field_API_Name__c='BillingCity',                     Pattern_Type__c='KEEP',                  Is_Active__c=true, Delete_History__c=false, Record_Type_Developer_Name__c=null),
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_ShippingStreet',               MasterLabel='Account ShippingStreet',               Object_API_Name__c='Account', Field_API_Name__c='ShippingStreet',                  Pattern_Type__c='ADDRESS_STREET_RANDOM', Is_Active__c=true, Delete_History__c=false, Record_Type_Developer_Name__c=null),
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_ShippingCity',                 MasterLabel='Account ShippingCity',                 Object_API_Name__c='Account', Field_API_Name__c='ShippingCity',                    Pattern_Type__c='KEEP',                  Is_Active__c=true, Delete_History__c=false, Record_Type_Developer_Name__c=null),
+    // ContentDocument deletion for Account (Field_API_Name__c is a placeholder)
+    new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName='Account_ContentDocument',              MasterLabel='Account ContentDocument',              Object_API_Name__c='Account', Field_API_Name__c='ContentDocument',                 Pattern_Type__c='DELETE_CONTENT_DOCUMENT', Is_Active__c=true, Delete_History__c=false, Record_Type_Developer_Name__c=null)
 };
 
-for (List<String> m : fieldMappings) {
-    Metadata.CustomMetadata r = new Metadata.CustomMetadata();
-    r.fullName = 'TEKCO_AnonymizationFieldConfig__mdt.' + m[0];
-    r.label   = m[0].replace('_', ' ');
-    Metadata.CustomMetadataValue v;
-
-    v = new Metadata.CustomMetadataValue(); v.field = 'Object_API_Name__c'; v.value = m[1]; r.values.add(v);
-    v = new Metadata.CustomMetadataValue(); v.field = 'Field_API_Name__c';  v.value = m[2]; r.values.add(v);
-    v = new Metadata.CustomMetadataValue(); v.field = 'Pattern_Type__c';    v.value = m[3]; r.values.add(v);
-    v = new Metadata.CustomMetadataValue(); v.field = 'Is_Active__c';       v.value = true;  r.values.add(v);
-    container.addMetadata(r);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Enqueue deployment
-// ─────────────────────────────────────────────────────────────────────────────
-Id jobId = Metadata.Operations.enqueueDeployment(container, null);
-System.debug('CMT deployment enqueued. Job ID: ' + jobId);
-System.debug('Check progress: Setup → Deployment Status');
+upsert configs TEKCO_AnonymizationFieldConfig__mdt.Fields.DeveloperName;
+System.debug('Field configs OK: ' + configs.size() + ' records upserted.');

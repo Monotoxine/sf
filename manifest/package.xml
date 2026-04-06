@@ -6,6 +6,8 @@
 		<members>AnonymizationPatternService</members>
 		<members>AnonymizationBatch</members>
 		<members>AnonymizationController</members>
+		<members>ContentDocumentBatch</members>
+		<members>FieldHistoryBatch</members>
 		<name>ApexClass</name>
 	</types>
 	<types>
@@ -169,10 +171,12 @@
 		<members>TEKCO_AnonymizationPattern__mdt.Is_Active__c</members>
 		<members>TEKCO_AnonymizationPattern__mdt.SSN_Length__c</members>
 		<!-- TEKCO_AnonymizationFieldConfig__mdt -->
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Delete_History__c</members>
 		<members>TEKCO_AnonymizationFieldConfig__mdt.Field_API_Name__c</members>
 		<members>TEKCO_AnonymizationFieldConfig__mdt.Is_Active__c</members>
 		<members>TEKCO_AnonymizationFieldConfig__mdt.Object_API_Name__c</members>
 		<members>TEKCO_AnonymizationFieldConfig__mdt.Pattern_Type__c</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Record_Type_Developer_Name__c</members>
 		<name>CustomField</name>
 	</types>
 	<types>
@@ -211,6 +215,10 @@
 		<name>CustomPermission</name>
 	</types>
 	<types>
+		<members>Anonymization_Admin</members>
+		<name>PermissionSet</name>
+	</types>
+	<types>
 		<!-- TEKCO_AnonymizationPattern__mdt records -->
 		<members>TEKCO_AnonymizationPattern__mdt.ADDRESS_STREET_RANDOM</members>
 		<members>TEKCO_AnonymizationPattern__mdt.DELETE_CONTENT_DOCUMENT</members>
@@ -246,6 +254,7 @@
 		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_TEKCO_PersonEmail__c</members>
 		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_TEKCO_PersonMobilePhone__c</members>
 		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_TEKCO_PersonOtherPhone__c</members>
+		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_ContentDocument</members>
 		<name>CustomMetadata</name>
 	</types>
 	<version>65.0</version>

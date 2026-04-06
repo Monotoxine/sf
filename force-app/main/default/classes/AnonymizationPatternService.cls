@@ -168,21 +168,20 @@ public class AnonymizationPatternService {
     }
 
     /**
-     * ADDRESS_STREET_RANDOM: extract leading number, add random 1-20
-     * Ex: "123 Rue de la Paix" → "137 Rue de la Paix"
+     * ADDRESS_STREET_RANDOM: find the first number anywhere in the string, add random 1-20
+     * Ex: "123 Rue de la Paix"   → "137 Rue de la Paix"
+     * Ex: "Rue de la Paix 123"   → "Rue de la Paix 137"
+     * Ex: "Allée 12 des Fleurs"  → "Allée 26 des Fleurs"
+     * If no number found, return value unchanged.
      */
     private static String applyAddressStreetRandom(String currentValue) {
         if (String.isBlank(currentValue)) return currentValue;
-        String trimmed = currentValue.trim();
-        Integer i = 0;
-        while (i < trimmed.length() && trimmed.substring(i, i + 1).isNumeric()) {
-            i++;
-        }
-        if (i == 0) return currentValue;
-        Integer streetNumber = Integer.valueOf(trimmed.substring(0, i));
-        String remainder = trimmed.substring(i);
-        Integer randomAdd = Integer.valueOf(Math.random() * 20) + 1;
-        return String.valueOf(streetNumber + randomAdd) + remainder;
+        Matcher m = Pattern.compile('(\\d+)').matcher(currentValue);
+        if (!m.find()) return currentValue;
+        Integer streetNumber = Integer.valueOf(m.group(1));
+        Integer randomAdd    = Integer.valueOf(Math.random() * 20) + 1;
+        // replaceFirst replaces only the first numeric sequence found
+        return currentValue.replaceFirst('\\d+', String.valueOf(streetNumber + randomAdd));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

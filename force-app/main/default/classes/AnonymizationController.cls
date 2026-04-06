@@ -13,7 +13,6 @@ public with sharing class AnonymizationController {
 
     /**
      * Returns all active picklist values from Account.TEKCO_Brand__c.
-     * No CMT configuration needed — reads directly from the field schema.
      */
     @AuraEnabled(cacheable=true)
     public static List<String> getBrands() {
@@ -23,11 +22,8 @@ public with sharing class AnonymizationController {
                 Schema.SObjectType.Account.fields.getMap()
                     .get('TEKCO_Brand__c')
                     .getDescribe();
-
             for (Schema.PicklistEntry entry : fieldDesc.getPicklistValues()) {
-                if (entry.isActive()) {
-                    brands.add(entry.getValue());
-                }
+                if (entry.isActive()) brands.add(entry.getValue());
             }
         } catch (Exception e) {
             throw new AuraHandledException(
@@ -40,17 +36,18 @@ public with sharing class AnonymizationController {
 
     /**
      * Returns distinct object API names from active TEKCO_AnonymizationFieldConfig__mdt records.
-     * These implicitly define the anonymization scope.
+     * Excludes objects that only have DELETE_CONTENT_DOCUMENT entries (not user-selectable).
      */
     @AuraEnabled(cacheable=true)
     public static List<String> getObjects() {
         Set<String> objects = new Set<String>();
         for (TEKCO_AnonymizationFieldConfig__mdt cfg : [
-            SELECT Object_API_Name__c
+            SELECT Object_API_Name__c, Pattern_Type__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
             WHERE Is_Active__c = true
         ]) {
-            if (String.isNotBlank(cfg.Object_API_Name__c)) {
+            if (String.isNotBlank(cfg.Object_API_Name__c)
+                    && cfg.Pattern_Type__c != 'DELETE_CONTENT_DOCUMENT') {
                 objects.add(cfg.Object_API_Name__c);
             }
         }
@@ -60,23 +57,28 @@ public with sharing class AnonymizationController {
     }
 
     /**
-     * Returns field configs for a given object, enriched with pattern description.
+     * Returns field configs for a given object (or all objects if blank),
+     * enriched with pattern description and new fields for the LWC.
      */
     @AuraEnabled(cacheable=true)
     public static List<FieldConfigDTO> getFieldConfigs(String objectApiName) {
         List<TEKCO_AnonymizationFieldConfig__mdt> configs;
         if (String.isBlank(objectApiName)) {
             configs = [
-                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c, Is_Active__c
+                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
+                       Is_Active__c, Record_Type_Developer_Name__c, Delete_History__c
                 FROM TEKCO_AnonymizationFieldConfig__mdt
                 WHERE Is_Active__c = true
+                  AND Pattern_Type__c != 'DELETE_CONTENT_DOCUMENT'
                 ORDER BY Object_API_Name__c, Field_API_Name__c
             ];
         } else {
             configs = [
-                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c, Is_Active__c
+                SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
+                       Is_Active__c, Record_Type_Developer_Name__c, Delete_History__c
                 FROM TEKCO_AnonymizationFieldConfig__mdt
                 WHERE Is_Active__c = true
+                  AND Pattern_Type__c != 'DELETE_CONTENT_DOCUMENT'
                   AND Object_API_Name__c = :objectApiName
                 ORDER BY Field_API_Name__c
             ];
@@ -87,9 +89,11 @@ public with sharing class AnonymizationController {
 
         for (TEKCO_AnonymizationFieldConfig__mdt cfg : configs) {
             FieldConfigDTO dto = new FieldConfigDTO();
-            dto.objectApiName = cfg.Object_API_Name__c;
-            dto.fieldApiName  = cfg.Field_API_Name__c;
-            dto.patternType   = cfg.Pattern_Type__c;
+            dto.objectApiName             = cfg.Object_API_Name__c;
+            dto.fieldApiName              = cfg.Field_API_Name__c;
+            dto.patternType               = cfg.Pattern_Type__c;
+            dto.recordTypeDeveloperName   = cfg.Record_Type_Developer_Name__c;
+            dto.deleteHistory             = cfg.Delete_History__c;
             TEKCO_AnonymizationPattern__mdt pattern = patterns.get(cfg.Pattern_Type__c);
             dto.patternDescription = (pattern != null && String.isNotBlank(pattern.Description__c))
                 ? pattern.Description__c
@@ -101,7 +105,6 @@ public with sharing class AnonymizationController {
 
     /**
      * Returns an approximate record count for a given object + brand filter.
-     * selectedBrands empty = no filter applied.
      */
     @AuraEnabled(cacheable=false)
     public static Integer getRecordCount(String objectApiName, List<String> selectedBrands) {
@@ -137,13 +140,19 @@ public with sharing class AnonymizationController {
     // ── Write Methods ─────────────────────────────────────────────────────────
 
     /**
-     * Launches the anonymization batch.
+     * Launches the anonymization batch chain.
+     *
      * @param selectedBrands  Brand values to filter records (empty = all brands)
      * @param selectedObjects Object API names to process (empty = all configured)
+     * @param excludedFields  Fields to skip in this run, format "ObjectApiName.FieldApiName"
      * @return                Anonymization_Audit_Log__c Id
      */
     @AuraEnabled
-    public static Id startAnonymization(List<String> selectedBrands, List<String> selectedObjects) {
+    public static Id startAnonymization(
+        List<String> selectedBrands,
+        List<String> selectedObjects,
+        List<String> excludedFields
+    ) {
         if (!FeatureManagement.checkPermission('Anonymize_Data')) {
             throw new AuraHandledException(
                 'Permission denied: the "Anonymize Data" custom permission is required.'
@@ -156,10 +165,66 @@ public with sharing class AnonymizationController {
             selectedObjects = getObjects();
         }
         if (selectedObjects.isEmpty()) {
-            throw new AuraHandledException('No active field configurations found. Check TEKCO_AnonymizationFieldConfig__mdt records.');
+            throw new AuraHandledException(
+                'No active field configurations found. Check TEKCO_AnonymizationFieldConfig__mdt records.'
+            );
         }
 
+        // Build exclusion set: "ObjectApiName.FieldApiName"
+        Set<String> excluded = new Set<String>();
+        if (excludedFields != null) excluded.addAll(excludedFields);
+
         Map<String, TEKCO_AnonymizationPattern__mdt> patternsByType = getPatternMap();
+
+        // Collect ALL active configs for selected objects (all pattern types)
+        List<TEKCO_AnonymizationFieldConfig__mdt> allConfigs;
+        allConfigs = [
+            SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c,
+                   Is_Active__c, Record_Type_Developer_Name__c, Delete_History__c
+            FROM TEKCO_AnonymizationFieldConfig__mdt
+            WHERE Is_Active__c = true
+              AND Object_API_Name__c IN :selectedObjects
+        ];
+
+        // ── Bucket 1: regular field anonymization (grouped by object, respecting exclusions)
+        Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>> configsByObject =
+            new Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>>();
+
+        // ── Bucket 2: objects needing ContentDocument deletion
+        Set<String> contentDocObjectSet = new Set<String>();
+
+        // ── Bucket 3: field history deletion configs
+        List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs =
+            new List<TEKCO_AnonymizationFieldConfig__mdt>();
+
+        for (TEKCO_AnonymizationFieldConfig__mdt cfg : allConfigs) {
+            String key = cfg.Object_API_Name__c + '.' + cfg.Field_API_Name__c;
+
+            if (cfg.Pattern_Type__c == 'DELETE_CONTENT_DOCUMENT') {
+                contentDocObjectSet.add(cfg.Object_API_Name__c);
+                continue;
+            }
+
+            // Skip excluded fields
+            if (excluded.contains(key)) continue;
+
+            if (!configsByObject.containsKey(cfg.Object_API_Name__c)) {
+                configsByObject.put(cfg.Object_API_Name__c, new List<TEKCO_AnonymizationFieldConfig__mdt>());
+            }
+            configsByObject.get(cfg.Object_API_Name__c).add(cfg);
+
+            if (cfg.Delete_History__c) {
+                historyConfigs.add(cfg);
+            }
+        }
+
+        // Ordered list of objects to anonymize (respects selectedObjects order)
+        List<String> objectsToProcess = new List<String>();
+        for (String obj : selectedObjects) {
+            if (configsByObject.containsKey(obj)) objectsToProcess.add(obj);
+        }
+
+        List<String> contentDocObjects = new List<String>(contentDocObjectSet);
 
         String brandLabel = (selectedBrands == null || selectedBrands.isEmpty())
             ? 'ALL'
@@ -174,8 +239,8 @@ public with sharing class AnonymizationController {
         );
         insert auditLog;
 
-        String firstObject = selectedObjects.remove(0);
-        List<TEKCO_AnonymizationFieldConfig__mdt> firstConfigs = loadFieldConfigs(firstObject);
+        String firstObject = objectsToProcess.remove(0);
+        List<TEKCO_AnonymizationFieldConfig__mdt> firstConfigs = configsByObject.get(firstObject);
 
         Id jobId = Database.executeBatch(
             new AnonymizationBatch(
@@ -184,7 +249,9 @@ public with sharing class AnonymizationController {
                 patternsByType,
                 selectedBrands,
                 auditLog.Id,
-                selectedObjects
+                objectsToProcess,
+                contentDocObjects,
+                historyConfigs
             ),
             200
         );
@@ -210,21 +277,14 @@ public with sharing class AnonymizationController {
         return result;
     }
 
-    private static List<TEKCO_AnonymizationFieldConfig__mdt> loadFieldConfigs(String objectName) {
-        return [
-            SELECT Object_API_Name__c, Field_API_Name__c, Pattern_Type__c, Is_Active__c
-            FROM TEKCO_AnonymizationFieldConfig__mdt
-            WHERE Object_API_Name__c = :objectName
-              AND Is_Active__c = true
-        ];
-    }
-
     // ── DTOs ──────────────────────────────────────────────────────────────────
 
     public class FieldConfigDTO {
-        @AuraEnabled public String objectApiName;
-        @AuraEnabled public String fieldApiName;
-        @AuraEnabled public String patternType;
-        @AuraEnabled public String patternDescription;
+        @AuraEnabled public String  objectApiName;
+        @AuraEnabled public String  fieldApiName;
+        @AuraEnabled public String  patternType;
+        @AuraEnabled public String  patternDescription;
+        @AuraEnabled public String  recordTypeDeveloperName;
+        @AuraEnabled public Boolean deleteHistory;
     }
 }
