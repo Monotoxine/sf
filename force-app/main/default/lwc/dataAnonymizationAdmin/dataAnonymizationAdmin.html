@@ -100,25 +100,52 @@
 
             <template if:true={hasFieldConfigs}>
                 <div class="slds-m-bottom_medium">
-                    <h3 class="slds-text-heading_small slds-m-bottom_small">Fields to Anonymize</h3>
+                    <h3 class="slds-text-heading_small slds-m-bottom_small">
+                        Fields to Anonymize
+                        <span class="slds-text-body_small slds-text-color_weak slds-m-left_x-small">
+                            (uncheck to bypass a field for this run)
+                        </span>
+                    </h3>
                     <template for:each={fieldConfigsByObject} for:item="group">
                         <div key={group.objectApiName} class="slds-m-bottom_small">
                             <p class="slds-text-title_caps slds-m-bottom_xx-small">{group.objectApiName}</p>
                             <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_col-bordered">
                                 <thead>
                                     <tr class="slds-line-height_reset">
+                                        <th style="width:3rem"><div class="slds-truncate">Run</div></th>
                                         <th><div class="slds-truncate">Field</div></th>
                                         <th><div class="slds-truncate">Pattern</div></th>
+                                        <th><div class="slds-truncate">Record Type</div></th>
+                                        <th><div class="slds-truncate">Del. History</div></th>
                                         <th><div class="slds-truncate">Description</div></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <template for:each={group.fields} for:item="field">
-                                        <tr key={field.fieldApiName}>
+                                        <tr key={field.configKey} class={field.rowClass}>
+                                            <td>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={field.enabled}
+                                                    data-key={field.configKey}
+                                                    onchange={handleFieldToggle} />
+                                            </td>
                                             <td><div class="slds-truncate">{field.fieldApiName}</div></td>
-                                            <td><div class="slds-truncate">
-                                                <span class="slds-badge">{field.patternType}</span>
-                                            </div></td>
+                                            <td>
+                                                <div class="slds-truncate">
+                                                    <span class="slds-badge">{field.patternType}</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="slds-truncate">
+                                                    {field.recordTypeDeveloperName}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <template if:true={field.deleteHistory}>
+                                                    <lightning-icon icon-name="utility:check" size="x-small" variant="success"></lightning-icon>
+                                                </template>
+                                            </td>
                                             <td><div class="slds-truncate">{field.patternDescription}</div></td>
                                         </tr>
                                     </template>
