@@ -4,10 +4,18 @@
     <description>Grants the Anonymize_Data custom permission and full access to the Anonymization_Audit_Log__c object. Assign to admins who run sandbox data anonymization.</description>
     <hasActivationRequired>false</hasActivationRequired>
 
-    <!-- Custom Permission -->
+    <!-- Custom Permissions -->
     <customPermissions>
         <enabled>true</enabled>
         <name>Anonymize_Data</name>
+    </customPermissions>
+    <customPermissions>
+        <enabled>true</enabled>
+        <name>CXFCO_BypassCustomValidations</name>
+    </customPermissions>
+    <customPermissions>
+        <enabled>true</enabled>
+        <name>CXFCO_BypassOutboundSynchronization</name>
     </customPermissions>
 
     <!-- Object: Anonymization_Audit_Log__c — full CRUD -->
