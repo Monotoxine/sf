@@ -1,18 +1,53 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <!--
-    destructiveChangesPre.xml — Removes the old non-TEKCO-prefixed anonymization components
-    from the org BEFORE deploying the new TEKCO_-prefixed replacements.
+    destructiveChangesPre.xml
+    ─────────────────────────────────────────────────────────────────────────────
+    Removes the old non-TEKCO-prefixed anonymization components from the org.
+    These deletions run BEFORE the new TEKCO_-prefixed components are deployed,
+    so the org never has both old and new versions simultaneously.
 
-    Usage (combined with package-delta.xml deploy):
-        sf project deploy start --manifest manifest/package-delta.xml \
+    ⚠  WARNINGS:
+      • Deleting Anonymization_Audit_Log__c will permanently destroy all existing
+        audit log records. Export or migrate data first if you need to keep it.
+      • Deleting the old permission set will revoke access from any users currently
+        assigned to Anonymization_Admin. Re-assign TEKCO_AnonymizationAdmin after deploy.
+      • Run this only once. Re-running on a clean org will return deploy errors for
+        "component not found" — that is safe to ignore.
+
+    Usage (combined with package-delta.xml):
+        sf project deploy start \
+            --manifest manifest/package-delta.xml \
             --pre-destructive-changes manifest/destructiveChangesPre.xml
 
-    WARNING: Only run this after confirming the new TEKCO_-prefixed components
-    are ready to deploy. This removes the old components from the org permanently.
+    Usage (deletion only, no new deploy):
+        sf project deploy start \
+            --manifest manifest/destructiveChangesOnly.xml \
+            --pre-destructive-changes manifest/destructiveChangesPre.xml
+        (where destructiveChangesOnly.xml is an empty package with just <version>)
+    ─────────────────────────────────────────────────────────────────────────────
 -->
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
 
-    <!-- Old Apex Classes -->
+    <!-- ── Permission Set ────────────────────────────────────────────────────
+         Delete first: it references the permission and the object below.
+         Deleting it removes user assignments to the old permission set.
+    ──────────────────────────────────────────────────────────────────────── -->
+    <types>
+        <members>Anonymization_Admin</members>
+        <name>PermissionSet</name>
+    </types>
+
+    <!-- ── Custom Permission ─────────────────────────────────────────────────
+         Delete after the permission set that referenced it is gone.
+    ──────────────────────────────────────────────────────────────────────── -->
+    <types>
+        <members>Anonymize_Data</members>
+        <name>CustomPermission</name>
+    </types>
+
+    <!-- ── Apex Classes ───────────────────────────────────────────────────────
+         All 7 old (non-TEKCO-prefixed) classes.
+    ──────────────────────────────────────────────────────────────────────── -->
     <types>
         <members>AnonymizationSandboxGuard</members>
         <members>AnonymizationPatternService</members>
@@ -24,25 +59,18 @@
         <name>ApexClass</name>
     </types>
 
-    <!-- Old LWC -->
+    <!-- ── Lightning Web Component ───────────────────────────────────────────
+    ──────────────────────────────────────────────────────────────────────── -->
     <types>
         <members>dataAnonymizationAdmin</members>
         <name>LightningComponentBundle</name>
     </types>
 
-    <!-- Old Custom Permission -->
-    <types>
-        <members>Anonymize_Data</members>
-        <name>CustomPermission</name>
-    </types>
-
-    <!-- Old Permission Set -->
-    <types>
-        <members>Anonymization_Admin</members>
-        <name>PermissionSet</name>
-    </types>
-
-    <!-- Old Custom Object -->
+    <!-- ── Custom Object ─────────────────────────────────────────────────────
+         Deleting the object automatically removes all its custom fields,
+         page layouts, list views and data. No need to list fields separately.
+         ⚠  All existing Anonymization_Audit_Log__c records will be deleted.
+    ──────────────────────────────────────────────────────────────────────── -->
     <types>
         <members>Anonymization_Audit_Log__c</members>
         <name>CustomObject</name>

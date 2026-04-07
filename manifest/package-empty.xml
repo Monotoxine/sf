@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+    package-empty.xml
+    ─────────────────────────────────────────────────────────────────────────────
+    An intentionally empty package used as the deploy target when you only want
+    to execute destructive changes without deploying anything new.
+
+    Usage — run deletions only (no new components deployed):
+        sf project deploy start \
+            --manifest manifest/package-empty.xml \
+            --pre-destructive-changes manifest/destructiveChangesPre.xml
+    ─────────────────────────────────────────────────────────────────────────────
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <version>65.0</version>
+</Package>
