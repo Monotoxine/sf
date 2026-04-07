@@ -3,6 +3,7 @@
 	<types>
 		<members>pLM_LDCT_OrganizationSpeakersHandler</members>
 		<members>AnonymizationSandboxGuard</members>
+		<members>AnonymizationBypassService</members>
 		<members>AnonymizationPatternService</members>
 		<members>AnonymizationBatch</members>
 		<members>AnonymizationController</members>

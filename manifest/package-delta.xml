@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+    package-delta.xml — Targeted deploy manifest for the anonymization system changes.
+
+    Covers only the components modified/created across recent commits.
+    Use this for incremental deploys instead of the full package.xml.
+
+    Deploy command:
+        sf project deploy start --manifest manifest/package-delta.xml
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>AnonymizationBatch</members>
+        <members>AnonymizationBypassService</members>
+        <members>AnonymizationController</members>
+        <members>AnonymizationPatternService</members>
+        <members>AnonymizationSandboxGuard</members>
+        <members>ContentDocumentBatch</members>
+        <members>FieldHistoryBatch</members>
+        <name>ApexClass</name>
+    </types>
+    <types>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.Delete_History__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.Field_API_Name__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.Is_Active__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.Object_API_Name__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.Pattern_Type__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.Record_Type_Developer_Name__c</members>
+        <members>TEKCO_AnonymizationPattern__mdt.Base_Email__c</members>
+        <members>TEKCO_AnonymizationPattern__mdt.Description__c</members>
+        <members>TEKCO_AnonymizationPattern__mdt.External_Id_Field__c</members>
+        <members>TEKCO_AnonymizationPattern__mdt.Is_Active__c</members>
+        <members>TEKCO_AnonymizationPattern__mdt.SSN_Length__c</members>
+        <members>Anonymization_Audit_Log__c.Brand_Filter__c</members>
+        <members>Anonymization_Audit_Log__c.End_Time__c</members>
+        <members>Anonymization_Audit_Log__c.Error_Message__c</members>
+        <members>Anonymization_Audit_Log__c.Fields_Anonymized__c</members>
+        <members>Anonymization_Audit_Log__c.Job_Id__c</members>
+        <members>Anonymization_Audit_Log__c.Object_API_Name__c</members>
+        <members>Anonymization_Audit_Log__c.Records_Failed__c</members>
+        <members>Anonymization_Audit_Log__c.Records_Processed__c</members>
+        <members>Anonymization_Audit_Log__c.Start_Time__c</members>
+        <members>Anonymization_Audit_Log__c.Status__c</members>
+        <members>Anonymization_Audit_Log__c.Triggered_By__c</members>
+        <name>CustomField</name>
+    </types>
+    <types>
+        <members>Anonymization_Audit_Log__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt</members>
+        <members>TEKCO_AnonymizationPattern__mdt</members>
+        <name>CustomObject</name>
+    </types>
+    <types>
+        <members>Anonymize_Data</members>
+        <name>CustomPermission</name>
+    </types>
+    <types>
+        <members>Anonymization_Admin</members>
+        <name>PermissionSet</name>
+    </types>
+    <types>
+        <members>dataAnonymizationAdmin</members>
+        <name>LightningComponentBundle</name>
+    </types>
+    <version>65.0</version>
+</Package>
