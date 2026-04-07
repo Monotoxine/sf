@@ -178,9 +178,9 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         try {
             update new TEKCO_AnonymizationAuditLog__c(
                 Id               = auditLogId,
-                Status__c        = recordsFailed > 0 ? 'Partial' : 'Success',
-                End_Time__c      = Datetime.now(),
-                Error_Message__c = errors.isEmpty() ? null : String.join(errors, '\n')
+                TEKCO_Status__c        = recordsFailed > 0 ? 'Partial' : 'Success',
+                TEKCO_EndTime__c      = Datetime.now(),
+                TEKCO_ErrorMessage__c = errors.isEmpty() ? null : String.join(errors, '\n')
             );
         } catch (Exception e) {
             // Silent — audit log failure must not break the batch chain

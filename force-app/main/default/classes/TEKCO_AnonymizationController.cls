@@ -156,18 +156,18 @@ public with sharing class TEKCO_AnonymizationController {
         return [
             SELECT
                 Name,
-                Object_API_Name__c,
-                Brand_Filter__c,
-                Status__c,
-                Records_Processed__c,
-                Records_Failed__c,
-                Start_Time__c,
-                End_Time__c,
-                Job_Id__c,
-                Triggered_By__r.Name,
-                Error_Message__c
+                TEKCO_ObjectApiName__c,
+                TEKCO_BrandFilter__c,
+                TEKCO_Status__c,
+                TEKCO_RecordsProcessed__c,
+                TEKCO_RecordsFailed__c,
+                TEKCO_StartTime__c,
+                TEKCO_EndTime__c,
+                TEKCO_JobId__c,
+                TEKCO_TriggeredBy__r.Name,
+                TEKCO_ErrorMessage__c
             FROM TEKCO_AnonymizationAuditLog__c
-            ORDER BY Start_Time__c DESC
+            ORDER BY TEKCO_StartTime__c DESC
             LIMIT 20
         ];
     }
@@ -275,11 +275,11 @@ public with sharing class TEKCO_AnonymizationController {
             : String.join(selectedBrands, ', ');
 
         TEKCO_AnonymizationAuditLog__c auditLog = new TEKCO_AnonymizationAuditLog__c(
-            Triggered_By__c    = UserInfo.getUserId(),
-            Brand_Filter__c    = brandLabel,
-            Object_API_Name__c = String.join(selectedObjects, ', '),
-            Status__c          = 'Running',
-            Start_Time__c      = Datetime.now()
+            TEKCO_TriggeredBy__c    = UserInfo.getUserId(),
+            TEKCO_BrandFilter__c    = brandLabel,
+            TEKCO_ObjectApiName__c = String.join(selectedObjects, ', '),
+            TEKCO_Status__c          = 'Running',
+            TEKCO_StartTime__c      = Datetime.now()
         );
         insert auditLog;
 
@@ -302,7 +302,7 @@ public with sharing class TEKCO_AnonymizationController {
             DEFAULT_BATCH_SIZE
         );
 
-        auditLog.Job_Id__c = String.valueOf(batchJobId);
+        auditLog.TEKCO_JobId__c = String.valueOf(batchJobId);
         update auditLog;
 
         return auditLog.Id;

@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
-    <fullName>Records_Failed__c</fullName>
-    <defaultValue>0</defaultValue>
-    <label>Records Failed</label>
-    <precision>18</precision>
+    <fullName>TEKCO_ObjectApiName__c</fullName>
+    <label>Object API Name</label>
+    <length>255</length>
     <required>false</required>
-    <scale>0</scale>
     <trackTrending>false</trackTrending>
-    <type>Number</type>
+    <type>Text</type>
     <unique>false</unique>
 </CustomField>

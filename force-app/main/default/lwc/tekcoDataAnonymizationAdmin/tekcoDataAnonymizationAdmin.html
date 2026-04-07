@@ -215,12 +215,12 @@
                             <template for:each={auditLogs} for:item="log">
                                 <tr key={log.Id}>
                                     <td><div class="slds-truncate">{log.Name}</div></td>
-                                    <td><div class="slds-truncate">{log.Object_API_Name__c}</div></td>
-                                    <td><div class="slds-truncate">{log.Brand_Filter__c}</div></td>
-                                    <td><span class={log.statusClass}>{log.Status__c}</span></td>
-                                    <td><div class="slds-truncate">{log.Records_Processed__c}</div></td>
-                                    <td><div class="slds-truncate">{log.Records_Failed__c}</div></td>
-                                    <td><div class="slds-truncate">{log.Triggered_By__r.Name}</div></td>
+                                    <td><div class="slds-truncate">{log.TEKCO_ObjectApiName__c}</div></td>
+                                    <td><div class="slds-truncate">{log.TEKCO_BrandFilter__c}</div></td>
+                                    <td><span class={log.statusClass}>{log.TEKCO_Status__c}</span></td>
+                                    <td><div class="slds-truncate">{log.TEKCO_RecordsProcessed__c}</div></td>
+                                    <td><div class="slds-truncate">{log.TEKCO_RecordsFailed__c}</div></td>
+                                    <td><div class="slds-truncate">{log.TEKCO_TriggeredBy__r.Name}</div></td>
                                     <td><div class="slds-truncate">{log.startFormatted}</div></td>
                                 </tr>
                             </template>

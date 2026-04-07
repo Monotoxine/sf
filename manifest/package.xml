@@ -154,17 +154,17 @@
 		<members>LDCT_speaker_and_product__c.Speaker__c</members>
 		<members>LDCT_speaker_and_product__c.Title_ptf__c</members>
 		<!-- TEKCO_AnonymizationAuditLog__c -->
-		<members>TEKCO_AnonymizationAuditLog__c.Brand_Filter__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c.End_Time__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c.Error_Message__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c.Fields_Anonymized__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c.Job_Id__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c.Object_API_Name__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c.Records_Failed__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c.Records_Processed__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c.Start_Time__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c.Status__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c.Triggered_By__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_BrandFilter__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_EndTime__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_ErrorMessage__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_FieldsAnonymized__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_JobId__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_ObjectApiName__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_RecordsFailed__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_RecordsProcessed__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_StartTime__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_Status__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_TriggeredBy__c</members>
 		<!-- TEKCO_AnonymizationPattern__mdt -->
 		<members>TEKCO_AnonymizationPattern__mdt.Base_Email__c</members>
 		<members>TEKCO_AnonymizationPattern__mdt.Description__c</members>

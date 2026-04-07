@@ -307,11 +307,11 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
             Boolean isFinal = phase == 'Final';
             update new TEKCO_AnonymizationAuditLog__c(
                 Id                   = auditLogId,
-                Records_Processed__c = recordsProcessed,
-                Records_Failed__c    = recordsFailed,
-                Status__c            = isFinal ? (recordsFailed > 0 ? 'Partial' : 'Success') : 'Running',
-                End_Time__c          = isFinal ? Datetime.now() : null,
-                Error_Message__c     = errors.isEmpty() ? null : String.join(errors, '\n')
+                TEKCO_RecordsProcessed__c = recordsProcessed,
+                TEKCO_RecordsFailed__c    = recordsFailed,
+                TEKCO_Status__c            = isFinal ? (recordsFailed > 0 ? 'Partial' : 'Success') : 'Running',
+                TEKCO_EndTime__c          = isFinal ? Datetime.now() : null,
+                TEKCO_ErrorMessage__c     = errors.isEmpty() ? null : String.join(errors, '\n')
             );
         } catch (Exception e) {
             // Silent — audit log failure must not break the batch chain

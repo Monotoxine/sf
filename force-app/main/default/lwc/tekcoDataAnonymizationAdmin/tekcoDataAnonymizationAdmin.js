@@ -114,9 +114,9 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             .then(logs => {
                 this.auditLogs = logs.map(log => ({
                     ...log,
-                    statusClass: this.computeStatusBadgeClass(log.Status__c),
-                    startFormatted: log.Start_Time__c
-                        ? new Date(log.Start_Time__c).toLocaleString()
+                    statusClass: this.computeStatusBadgeClass(log.TEKCO_Status__c),
+                    startFormatted: log.TEKCO_StartTime__c
+                        ? new Date(log.TEKCO_StartTime__c).toLocaleString()
                         : '—'
                 }));
             })
@@ -208,7 +208,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     startAuditPoll() {
         this._auditTimer = setInterval(() => {
             this.loadAuditLogs();
-            if (!this.auditLogs.some(log => log.Status__c === 'Running')) {
+            if (!this.auditLogs.some(log => log.TEKCO_Status__c === 'Running')) {
                 this.stopAuditPoll();
             }
         }, AUDIT_POLL_INTERVAL_MS);
