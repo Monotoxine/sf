@@ -4,6 +4,11 @@
 
 ---
 
+# Instructions
+- Always read and follow ALL rules in `ALbestPractice.md` before writing any code.
+- Always use `TEKCO` as the CCID prefix for all Salesforce API names 
+  (fields, objects, classes, LWC, flows, etc.)
+
 ## 1. Naming Conventions (Salesforce Metadata)
 
 ### Capability Key Codes
