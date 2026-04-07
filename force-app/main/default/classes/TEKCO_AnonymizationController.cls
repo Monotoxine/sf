@@ -149,10 +149,10 @@ public with sharing class TEKCO_AnonymizationController {
 
     /**
      * @description Returns the last 20 audit log records ordered by start time descending.
-     * @return List of Anonymization_Audit_Log__c records.
+     * @return List of TEKCO_AnonymizationAuditLog__c records.
      */
     @AuraEnabled(cacheable=false)
-    public static List<Anonymization_Audit_Log__c> getAuditLogs() {
+    public static List<TEKCO_AnonymizationAuditLog__c> getAuditLogs() {
         return [
             SELECT
                 Name,
@@ -166,7 +166,7 @@ public with sharing class TEKCO_AnonymizationController {
                 Job_Id__c,
                 Triggered_By__r.Name,
                 Error_Message__c
-            FROM Anonymization_Audit_Log__c
+            FROM TEKCO_AnonymizationAuditLog__c
             ORDER BY Start_Time__c DESC
             LIMIT 20
         ];
@@ -181,7 +181,7 @@ public with sharing class TEKCO_AnonymizationController {
      * @param selectedBrands  Brand values to filter records (empty = all brands).
      * @param selectedObjects Object API names to process (empty = all configured objects).
      * @param excludedFields  Fields to skip in this run, format "ObjectApiName.FieldApiName".
-     * @return                Id of the created Anonymization_Audit_Log__c record.
+     * @return                Id of the created TEKCO_AnonymizationAuditLog__c record.
      */
     @AuraEnabled
     public static Id startAnonymization(
@@ -274,7 +274,7 @@ public with sharing class TEKCO_AnonymizationController {
             ? 'ALL'
             : String.join(selectedBrands, ', ');
 
-        Anonymization_Audit_Log__c auditLog = new Anonymization_Audit_Log__c(
+        TEKCO_AnonymizationAuditLog__c auditLog = new TEKCO_AnonymizationAuditLog__c(
             Triggered_By__c    = UserInfo.getUserId(),
             Brand_Filter__c    = brandLabel,
             Object_API_Name__c = String.join(selectedObjects, ', '),

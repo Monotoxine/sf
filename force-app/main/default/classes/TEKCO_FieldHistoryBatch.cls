@@ -38,7 +38,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
      * @param objectApiName          API name of the object whose history to delete.
      * @param objectHistoryConfigs   Field configs with Delete_History__c = true for this object.
      * @param selectedBrands         Brand values to filter parent records (empty = all).
-     * @param auditLogId             Id of the Anonymization_Audit_Log__c record.
+     * @param auditLogId             Id of the TEKCO_AnonymizationAuditLog__c record.
      * @param remainingHistoryConfigs Field configs for subsequent objects still to process.
      * @param bypassSnapshot         Bypass state snapshot to restore at chain end.
      */
@@ -201,7 +201,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     private void updateAuditLog() {
         if (auditLogId == null) return;
         try {
-            update new Anonymization_Audit_Log__c(
+            update new TEKCO_AnonymizationAuditLog__c(
                 Id               = auditLogId,
                 Status__c        = recordsFailed > 0 ? 'Partial' : 'Success',
                 End_Time__c      = Datetime.now(),

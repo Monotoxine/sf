@@ -42,5 +42,11 @@
         <name>PermissionSet</name>
     </types>
 
+    <!-- Old Custom Object -->
+    <types>
+        <members>Anonymization_Audit_Log__c</members>
+        <name>CustomObject</name>
+    </types>
+
     <version>65.0</version>
 </Package>

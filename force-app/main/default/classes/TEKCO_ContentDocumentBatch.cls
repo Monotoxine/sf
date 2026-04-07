@@ -31,7 +31,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
      * @description Constructs the batch with context for one object's ContentDocument deletion.
      * @param objectApiName               API name of the object whose documents to delete.
      * @param selectedBrands              Brand values to filter parent records (empty = all).
-     * @param auditLogId                  Id of the Anonymization_Audit_Log__c record.
+     * @param auditLogId                  Id of the TEKCO_AnonymizationAuditLog__c record.
      * @param remainingContentDocObjects  Objects still needing ContentDocument deletion.
      * @param historyConfigs              Field configs needing history deletion (Phase 3).
      * @param bypassSnapshot              Bypass state snapshot to restore at chain end.
@@ -176,7 +176,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
     private void updateAuditLog() {
         if (auditLogId == null) return;
         try {
-            update new Anonymization_Audit_Log__c(
+            update new TEKCO_AnonymizationAuditLog__c(
                 Id               = auditLogId,
                 Status__c        = recordsFailed > 0 ? 'Partial' : 'Success',
                 End_Time__c      = Datetime.now(),

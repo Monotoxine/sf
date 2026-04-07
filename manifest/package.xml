@@ -153,18 +153,18 @@
 		<members>LDCT_speaker_and_product__c.Product__c</members>
 		<members>LDCT_speaker_and_product__c.Speaker__c</members>
 		<members>LDCT_speaker_and_product__c.Title_ptf__c</members>
-		<!-- Anonymization_Audit_Log__c -->
-		<members>Anonymization_Audit_Log__c.Brand_Filter__c</members>
-		<members>Anonymization_Audit_Log__c.End_Time__c</members>
-		<members>Anonymization_Audit_Log__c.Error_Message__c</members>
-		<members>Anonymization_Audit_Log__c.Fields_Anonymized__c</members>
-		<members>Anonymization_Audit_Log__c.Job_Id__c</members>
-		<members>Anonymization_Audit_Log__c.Object_API_Name__c</members>
-		<members>Anonymization_Audit_Log__c.Records_Failed__c</members>
-		<members>Anonymization_Audit_Log__c.Records_Processed__c</members>
-		<members>Anonymization_Audit_Log__c.Start_Time__c</members>
-		<members>Anonymization_Audit_Log__c.Status__c</members>
-		<members>Anonymization_Audit_Log__c.Triggered_By__c</members>
+		<!-- TEKCO_AnonymizationAuditLog__c -->
+		<members>TEKCO_AnonymizationAuditLog__c.Brand_Filter__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.End_Time__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.Error_Message__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.Fields_Anonymized__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.Job_Id__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.Object_API_Name__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.Records_Failed__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.Records_Processed__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.Start_Time__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.Status__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c.Triggered_By__c</members>
 		<!-- TEKCO_AnonymizationPattern__mdt -->
 		<members>TEKCO_AnonymizationPattern__mdt.Base_Email__c</members>
 		<members>TEKCO_AnonymizationPattern__mdt.Description__c</members>
@@ -186,7 +186,7 @@
 		<members>LDCT_Speaker__c</members>
 		<members>LDCT_affiliate__c</members>
 		<members>LDCT_speaker_and_product__c</members>
-		<members>Anonymization_Audit_Log__c</members>
+		<members>TEKCO_AnonymizationAuditLog__c</members>
 		<members>TEKCO_AnonymizationPattern__mdt</members>
 		<members>TEKCO_AnonymizationFieldConfig__mdt</members>
 		<name>CustomObject</name>

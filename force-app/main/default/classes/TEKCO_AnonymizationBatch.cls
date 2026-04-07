@@ -46,7 +46,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
      * @param fieldConfigs      Field configs for this object.
      * @param patternsByType    All active patterns keyed by DeveloperName.
      * @param selectedBrands    Brand values to filter records (empty = all).
-     * @param auditLogId        Id of the Anonymization_Audit_Log__c record.
+     * @param auditLogId        Id of the TEKCO_AnonymizationAuditLog__c record.
      * @param remainingObjects  Objects still to be anonymized after this one.
      * @param contentDocObjects Objects needing ContentDocument deletion (Phase 2).
      * @param historyConfigs    Field configs needing history deletion (Phase 3).
@@ -305,7 +305,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         if (auditLogId == null) return;
         try {
             Boolean isFinal = phase == 'Final';
-            update new Anonymization_Audit_Log__c(
+            update new TEKCO_AnonymizationAuditLog__c(
                 Id                   = auditLogId,
                 Records_Processed__c = recordsProcessed,
                 Records_Failed__c    = recordsFailed,
