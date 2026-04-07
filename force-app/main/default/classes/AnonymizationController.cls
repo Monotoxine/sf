@@ -174,6 +174,10 @@ public with sharing class AnonymizationController {
         Set<String> excluded = new Set<String>();
         if (excludedFields != null) excluded.addAll(excludedFields);
 
+        // Activate trigger bypass for the running user (restored at end of chain)
+        AnonymizationBypassService.BypassSnapshot bypassSnapshot =
+            AnonymizationBypassService.activate();
+
         Map<String, TEKCO_AnonymizationPattern__mdt> patternsByType = getPatternMap();
 
         // Collect ALL active configs for selected objects (all pattern types)
@@ -251,7 +255,8 @@ public with sharing class AnonymizationController {
                 auditLog.Id,
                 objectsToProcess,
                 contentDocObjects,
-                historyConfigs
+                historyConfigs,
+                bypassSnapshot
             ),
             200
         );

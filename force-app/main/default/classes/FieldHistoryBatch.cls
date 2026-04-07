@@ -21,6 +21,7 @@ public class FieldHistoryBatch implements Database.Batchable<SObject>, Database.
     private List<String>                                 selectedBrands;
     private Id                                           auditLogId;
     private List<TEKCO_AnonymizationFieldConfig__mdt>    remainingHistoryConfigs; // configs for NEXT objects
+    private AnonymizationBypassService.BypassSnapshot    bypassSnapshot;
 
     private Integer recordsDeleted = 0;
     private Integer recordsFailed  = 0;
@@ -35,13 +36,15 @@ public class FieldHistoryBatch implements Database.Batchable<SObject>, Database.
         List<TEKCO_AnonymizationFieldConfig__mdt> objectHistoryConfigs,
         List<String> selectedBrands,
         Id auditLogId,
-        List<TEKCO_AnonymizationFieldConfig__mdt> remainingHistoryConfigs
+        List<TEKCO_AnonymizationFieldConfig__mdt> remainingHistoryConfigs,
+        AnonymizationBypassService.BypassSnapshot bypassSnapshot
     ) {
-        this.objectApiName          = objectApiName;
-        this.objectHistoryConfigs   = objectHistoryConfigs   != null ? objectHistoryConfigs   : new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        this.selectedBrands         = selectedBrands         != null ? selectedBrands         : new List<String>();
-        this.auditLogId             = auditLogId;
+        this.objectApiName           = objectApiName;
+        this.objectHistoryConfigs    = objectHistoryConfigs    != null ? objectHistoryConfigs    : new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        this.selectedBrands          = selectedBrands          != null ? selectedBrands          : new List<String>();
+        this.auditLogId              = auditLogId;
         this.remainingHistoryConfigs = remainingHistoryConfigs != null ? remainingHistoryConfigs : new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        this.bypassSnapshot          = bypassSnapshot;
     }
 
     // ── Batchable Interface ───────────────────────────────────────────────────
@@ -97,10 +100,13 @@ public class FieldHistoryBatch implements Database.Batchable<SObject>, Database.
             String nextObj = remainingHistoryConfigs[0].Object_API_Name__c;
             List<TEKCO_AnonymizationFieldConfig__mdt> nextObjConfigs = popConfigsForObject(nextObj);
             Database.executeBatch(
-                new FieldHistoryBatch(nextObj, nextObjConfigs, selectedBrands, auditLogId, remainingHistoryConfigs),
+                new FieldHistoryBatch(nextObj, nextObjConfigs, selectedBrands, auditLogId,
+                                      remainingHistoryConfigs, bypassSnapshot),
                 DEFAULT_BATCH_SIZE
             );
         } else {
+            // End of entire chain — restore bypass settings
+            AnonymizationBypassService.restore(bypassSnapshot);
             updateAuditLog();
         }
     }

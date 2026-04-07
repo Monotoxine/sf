@@ -22,6 +22,7 @@ public class AnonymizationBatch implements Database.Batchable<SObject>, Database
     // Passed through to next phases
     private List<String>                                  contentDocObjects;
     private List<TEKCO_AnonymizationFieldConfig__mdt>     historyConfigs;
+    private AnonymizationBypassService.BypassSnapshot     bypassSnapshot;
 
     // RecordType Id → DeveloperName map, populated in start()
     private Map<Id, String>                               recordTypeDevNameById = new Map<Id, String>();
@@ -42,7 +43,8 @@ public class AnonymizationBatch implements Database.Batchable<SObject>, Database
         Id auditLogId,
         List<String> remainingObjects,
         List<String> contentDocObjects,
-        List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs
+        List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs,
+        AnonymizationBypassService.BypassSnapshot bypassSnapshot
     ) {
         this.objectApiName     = objectApiName;
         this.fieldConfigs      = fieldConfigs;
@@ -52,6 +54,7 @@ public class AnonymizationBatch implements Database.Batchable<SObject>, Database
         this.remainingObjects  = remainingObjects  != null ? remainingObjects  : new List<String>();
         this.contentDocObjects = contentDocObjects != null ? contentDocObjects : new List<String>();
         this.historyConfigs    = historyConfigs    != null ? historyConfigs    : new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        this.bypassSnapshot    = bypassSnapshot;
     }
 
     // ── Batchable Interface ───────────────────────────────────────────────────
@@ -159,7 +162,8 @@ public class AnonymizationBatch implements Database.Batchable<SObject>, Database
             List<TEKCO_AnonymizationFieldConfig__mdt> nextConfigs = loadFieldConfigs(nextObj);
             Database.executeBatch(
                 new AnonymizationBatch(nextObj, nextConfigs, patternsByType, selectedBrands,
-                                       auditLogId, remainingObjects, contentDocObjects, historyConfigs),
+                                       auditLogId, remainingObjects, contentDocObjects,
+                                       historyConfigs, bypassSnapshot),
                 DEFAULT_BATCH_SIZE
             );
         } else if (!contentDocObjects.isEmpty()) {
@@ -167,7 +171,7 @@ public class AnonymizationBatch implements Database.Batchable<SObject>, Database
             String firstObj = contentDocObjects.remove(0);
             Database.executeBatch(
                 new ContentDocumentBatch(firstObj, selectedBrands, auditLogId,
-                                         contentDocObjects, historyConfigs),
+                                         contentDocObjects, historyConfigs, bypassSnapshot),
                 DEFAULT_BATCH_SIZE
             );
         } else if (!historyConfigs.isEmpty()) {
@@ -175,10 +179,12 @@ public class AnonymizationBatch implements Database.Batchable<SObject>, Database
             String firstObj = historyConfigs[0].Object_API_Name__c;
             List<TEKCO_AnonymizationFieldConfig__mdt> objHistoryConfigs = popHistoryConfigsForObject(firstObj);
             Database.executeBatch(
-                new FieldHistoryBatch(firstObj, objHistoryConfigs, selectedBrands, auditLogId, historyConfigs),
+                new FieldHistoryBatch(firstObj, objHistoryConfigs, selectedBrands, auditLogId,
+                                      historyConfigs, bypassSnapshot),
                 DEFAULT_BATCH_SIZE
             );
         } else {
+            AnonymizationBypassService.restore(bypassSnapshot);
             updateAuditLog('Final');
         }
     }

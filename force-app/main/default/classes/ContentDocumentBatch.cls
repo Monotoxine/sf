@@ -16,6 +16,7 @@ public class ContentDocumentBatch implements Database.Batchable<SObject>, Databa
     private Id                                           auditLogId;
     private List<String>                                 remainingContentDocObjects;
     private List<TEKCO_AnonymizationFieldConfig__mdt>    historyConfigs;
+    private AnonymizationBypassService.BypassSnapshot    bypassSnapshot;
 
     private Integer recordsDeleted = 0;
     private Integer recordsFailed  = 0;
@@ -30,13 +31,15 @@ public class ContentDocumentBatch implements Database.Batchable<SObject>, Databa
         List<String> selectedBrands,
         Id auditLogId,
         List<String> remainingContentDocObjects,
-        List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs
+        List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs,
+        AnonymizationBypassService.BypassSnapshot bypassSnapshot
     ) {
         this.objectApiName              = objectApiName;
         this.selectedBrands             = selectedBrands             != null ? selectedBrands             : new List<String>();
         this.auditLogId                 = auditLogId;
         this.remainingContentDocObjects = remainingContentDocObjects != null ? remainingContentDocObjects : new List<String>();
         this.historyConfigs             = historyConfigs             != null ? historyConfigs             : new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        this.bypassSnapshot             = bypassSnapshot;
     }
 
     // ── Batchable Interface ───────────────────────────────────────────────────
@@ -94,7 +97,7 @@ public class ContentDocumentBatch implements Database.Batchable<SObject>, Databa
             String nextObj = remainingContentDocObjects.remove(0);
             Database.executeBatch(
                 new ContentDocumentBatch(nextObj, selectedBrands, auditLogId,
-                                         remainingContentDocObjects, historyConfigs),
+                                         remainingContentDocObjects, historyConfigs, bypassSnapshot),
                 DEFAULT_BATCH_SIZE
             );
         } else if (!historyConfigs.isEmpty()) {
@@ -102,10 +105,12 @@ public class ContentDocumentBatch implements Database.Batchable<SObject>, Databa
             String firstObj = historyConfigs[0].Object_API_Name__c;
             List<TEKCO_AnonymizationFieldConfig__mdt> objConfigs = popHistoryConfigsForObject(firstObj);
             Database.executeBatch(
-                new FieldHistoryBatch(firstObj, objConfigs, selectedBrands, auditLogId, historyConfigs),
+                new FieldHistoryBatch(firstObj, objConfigs, selectedBrands, auditLogId,
+                                      historyConfigs, bypassSnapshot),
                 DEFAULT_BATCH_SIZE
             );
         } else {
+            AnonymizationBypassService.restore(bypassSnapshot);
             updateAuditLog();
         }
     }
