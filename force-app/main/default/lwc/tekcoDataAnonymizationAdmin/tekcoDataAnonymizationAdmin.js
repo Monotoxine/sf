@@ -1,17 +1,17 @@
 import { LightningElement, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
-import hasAnonymizePermission from '@salesforce/customPermission/Anonymize_Data';
+import hasAnonymizePermission from '@salesforce/customPermission/TEKCO_AnonymizeData';
 
-import getBrands          from '@salesforce/apex/AnonymizationController.getBrands';
-import getObjects         from '@salesforce/apex/AnonymizationController.getObjects';
-import getFieldConfigs    from '@salesforce/apex/AnonymizationController.getFieldConfigs';
-import getRecordCount     from '@salesforce/apex/AnonymizationController.getRecordCount';
-import getAuditLogs       from '@salesforce/apex/AnonymizationController.getAuditLogs';
-import startAnonymization from '@salesforce/apex/AnonymizationController.startAnonymization';
+import getBrands          from '@salesforce/apex/TEKCO_AnonymizationController.getBrands';
+import getObjects         from '@salesforce/apex/TEKCO_AnonymizationController.getObjects';
+import getFieldConfigs    from '@salesforce/apex/TEKCO_AnonymizationController.getFieldConfigs';
+import getRecordCount     from '@salesforce/apex/TEKCO_AnonymizationController.getRecordCount';
+import getAuditLogs       from '@salesforce/apex/TEKCO_AnonymizationController.getAuditLogs';
+import startAnonymization from '@salesforce/apex/TEKCO_AnonymizationController.startAnonymization';
 
 const AUDIT_POLL_INTERVAL_MS = 5000;
 
-export default class DataAnonymizationAdmin extends LightningElement {
+export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
     hasPermission = hasAnonymizePermission;
 
@@ -69,13 +69,12 @@ export default class DataAnonymizationAdmin extends LightningElement {
 
     loadFieldConfigs() {
         this.isLoading = true;
-        const obj = this.selectedObjects.length === 1 ? this.selectedObjects[0] : null;
-        getFieldConfigs({ objectApiName: obj })
+        const objectApiName = this.selectedObjects.length === 1 ? this.selectedObjects[0] : null;
+        getFieldConfigs({ objectApiName })
             .then(configs => {
                 // Enrich each config with a unique key and enabled=true by default
                 this.fieldConfigs = configs.map(cfg => ({
                     ...cfg,
-                    // unique key used for checkbox tracking: "Object.Field"
                     configKey: `${cfg.objectApiName}.${cfg.fieldApiName}`,
                     enabled: true
                 }));
@@ -95,16 +94,16 @@ export default class DataAnonymizationAdmin extends LightningElement {
             ? this.selectedObjects
             : this.objectOptions.map(o => o.value);
 
-        const promises = objectsToCount.map(obj =>
-            getRecordCount({ objectApiName: obj, selectedBrands: this.selectedBrands })
-                .then(count => ({ objectApiName: obj, count }))
-                .catch(() => ({ objectApiName: obj, count: -1 }))
+        const countPromises = objectsToCount.map(objectApiName =>
+            getRecordCount({ objectApiName, selectedBrands: this.selectedBrands })
+                .then(count => ({ objectApiName, count }))
+                .catch(() => ({ objectApiName, count: -1 }))
         );
 
-        Promise.all(promises).then(results => {
-            this.previewByObject = results.map(r => ({
-                objectApiName: r.objectApiName,
-                countLabel: r.count === -1 ? 'Could not count' : `${r.count} record(s)`
+        Promise.all(countPromises).then(results => {
+            this.previewByObject = results.map(result => ({
+                objectApiName: result.objectApiName,
+                countLabel: result.count === -1 ? 'Could not count' : `${result.count} record(s)`
             }));
             this.isLoadingPreview = false;
         });
@@ -115,7 +114,7 @@ export default class DataAnonymizationAdmin extends LightningElement {
             .then(logs => {
                 this.auditLogs = logs.map(log => ({
                     ...log,
-                    statusClass: this.statusBadgeClass(log.Status__c),
+                    statusClass: this.computeStatusBadgeClass(log.Status__c),
                     startFormatted: log.Start_Time__c
                         ? new Date(log.Start_Time__c).toLocaleString()
                         : '—'
@@ -150,30 +149,29 @@ export default class DataAnonymizationAdmin extends LightningElement {
     }
 
     /**
-     * Toggle the `enabled` flag on a field config row.
+     * Toggles the `enabled` flag on a field config row.
      * The checkbox data-key attribute carries "ObjectApiName.FieldApiName".
      */
     handleFieldToggle(event) {
-        const key = event.target.dataset.key;
+        const configKey = event.target.dataset.key;
         this.fieldConfigs = this.fieldConfigs.map(cfg =>
-            cfg.configKey === key ? { ...cfg, enabled: event.target.checked } : cfg
+            cfg.configKey === configKey ? { ...cfg, enabled: event.target.checked } : cfg
         );
     }
 
     handleStart() {
         if (!this.hasPermission) {
-            this.showToast('Permission Denied', 'You need the "Anonymize Data" custom permission.', 'error');
+            this.showToast('Permission Denied', 'You need the "TEKCO Anonymize Data" custom permission.', 'error');
             return;
         }
 
-        // Build list of excluded fields (unchecked rows)
         const excludedFields = this.fieldConfigs
             .filter(cfg => !cfg.enabled)
             .map(cfg => cfg.configKey);
 
         // eslint-disable-next-line no-alert
         if (!window.confirm(
-            '⚠️ You are about to anonymize data.\n\n' +
+            'WARNING: You are about to anonymize data.\n\n' +
             `Brands: ${this.selectedBrands.length ? this.selectedBrands.join(', ') : 'ALL'}\n` +
             `Objects: ${this.selectedObjects.length ? this.selectedObjects.join(', ') : 'ALL configured'}\n` +
             `Bypassed fields: ${excludedFields.length ? excludedFields.join(', ') : 'none'}\n\n` +
@@ -195,9 +193,9 @@ export default class DataAnonymizationAdmin extends LightningElement {
         })
         .catch(err => {
             this.isRunning    = false;
-            const msg = err?.body?.message ?? err?.message ?? 'Unknown error';
-            this.errorMessage = msg;
-            this.showToast('Error', msg, 'error');
+            const errorMessage = err?.body?.message ?? err?.message ?? 'Unknown error';
+            this.errorMessage = errorMessage;
+            this.showToast('Error', errorMessage, 'error');
         });
     }
 
@@ -210,7 +208,7 @@ export default class DataAnonymizationAdmin extends LightningElement {
     startAuditPoll() {
         this._auditTimer = setInterval(() => {
             this.loadAuditLogs();
-            if (!this.auditLogs.some(l => l.Status__c === 'Running')) {
+            if (!this.auditLogs.some(log => log.Status__c === 'Running')) {
                 this.stopAuditPoll();
             }
         }, AUDIT_POLL_INTERVAL_MS);
@@ -228,39 +226,39 @@ export default class DataAnonymizationAdmin extends LightningElement {
     get hasFieldConfigs()   { return this.fieldConfigs.length > 0; }
     get hasPreview()        { return this.previewByObject.length > 0; }
     get hasAuditLogs()      { return this.auditLogs.length > 0; }
-    get startDisabled()     { return !this.hasPermission || this.isRunning; }
+    get isStartDisabled()   { return !this.hasPermission || this.isRunning; }
     get startLabel()        { return this.isRunning ? 'Running...' : 'Launch Anonymization'; }
     get permissionWarning() {
-        return this.hasPermission ? '' :
-            'You need the "Anonymize Data" custom permission to trigger anonymization.';
+        return this.hasPermission ? ''
+            : 'You need the "TEKCO Anonymize Data" custom permission to trigger anonymization.';
     }
 
     get fieldConfigsByObject() {
-        const map = {};
+        const groupMap = {};
         this.fieldConfigs.forEach(cfg => {
-            if (!map[cfg.objectApiName]) {
-                map[cfg.objectApiName] = { objectApiName: cfg.objectApiName, fields: [] };
+            if (!groupMap[cfg.objectApiName]) {
+                groupMap[cfg.objectApiName] = { objectApiName: cfg.objectApiName, fields: [] };
             }
-            map[cfg.objectApiName].fields.push(cfg);
+            groupMap[cfg.objectApiName].fields.push(cfg);
         });
-        return Object.values(map);
+        return Object.values(groupMap);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    statusBadgeClass(status) {
-        const map = {
+    computeStatusBadgeClass(status) {
+        const statusClassMap = {
             'Success': 'badge badge-success',
             'Running': 'badge badge-running',
             'Partial': 'badge badge-partial',
             'Failed' : 'badge badge-failed'
         };
-        return map[status] || 'badge';
+        return statusClassMap[status] || 'badge';
     }
 
     showError(context, err) {
-        const msg = err?.body?.message ?? err?.message ?? 'Unknown error';
-        console.error(`[AnonymizationAdmin] ${context}:`, msg);
+        const errorMessage = err?.body?.message ?? err?.message ?? 'Unknown error';
+        console.error(`[TekcoAnonymizationAdmin] ${context}:`, errorMessage);
     }
 
     showToast(title, message, variant) {

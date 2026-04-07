@@ -2,12 +2,13 @@
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
 	<types>
 		<members>pLM_LDCT_OrganizationSpeakersHandler</members>
-		<members>AnonymizationSandboxGuard</members>
-		<members>AnonymizationPatternService</members>
-		<members>AnonymizationBatch</members>
-		<members>AnonymizationController</members>
-		<members>ContentDocumentBatch</members>
-		<members>FieldHistoryBatch</members>
+		<members>TEKCO_AnonymizationSandboxGuard</members>
+		<members>TEKCO_AnonymizationPatternService</members>
+		<members>TEKCO_AnonymizationBypassService</members>
+		<members>TEKCO_AnonymizationController</members>
+		<members>TEKCO_AnonymizationBatch</members>
+		<members>TEKCO_ContentDocumentBatch</members>
+		<members>TEKCO_FieldHistoryBatch</members>
 		<name>ApexClass</name>
 	</types>
 	<types>
@@ -207,15 +208,15 @@
 		<members>pLM_LDCT_Screen3CreateSpeaker</members>
 		<members>pLM_LDCT_Screen4ModificationOfSpeaker</members>
 		<members>pLM_LDCT_Screen4_1FundSpeakerModification</members>
-		<members>dataAnonymizationAdmin</members>
+		<members>tekcoDataAnonymizationAdmin</members>
 		<name>LightningComponentBundle</name>
 	</types>
 	<types>
-		<members>Anonymize_Data</members>
+		<members>TEKCO_AnonymizeData</members>
 		<name>CustomPermission</name>
 	</types>
 	<types>
-		<members>Anonymization_Admin</members>
+		<members>TEKCO_AnonymizationAdmin</members>
 		<name>PermissionSet</name>
 	</types>
 	<types>

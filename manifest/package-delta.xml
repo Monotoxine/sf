@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+    package-delta.xml — Deploy only the anonymization system files renamed/refactored
+    for enterprise best-practice compliance (TEKCO_ prefix, ALBestPractice.md).
+
+    Deploy command:
+        sf project deploy start --manifest manifest/package-delta.xml
+
+    Destructive changes (remove old non-TEKCO classes/LWC/permission from org):
+        sf project deploy start --manifest manifest/package-delta.xml \
+            --pre-destructive-changes manifest/destructiveChangesPre.xml
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+
+    <!-- ── Apex Classes ──────────────────────────────────────────────────── -->
+    <types>
+        <members>TEKCO_AnonymizationSandboxGuard</members>
+        <members>TEKCO_AnonymizationPatternService</members>
+        <members>TEKCO_AnonymizationBypassService</members>
+        <members>TEKCO_AnonymizationController</members>
+        <members>TEKCO_AnonymizationBatch</members>
+        <members>TEKCO_ContentDocumentBatch</members>
+        <members>TEKCO_FieldHistoryBatch</members>
+        <name>ApexClass</name>
+    </types>
+
+    <!-- ── LWC ───────────────────────────────────────────────────────────── -->
+    <types>
+        <members>tekcoDataAnonymizationAdmin</members>
+        <name>LightningComponentBundle</name>
+    </types>
+
+    <!-- ── Custom Permission ─────────────────────────────────────────────── -->
+    <types>
+        <members>TEKCO_AnonymizeData</members>
+        <name>CustomPermission</name>
+    </types>
+
+    <!-- ── Permission Set ────────────────────────────────────────────────── -->
+    <types>
+        <members>TEKCO_AnonymizationAdmin</members>
+        <name>PermissionSet</name>
+    </types>
+
+    <!-- ── Custom Metadata Fields (unchanged, included for full deploy) ──── -->
+    <types>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.Delete_History__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.Record_Type_Developer_Name__c</members>
+        <name>CustomField</name>
+    </types>
+
+    <!-- ── Custom Objects ────────────────────────────────────────────────── -->
+    <types>
+        <members>TEKCO_AnonymizationFieldConfig__mdt</members>
+        <members>TEKCO_AnonymizationPattern__mdt</members>
+        <name>CustomObject</name>
+    </types>
+
+    <version>65.0</version>
+</Package>

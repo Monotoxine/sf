@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
-    <label>Anonymization Admin</label>
-    <description>Grants the Anonymize_Data custom permission and full access to the Anonymization_Audit_Log__c object. Assign to admins who run sandbox data anonymization.</description>
+    <label>TEKCO Anonymization Admin</label>
+    <description>Grants the TEKCO_AnonymizeData custom permission and full access to the Anonymization_Audit_Log__c object. Assign to admins who run sandbox data anonymization.</description>
     <hasActivationRequired>false</hasActivationRequired>
 
     <!-- Custom Permissions -->
     <customPermissions>
         <enabled>true</enabled>
-        <name>Anonymize_Data</name>
+        <name>TEKCO_AnonymizeData</name>
     </customPermissions>
     <customPermissions>
         <enabled>true</enabled>

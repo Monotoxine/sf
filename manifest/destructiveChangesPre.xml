@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+    destructiveChangesPre.xml — Removes the old non-TEKCO-prefixed anonymization components
+    from the org BEFORE deploying the new TEKCO_-prefixed replacements.
+
+    Usage (combined with package-delta.xml deploy):
+        sf project deploy start --manifest manifest/package-delta.xml \
+            --pre-destructive-changes manifest/destructiveChangesPre.xml
+
+    WARNING: Only run this after confirming the new TEKCO_-prefixed components
+    are ready to deploy. This removes the old components from the org permanently.
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+
+    <!-- Old Apex Classes -->
+    <types>
+        <members>AnonymizationSandboxGuard</members>
+        <members>AnonymizationPatternService</members>
+        <members>AnonymizationBypassService</members>
+        <members>AnonymizationController</members>
+        <members>AnonymizationBatch</members>
+        <members>ContentDocumentBatch</members>
+        <members>FieldHistoryBatch</members>
+        <name>ApexClass</name>
+    </types>
+
+    <!-- Old LWC -->
+    <types>
+        <members>dataAnonymizationAdmin</members>
+        <name>LightningComponentBundle</name>
+    </types>
+
+    <!-- Old Custom Permission -->
+    <types>
+        <members>Anonymize_Data</members>
+        <name>CustomPermission</name>
+    </types>
+
+    <!-- Old Permission Set -->
+    <types>
+        <members>Anonymization_Admin</members>
+        <name>PermissionSet</name>
+    </types>
+
+    <version>65.0</version>
+</Package>

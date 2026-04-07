@@ -143,7 +143,11 @@
                                             </td>
                                             <td>
                                                 <template if:true={field.deleteHistory}>
-                                                    <lightning-icon icon-name="utility:check" size="x-small" variant="success"></lightning-icon>
+                                                    <lightning-icon
+                                                        icon-name="utility:check"
+                                                        size="x-small"
+                                                        variant="success">
+                                                    </lightning-icon>
                                                 </template>
                                             </td>
                                             <td><div class="slds-truncate">{field.patternDescription}</div></td>
@@ -170,11 +174,15 @@
                     label={startLabel}
                     variant="destructive"
                     icon-name="utility:shield"
-                    disabled={startDisabled}
+                    disabled={isStartDisabled}
                     onclick={handleStart}>
                 </lightning-button>
                 <template if:true={isRunning}>
-                    <lightning-spinner alternative-text="Running..." size="small" class="slds-m-left_small"></lightning-spinner>
+                    <lightning-spinner
+                        alternative-text="Running..."
+                        size="small"
+                        class="slds-m-left_small">
+                    </lightning-spinner>
                 </template>
             </div>
 
