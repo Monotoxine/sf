@@ -220,6 +220,14 @@
 		<name>PermissionSet</name>
 	</types>
 	<types>
+		<members>TEKCO_Data_Anonymization</members>
+		<name>CustomTab</name>
+	</types>
+	<types>
+		<members>Run_Team_Tools</members>
+		<name>CustomApplication</name>
+	</types>
+	<types>
 		<!-- TEKCO_AnonymizationPattern__mdt records -->
 		<members>TEKCO_AnonymizationPattern__mdt.ADDRESS_STREET_RANDOM</members>
 		<members>TEKCO_AnonymizationPattern__mdt.DELETE_CONTENT_DOCUMENT</members>

@@ -56,5 +56,17 @@
         <name>CustomObject</name>
     </types>
 
+    <!-- ── Custom Tab ────────────────────────────────────────────────────── -->
+    <types>
+        <members>TEKCO_Data_Anonymization</members>
+        <name>CustomTab</name>
+    </types>
+
+    <!-- ── Lightning App (adds tab to Run Team Tools) ────────────────────── -->
+    <types>
+        <members>Run_Team_Tools</members>
+        <name>CustomApplication</name>
+    </types>
+
     <version>65.0</version>
 </Package>

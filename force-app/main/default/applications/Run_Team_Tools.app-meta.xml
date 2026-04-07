@@ -16,5 +16,6 @@
     <tabs>TEKCO_Field_Identificator</tabs>
     <tabs>TEKCO_Children_Counter</tabs>
     <tabs>CSV_Data_Extractor</tabs>
+    <tabs>TEKCO_Data_Anonymization</tabs>
     <uiType>Lightning</uiType>
 </CustomApplication>
