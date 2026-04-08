@@ -20,6 +20,10 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
     private List<String>                                  remainingContentDocObjects;
     private List<TEKCO_AnonymizationFieldConfig__mdt>     historyConfigs;
     private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
+    private Map<String, List<String>>                     parentFiltersByObject;
+
+    // Populated in start() when a parent filter is active; bound in the QueryLocator string
+    private Set<Id>                                       relevantChildIds;
 
     private Integer recordsDeleted = 0;
     private Integer recordsFailed  = 0;
@@ -35,6 +39,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
      * @param remainingContentDocObjects  Objects still needing ContentDocument deletion.
      * @param historyConfigs              Field configs needing history deletion (Phase 3).
      * @param bypassSnapshot              Bypass state snapshot to restore at chain end.
+     * @param parentFiltersByObject       Map of child object → [parentObject, parentLookup, parentRT].
      */
     public TEKCO_ContentDocumentBatch(
         String objectApiName,
@@ -42,7 +47,8 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         Id auditLogId,
         List<String> remainingContentDocObjects,
         List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs,
-        TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot
+        TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
+        Map<String, List<String>> parentFiltersByObject
     ) {
         this.objectApiName              = objectApiName;
         this.selectedBrands             = selectedBrands             != null
@@ -53,6 +59,8 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         this.historyConfigs             = historyConfigs             != null
             ? historyConfigs : new List<TEKCO_AnonymizationFieldConfig__mdt>();
         this.bypassSnapshot             = bypassSnapshot;
+        this.parentFiltersByObject      = parentFiltersByObject != null
+            ? parentFiltersByObject : new Map<String, List<String>>();
     }
 
     // ── Batchable Interface ───────────────────────────────────────────────────
@@ -66,14 +74,40 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
     public Database.QueryLocator start(Database.BatchableContext bc) {
         TEKCO_AnonymizationSandboxGuard.assertIsSandbox();
 
-        String soqlQuery = 'SELECT ContentDocumentId FROM ContentDocumentLink'
-            + ' WHERE LinkedEntityId IN (SELECT Id FROM ' + objectApiName;
+        List<String> parentFilter = parentFiltersByObject.get(objectApiName);
+        String parentObjectApiName    = (parentFilter != null && parentFilter.size() > 0) ? parentFilter.get(0) : null;
+        String parentLookupField      = (parentFilter != null && parentFilter.size() > 1) ? parentFilter.get(1) : null;
+        String parentRecordTypeDvName = (parentFilter != null && parentFilter.size() > 2) ? parentFilter.get(2) : null;
 
-        if (!selectedBrands.isEmpty()) {
-            soqlQuery += ' WHERE TEKCO_Brand__c IN :selectedBrands';
+        String innerFilter = '';
+        if (String.isNotBlank(parentObjectApiName)) {
+            // Salesforce forbids nested subqueries (2 levels deep), so we resolve child IDs
+            // upfront with two preparatory SOQL calls in start() (runs once per batch).
+            List<String> parentConditions = new List<String>();
+            if (!selectedBrands.isEmpty()) {
+                parentConditions.add('TEKCO_Brand__c IN :selectedBrands');
+            }
+            if (String.isNotBlank(parentRecordTypeDvName)) {
+                parentConditions.add(
+                    'RecordType.DeveloperName = \'' + String.escapeSingleQuotes(parentRecordTypeDvName) + '\''
+                );
+            }
+            String parentQuery = 'SELECT Id FROM ' + parentObjectApiName;
+            if (!parentConditions.isEmpty()) {
+                parentQuery += ' WHERE ' + String.join(parentConditions, ' AND ');
+            }
+            Set<Id> parentIds = new Map<Id, SObject>(Database.query(parentQuery)).keySet();
+            this.relevantChildIds = new Map<Id, SObject>(
+                Database.query('SELECT Id FROM ' + objectApiName
+                    + ' WHERE ' + parentLookupField + ' IN :parentIds')
+            ).keySet();
+            innerFilter = ' WHERE Id IN :relevantChildIds';
+        } else if (!selectedBrands.isEmpty()) {
+            innerFilter = ' WHERE TEKCO_Brand__c IN :selectedBrands';
         }
 
-        soqlQuery += ')';
+        String soqlQuery = 'SELECT ContentDocumentId FROM ContentDocumentLink'
+            + ' WHERE LinkedEntityId IN (SELECT Id FROM ' + objectApiName + innerFilter + ')';
 
         return Database.getQueryLocator(soqlQuery);
     }
@@ -128,7 +162,8 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                     auditLogId,
                     remainingContentDocObjects,
                     historyConfigs,
-                    bypassSnapshot
+                    bypassSnapshot,
+                    parentFiltersByObject
                 ),
                 DEFAULT_BATCH_SIZE
             );
@@ -143,7 +178,8 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                     selectedBrands,
                     auditLogId,
                     historyConfigs,
-                    bypassSnapshot
+                    bypassSnapshot,
+                    parentFiltersByObject
                 ),
                 DEFAULT_BATCH_SIZE
             );

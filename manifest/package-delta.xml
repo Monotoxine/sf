@@ -51,6 +51,9 @@
         <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_FieldApiName__c</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_IsActive__c</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ObjectApiName__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ParentLookupFieldApiName__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ParentObjectApiName__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ParentRecordTypeDeveloperName__c</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_PatternType__c</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_RecordTypeDeveloperName__c</members>
         <!-- TEKCO_AnonymizationPattern__mdt -->

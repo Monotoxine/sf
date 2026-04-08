@@ -120,7 +120,10 @@ public with sharing class TEKCO_AnonymizationController {
                     TEKCO_PatternType__c,
                     TEKCO_IsActive__c,
                     TEKCO_RecordTypeDeveloperName__c,
-                    TEKCO_DeleteHistory__c
+                    TEKCO_DeleteHistory__c,
+                    TEKCO_ParentObjectApiName__c,
+                    TEKCO_ParentLookupFieldApiName__c,
+                    TEKCO_ParentRecordTypeDeveloperName__c
                 FROM TEKCO_AnonymizationFieldConfig__mdt
                 WHERE TEKCO_IsActive__c = true
                     AND TEKCO_PatternType__c != :PATTERN_TYPE_DELETE_CONTENT_DOCUMENT
@@ -134,7 +137,10 @@ public with sharing class TEKCO_AnonymizationController {
                     TEKCO_PatternType__c,
                     TEKCO_IsActive__c,
                     TEKCO_RecordTypeDeveloperName__c,
-                    TEKCO_DeleteHistory__c
+                    TEKCO_DeleteHistory__c,
+                    TEKCO_ParentObjectApiName__c,
+                    TEKCO_ParentLookupFieldApiName__c,
+                    TEKCO_ParentRecordTypeDeveloperName__c
                 FROM TEKCO_AnonymizationFieldConfig__mdt
                 WHERE TEKCO_IsActive__c = true
                     AND TEKCO_PatternType__c != :PATTERN_TYPE_DELETE_CONTENT_DOCUMENT
@@ -159,11 +165,14 @@ public with sharing class TEKCO_AnonymizationController {
             }
 
             FieldConfigDTO fieldConfigDto          = new FieldConfigDTO();
-            fieldConfigDto.objectApiName           = fieldConfig.TEKCO_ObjectApiName__c;
-            fieldConfigDto.fieldApiName            = fieldConfig.TEKCO_FieldApiName__c;
-            fieldConfigDto.patternType             = fieldConfig.TEKCO_PatternType__c;
-            fieldConfigDto.recordTypeDeveloperName = fieldConfig.TEKCO_RecordTypeDeveloperName__c;
-            fieldConfigDto.deleteHistory           = fieldConfig.TEKCO_DeleteHistory__c;
+            fieldConfigDto.objectApiName                  = fieldConfig.TEKCO_ObjectApiName__c;
+            fieldConfigDto.fieldApiName                   = fieldConfig.TEKCO_FieldApiName__c;
+            fieldConfigDto.patternType                    = fieldConfig.TEKCO_PatternType__c;
+            fieldConfigDto.recordTypeDeveloperName        = fieldConfig.TEKCO_RecordTypeDeveloperName__c;
+            fieldConfigDto.deleteHistory                  = fieldConfig.TEKCO_DeleteHistory__c;
+            fieldConfigDto.parentObjectApiName            = fieldConfig.TEKCO_ParentObjectApiName__c;
+            fieldConfigDto.parentLookupFieldApiName       = fieldConfig.TEKCO_ParentLookupFieldApiName__c;
+            fieldConfigDto.parentRecordTypeDeveloperName  = fieldConfig.TEKCO_ParentRecordTypeDeveloperName__c;
 
             TEKCO_AnonymizationPattern__mdt patternRecord = patternsByType.get(fieldConfig.TEKCO_PatternType__c);
             fieldConfigDto.patternDescription = (patternRecord != null
@@ -279,7 +288,10 @@ public with sharing class TEKCO_AnonymizationController {
                 TEKCO_PatternType__c,
                 TEKCO_IsActive__c,
                 TEKCO_RecordTypeDeveloperName__c,
-                TEKCO_DeleteHistory__c
+                TEKCO_DeleteHistory__c,
+                TEKCO_ParentObjectApiName__c,
+                TEKCO_ParentLookupFieldApiName__c,
+                TEKCO_ParentRecordTypeDeveloperName__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
             WHERE TEKCO_IsActive__c = true
                 AND TEKCO_ObjectApiName__c IN :selectedObjects
@@ -344,6 +356,23 @@ public with sharing class TEKCO_AnonymizationController {
 
         List<String> contentDocObjects = new List<String>(contentDocObjectSet);
 
+        // Build parent filter map: childObjectApiName → [parentObject, parentLookup, parentRT]
+        // The first config that defines a parent filter for each object wins.
+        Map<String, List<String>> parentFiltersByObject = new Map<String, List<String>>();
+        for (TEKCO_AnonymizationFieldConfig__mdt fc : allFieldConfigs) {
+            String obj = fc.TEKCO_ObjectApiName__c;
+            if (!parentFiltersByObject.containsKey(obj)
+                    && String.isNotBlank(fc.TEKCO_ParentObjectApiName__c)
+                    && String.isNotBlank(fc.TEKCO_ParentLookupFieldApiName__c)) {
+                parentFiltersByObject.put(obj, new List<String>{
+                    fc.TEKCO_ParentObjectApiName__c,
+                    fc.TEKCO_ParentLookupFieldApiName__c,
+                    fc.TEKCO_ParentRecordTypeDeveloperName__c != null
+                        ? fc.TEKCO_ParentRecordTypeDeveloperName__c : ''
+                });
+            }
+        }
+
         String brandLabel = (selectedBrands == null || selectedBrands.isEmpty())
             ? 'ALL'
             : String.join(selectedBrands, ', ');
@@ -371,7 +400,8 @@ public with sharing class TEKCO_AnonymizationController {
                 objectsToProcess,
                 contentDocObjects,
                 historyConfigs,
-                bypassSnapshot
+                bypassSnapshot,
+                parentFiltersByObject
             ),
             DEFAULT_BATCH_SIZE
         );
@@ -415,5 +445,8 @@ public with sharing class TEKCO_AnonymizationController {
         @AuraEnabled public String  patternDescription;
         @AuraEnabled public String  recordTypeDeveloperName;
         @AuraEnabled public Boolean deleteHistory;
+        @AuraEnabled public String  parentObjectApiName;
+        @AuraEnabled public String  parentLookupFieldApiName;
+        @AuraEnabled public String  parentRecordTypeDeveloperName;
     }
 }

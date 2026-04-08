@@ -28,6 +28,8 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     private List<String>                                  contentDocObjects;
     private List<TEKCO_AnonymizationFieldConfig__mdt>     historyConfigs;
     private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
+    // key = child object API name → [parentObjectApiName, parentLookupField, parentRecordTypeDvName]
+    private Map<String, List<String>>                     parentFiltersByObject;
 
     // RecordType Id → DeveloperName map, populated in start()
     private Map<Id, String>                               recordTypeDevNameById =
@@ -50,7 +52,8 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
      * @param remainingObjects  Objects still to be anonymized after this one.
      * @param contentDocObjects Objects needing ContentDocument deletion (Phase 2).
      * @param historyConfigs    Field configs needing history deletion (Phase 3).
-     * @param bypassSnapshot    Bypass state snapshot to restore at chain end.
+     * @param bypassSnapshot       Bypass state snapshot to restore at chain end.
+     * @param parentFiltersByObject Map of child object → [parentObject, parentLookup, parentRT].
      */
     public TEKCO_AnonymizationBatch(
         String objectApiName,
@@ -61,18 +64,21 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         List<String> remainingObjects,
         List<String> contentDocObjects,
         List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs,
-        TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot
+        TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
+        Map<String, List<String>> parentFiltersByObject
     ) {
-        this.objectApiName     = objectApiName;
-        this.fieldConfigs      = fieldConfigs;
-        this.patternsByType    = patternsByType;
-        this.selectedBrands    = selectedBrands    != null ? selectedBrands    : new List<String>();
-        this.auditLogId        = auditLogId;
-        this.remainingObjects  = remainingObjects  != null ? remainingObjects  : new List<String>();
-        this.contentDocObjects = contentDocObjects != null ? contentDocObjects : new List<String>();
-        this.historyConfigs    = historyConfigs    != null ? historyConfigs
+        this.objectApiName        = objectApiName;
+        this.fieldConfigs         = fieldConfigs;
+        this.patternsByType       = patternsByType;
+        this.selectedBrands       = selectedBrands    != null ? selectedBrands    : new List<String>();
+        this.auditLogId           = auditLogId;
+        this.remainingObjects     = remainingObjects  != null ? remainingObjects  : new List<String>();
+        this.contentDocObjects    = contentDocObjects != null ? contentDocObjects : new List<String>();
+        this.historyConfigs       = historyConfigs    != null ? historyConfigs
             : new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        this.bypassSnapshot    = bypassSnapshot;
+        this.bypassSnapshot       = bypassSnapshot;
+        this.parentFiltersByObject = parentFiltersByObject != null
+            ? parentFiltersByObject : new Map<String, List<String>>();
     }
 
     // ── Batchable Interface ───────────────────────────────────────────────────
@@ -122,7 +128,29 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         String soqlQuery = 'SELECT ' + String.join(new List<String>(fieldApiNames), ', ')
             + ' FROM ' + objectApiName;
 
-        if (!selectedBrands.isEmpty()) {
+        List<String> parentFilter = parentFiltersByObject.get(objectApiName);
+        String parentObjectApiName    = (parentFilter != null && parentFilter.size() > 0) ? parentFilter.get(0) : null;
+        String parentLookupField      = (parentFilter != null && parentFilter.size() > 1) ? parentFilter.get(1) : null;
+        String parentRecordTypeDvName = (parentFilter != null && parentFilter.size() > 2) ? parentFilter.get(2) : null;
+
+        if (String.isNotBlank(parentObjectApiName)) {
+            // Filter via parent object subquery (child may not have TEKCO_Brand__c)
+            List<String> parentConditions = new List<String>();
+            if (!selectedBrands.isEmpty()) {
+                parentConditions.add('TEKCO_Brand__c IN :selectedBrands');
+            }
+            if (String.isNotBlank(parentRecordTypeDvName)) {
+                parentConditions.add(
+                    'RecordType.DeveloperName = \'' + String.escapeSingleQuotes(parentRecordTypeDvName) + '\''
+                );
+            }
+            soqlQuery += ' WHERE ' + parentLookupField
+                + ' IN (SELECT Id FROM ' + parentObjectApiName;
+            if (!parentConditions.isEmpty()) {
+                soqlQuery += ' WHERE ' + String.join(parentConditions, ' AND ');
+            }
+            soqlQuery += ')';
+        } else if (!selectedBrands.isEmpty()) {
             soqlQuery += ' WHERE TEKCO_Brand__c IN :selectedBrands';
         }
 
@@ -226,7 +254,8 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                     remainingObjects,
                     contentDocObjects,
                     historyConfigs,
-                    bypassSnapshot
+                    bypassSnapshot,
+                    parentFiltersByObject
                 ),
                 DEFAULT_BATCH_SIZE
             );
@@ -239,7 +268,8 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                     auditLogId,
                     contentDocObjects,
                     historyConfigs,
-                    bypassSnapshot
+                    bypassSnapshot,
+                    parentFiltersByObject
                 ),
                 DEFAULT_BATCH_SIZE
             );
@@ -254,7 +284,8 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                     selectedBrands,
                     auditLogId,
                     historyConfigs,
-                    bypassSnapshot
+                    bypassSnapshot,
+                    parentFiltersByObject
                 ),
                 DEFAULT_BATCH_SIZE
             );

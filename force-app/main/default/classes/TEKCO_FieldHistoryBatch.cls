@@ -26,6 +26,10 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     private Id                                            auditLogId;
     private List<TEKCO_AnonymizationFieldConfig__mdt>     remainingHistoryConfigs;
     private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
+    private Map<String, List<String>>                     parentFiltersByObject;
+
+    // Populated in start() when a parent filter is active; bound in the QueryLocator string
+    private Set<Id>                                       relevantChildIds;
 
     private Integer recordsDeleted = 0;
     private Integer recordsFailed  = 0;
@@ -41,6 +45,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
      * @param auditLogId             Id of the TEKCO_AnonymizationAuditLog__c record.
      * @param remainingHistoryConfigs Field configs for subsequent objects still to process.
      * @param bypassSnapshot         Bypass state snapshot to restore at chain end.
+     * @param parentFiltersByObject  Map of child object → [parentObject, parentLookup, parentRT].
      */
     public TEKCO_FieldHistoryBatch(
         String objectApiName,
@@ -48,7 +53,8 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         List<String> selectedBrands,
         Id auditLogId,
         List<TEKCO_AnonymizationFieldConfig__mdt> remainingHistoryConfigs,
-        TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot
+        TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
+        Map<String, List<String>> parentFiltersByObject
     ) {
         this.objectApiName           = objectApiName;
         this.objectHistoryConfigs    = objectHistoryConfigs    != null
@@ -59,6 +65,8 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         this.remainingHistoryConfigs = remainingHistoryConfigs != null
             ? remainingHistoryConfigs : new List<TEKCO_AnonymizationFieldConfig__mdt>();
         this.bypassSnapshot          = bypassSnapshot;
+        this.parentFiltersByObject   = parentFiltersByObject != null
+            ? parentFiltersByObject : new Map<String, List<String>>();
     }
 
     // ── Batchable Interface ───────────────────────────────────────────────────
@@ -87,16 +95,43 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
             escapedFieldNames.add('\'' + String.escapeSingleQuotes(fieldName) + '\'');
         }
 
-        String soqlQuery = 'SELECT Id FROM ' + historyObjectName
-            + ' WHERE Field IN (' + String.join(escapedFieldNames, ',') + ')'
-            + ' AND ' + parentIdFieldName
-            + ' IN (SELECT Id FROM ' + objectApiName;
+        List<String> parentFilter = parentFiltersByObject.get(objectApiName);
+        String parentObjectApiName    = (parentFilter != null && parentFilter.size() > 0) ? parentFilter.get(0) : null;
+        String parentLookupField      = (parentFilter != null && parentFilter.size() > 1) ? parentFilter.get(1) : null;
+        String parentRecordTypeDvName = (parentFilter != null && parentFilter.size() > 2) ? parentFilter.get(2) : null;
 
-        if (!selectedBrands.isEmpty()) {
-            soqlQuery += ' WHERE TEKCO_Brand__c IN :selectedBrands';
+        String fieldPrefix = ' WHERE Field IN (' + String.join(escapedFieldNames, ',') + ')'
+            + ' AND ' + parentIdFieldName;
+
+        String soqlQuery;
+        if (String.isNotBlank(parentObjectApiName)) {
+            // Resolve child IDs upfront to avoid forbidden nested subqueries
+            List<String> parentConditions = new List<String>();
+            if (!selectedBrands.isEmpty()) {
+                parentConditions.add('TEKCO_Brand__c IN :selectedBrands');
+            }
+            if (String.isNotBlank(parentRecordTypeDvName)) {
+                parentConditions.add(
+                    'RecordType.DeveloperName = \'' + String.escapeSingleQuotes(parentRecordTypeDvName) + '\''
+                );
+            }
+            String parentQuery = 'SELECT Id FROM ' + parentObjectApiName;
+            if (!parentConditions.isEmpty()) {
+                parentQuery += ' WHERE ' + String.join(parentConditions, ' AND ');
+            }
+            Set<Id> parentIds = new Map<Id, SObject>(Database.query(parentQuery)).keySet();
+            this.relevantChildIds = new Map<Id, SObject>(
+                Database.query('SELECT Id FROM ' + objectApiName
+                    + ' WHERE ' + parentLookupField + ' IN :parentIds')
+            ).keySet();
+            soqlQuery = 'SELECT Id FROM ' + historyObjectName
+                + fieldPrefix + ' IN :relevantChildIds';
+        } else {
+            soqlQuery = 'SELECT Id FROM ' + historyObjectName + fieldPrefix
+                + ' IN (SELECT Id FROM ' + objectApiName
+                + (selectedBrands.isEmpty() ? '' : ' WHERE TEKCO_Brand__c IN :selectedBrands')
+                + ')';
         }
-
-        soqlQuery += ')';
 
         return Database.getQueryLocator(soqlQuery);
     }
@@ -140,7 +175,8 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
                     selectedBrands,
                     auditLogId,
                     remainingHistoryConfigs,
-                    bypassSnapshot
+                    bypassSnapshot,
+                    parentFiltersByObject
                 ),
                 DEFAULT_BATCH_SIZE
             );
