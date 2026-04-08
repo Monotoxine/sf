@@ -180,13 +180,11 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <template if:true={field.deleteHistory}>
-                                                    <lightning-icon
-                                                        icon-name="utility:check"
-                                                        size="x-small"
-                                                        variant="success">
-                                                    </lightning-icon>
-                                                </template>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={field.deleteHistory}
+                                                    data-key={field.configKey}
+                                                    onchange={handleDeleteHistoryToggle} />
                                             </td>
                                             <td><div class="slds-truncate">{field.patternDescription}</div></td>
                                         </tr>
@@ -272,4 +270,62 @@
 
         </div>
     </lightning-card>
+
+    <!-- ── Confirmation modal ─────────────────────────────────────────────── -->
+    <template if:true={showConfirmPanel}>
+        <section
+            role="dialog"
+            tabindex="-1"
+            aria-modal="true"
+            aria-labelledby="confirm-modal-heading"
+            class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+
+                <header class="slds-modal__header slds-theme_alert-texture slds-theme_error">
+                    <lightning-icon
+                        icon-name="utility:warning"
+                        size="small"
+                        variant="inverse"
+                        class="slds-m-right_x-small">
+                    </lightning-icon>
+                    <h2 id="confirm-modal-heading" class="slds-text-heading_medium">
+                        Confirmer l'anonymisation
+                    </h2>
+                </header>
+
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p class="slds-text-color_error slds-m-bottom_medium">
+                        <strong>ATTENTION : cette opération est IRRÉVERSIBLE. Les données seront écrasées définitivement.</strong>
+                    </p>
+                    <table class="slds-table slds-table_cell-buffer slds-table_bordered">
+                        <tbody>
+                            <template for:each={confirmSummaryLines} for:item="line">
+                                <tr key={line.key}>
+                                    <th class="slds-size_1-of-3" style="font-weight:600">{line.label}</th>
+                                    <td>{line.value}</td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+
+                <footer class="slds-modal__footer">
+                    <lightning-button
+                        label="Annuler"
+                        variant="neutral"
+                        onclick={handleCancelLaunch}>
+                    </lightning-button>
+                    <lightning-button
+                        label="Confirmer le lancement"
+                        variant="destructive"
+                        class="slds-m-left_x-small"
+                        onclick={handleConfirmLaunch}>
+                    </lightning-button>
+                </footer>
+
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
 </template>

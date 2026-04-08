@@ -38,6 +38,12 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     @track isRunning        = false;
     @track errorMessage     = '';
 
+    // ── Confirmation modal ────────────────────────────────────────────────────
+    @track showConfirmPanel    = false;
+    @track confirmSummaryLines = [];
+
+    _pendingExcludedFields        = [];
+    _pendingDisabledHistoryFields = [];
     _auditTimer = null;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -95,8 +101,9 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
                 // Enrich each config with a unique key and enabled=true by default
                 this.fieldConfigs = configs.map(cfg => ({
                     ...cfg,
-                    configKey: `${cfg.objectApiName}.${cfg.fieldApiName}`,
-                    enabled: true
+                    configKey:             `${cfg.objectApiName}.${cfg.fieldApiName}`,
+                    enabled:               true,
+                    originalDeleteHistory: cfg.deleteHistory
                 }));
                 this.isLoading = false;
             })
@@ -193,45 +200,97 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         );
     }
 
+    /**
+     * Toggles the `deleteHistory` flag on a field config row.
+     * Only meaningful for rows where originalDeleteHistory is true.
+     */
+    handleDeleteHistoryToggle(event) {
+        const configKey = event.target.dataset.key;
+        this.fieldConfigs = this.fieldConfigs.map(cfg =>
+            cfg.configKey === configKey ? { ...cfg, deleteHistory: event.target.checked } : cfg
+        );
+    }
+
+    /**
+     * Prepares the confirmation summary and opens the modal.
+     */
     handleStart() {
         if (!this.hasPermission) {
             this.showToast('Permission Denied', 'You need the "TEKCO Anonymize Data" custom permission.', 'error');
             return;
         }
 
-        const excludedFields = this.fieldConfigs
+        this._pendingExcludedFields = this.fieldConfigs
             .filter(cfg => !cfg.enabled)
             .map(cfg => cfg.configKey);
 
-        // eslint-disable-next-line no-alert
-        if (!window.confirm(
-            'WARNING: You are about to anonymize data.\n\n' +
-            `Brands: ${this.selectedBrands.length ? this.selectedBrands.join(', ') : 'ALL'}\n` +
-            `Objects: ${this.selectedObjects.length ? this.selectedObjects.join(', ') : 'ALL configured'}\n` +
-            `Record Types: ${this.selectedRecordTypes.length ? this.selectedRecordTypes.join(', ') : 'ALL'}\n` +
-            `Bypassed fields: ${excludedFields.length ? excludedFields.join(', ') : 'none'}\n\n` +
-            'This action is IRREVERSIBLE. Confirm?'
-        )) return;
+        // Only fields that had history enabled in CMT but were unchecked by the user
+        this._pendingDisabledHistoryFields = this.fieldConfigs
+            .filter(cfg => cfg.originalDeleteHistory && !cfg.deleteHistory)
+            .map(cfg => cfg.configKey);
 
-        this.isRunning    = true;
-        this.errorMessage = '';
+        this.confirmSummaryLines = [
+            {
+                key:   'brands',
+                label: 'Marques',
+                value: this.selectedBrands.length
+                    ? this.selectedBrands.join(', ') : 'TOUTES'
+            },
+            {
+                key:   'objects',
+                label: 'Objets',
+                value: this.selectedObjects.length
+                    ? this.selectedObjects.join(', ') : 'Tous les objets configurés'
+            },
+            {
+                key:   'recordTypes',
+                label: 'Record Types',
+                value: this.selectedRecordTypes.length
+                    ? this.selectedRecordTypes.join(', ') : 'Tous'
+            },
+            {
+                key:   'excluded',
+                label: 'Champs exclus',
+                value: this._pendingExcludedFields.length
+                    ? this._pendingExcludedFields.join(', ') : 'aucun'
+            },
+            {
+                key:   'history',
+                label: 'Historique désactivé',
+                value: this._pendingDisabledHistoryFields.length
+                    ? this._pendingDisabledHistoryFields.join(', ') : 'aucun'
+            }
+        ];
+
+        this.showConfirmPanel = true;
+    }
+
+    handleCancelLaunch() {
+        this.showConfirmPanel = false;
+    }
+
+    handleConfirmLaunch() {
+        this.showConfirmPanel = false;
+        this.isRunning        = true;
+        this.errorMessage     = '';
 
         startAnonymization({
-            selectedBrands:      this.selectedBrands,
-            selectedObjects:     this.selectedObjects.length > 0 ? this.selectedObjects : null,
-            excludedFields:      excludedFields.length > 0 ? excludedFields : null,
-            selectedRecordTypes: this.selectedRecordTypes.length > 0 ? this.selectedRecordTypes : null
+            selectedBrands:        this.selectedBrands,
+            selectedObjects:       this.selectedObjects.length > 0 ? this.selectedObjects : null,
+            excludedFields:        this._pendingExcludedFields.length > 0 ? this._pendingExcludedFields : null,
+            selectedRecordTypes:   this.selectedRecordTypes.length > 0 ? this.selectedRecordTypes : null,
+            disabledHistoryFields: this._pendingDisabledHistoryFields.length > 0 ? this._pendingDisabledHistoryFields : null
         })
         .then(auditLogId => {
             this.isRunning = false;
-            this.showToast('Anonymization Started', `Audit log: ${auditLogId}`, 'success');
+            this.showToast('Anonymisation lancée', `Journal d\'audit : ${auditLogId}`, 'success');
             this.startAuditPoll();
         })
         .catch(err => {
             this.isRunning    = false;
             const errorMessage = err?.body?.message ?? err?.message ?? 'Unknown error';
             this.errorMessage = errorMessage;
-            this.showToast('Error', errorMessage, 'error');
+            this.showToast('Erreur', errorMessage, 'error');
         });
     }
 

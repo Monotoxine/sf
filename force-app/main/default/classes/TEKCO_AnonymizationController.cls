@@ -231,15 +231,17 @@ public with sharing class TEKCO_AnonymizationController {
      * @param selectedBrands      Brand values to filter records (empty = all brands).
      * @param selectedObjects     Object API names to process (empty = all configured objects).
      * @param excludedFields      Fields to skip in this run, format "ObjectApiName.FieldApiName".
-     * @param selectedRecordTypes Record Type Developer Names to restrict to (empty = all RTs).
-     * @return                    Id of the created TEKCO_AnonymizationAuditLog__c record.
+     * @param selectedRecordTypes  Record Type Developer Names to restrict to (empty = all RTs).
+     * @param disabledHistoryFields Field keys ("Object.Field") where history deletion was disabled by the user.
+     * @return                     Id of the created TEKCO_AnonymizationAuditLog__c record.
      */
     @AuraEnabled
     public static Id startAnonymization(
         List<String> selectedBrands,
         List<String> selectedObjects,
         List<String> excludedFields,
-        List<String> selectedRecordTypes
+        List<String> selectedRecordTypes,
+        List<String> disabledHistoryFields
     ) {
         if (!FeatureManagement.checkPermission('TEKCO_AnonymizeData')) {
             throw new AuraHandledException(
@@ -260,6 +262,9 @@ public with sharing class TEKCO_AnonymizationController {
 
         Set<String> excludedFieldKeys = new Set<String>();
         if (excludedFields != null) excludedFieldKeys.addAll(excludedFields);
+
+        Set<String> disabledHistoryFieldKeys = new Set<String>();
+        if (disabledHistoryFields != null) disabledHistoryFieldKeys.addAll(disabledHistoryFields);
 
         // Activate trigger bypass for the running user (restored at end of batch chain)
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot =
@@ -324,7 +329,10 @@ public with sharing class TEKCO_AnonymizationController {
             configsByObject.get(fieldConfig.TEKCO_ObjectApiName__c).add(fieldConfig);
 
             if (fieldConfig.TEKCO_DeleteHistory__c) {
-                historyConfigs.add(fieldConfig);
+                String historyKey = fieldConfig.TEKCO_ObjectApiName__c + '.' + fieldConfig.TEKCO_FieldApiName__c;
+                if (!disabledHistoryFieldKeys.contains(historyKey)) {
+                    historyConfigs.add(fieldConfig);
+                }
             }
         }
 
