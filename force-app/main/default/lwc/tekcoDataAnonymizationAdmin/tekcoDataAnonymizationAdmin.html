@@ -118,13 +118,21 @@
             <template if:true={hasPreview}>
                 <div class="slds-box slds-theme_shade slds-m-bottom_medium">
                     <h3 class="slds-text-heading_small slds-m-bottom_small">Scope Preview</h3>
+                    <template if:true={previewNote}>
+                        <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">{previewNote}</p>
+                    </template>
                     <template for:each={previewByObject} for:item="obj">
                         <div key={obj.objectApiName} class="slds-grid slds-m-bottom_xx-small">
                             <div class="slds-col slds-size_1-of-3">
                                 <strong>{obj.objectApiName}</strong>
                             </div>
                             <div class="slds-col">
-                                <span class="slds-badge">{obj.countLabel}</span>
+                                <template if:true={obj.isContentDocOnly}>
+                                    <span class="slds-badge slds-badge_inverse">{obj.countLabel}</span>
+                                </template>
+                                <template if:false={obj.isContentDocOnly}>
+                                    <span class="slds-badge">{obj.countLabel}</span>
+                                </template>
                             </div>
                         </div>
                     </template>

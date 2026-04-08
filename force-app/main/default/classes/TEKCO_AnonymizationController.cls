@@ -41,21 +41,19 @@ public with sharing class TEKCO_AnonymizationController {
 
     /**
      * @description Returns distinct object API names from active TEKCO_AnonymizationFieldConfig__mdt.
-     *              Excludes objects that only have DELETE_CONTENT_DOCUMENT entries (not user-selectable).
+     *              Includes objects that only have DELETE_CONTENT_DOCUMENT entries so they are
+     *              visible and selectable in the LWC scope picker.
      * @return Sorted list of object API names.
      */
     @AuraEnabled(cacheable=true)
     public static List<String> getObjects() {
         Set<String> objectApiNameSet = new Set<String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : [
-            SELECT
-                TEKCO_ObjectApiName__c,
-                TEKCO_PatternType__c
+            SELECT TEKCO_ObjectApiName__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
             WHERE TEKCO_IsActive__c = true
         ]) {
-            if (String.isNotBlank(fieldConfig.TEKCO_ObjectApiName__c)
-                    && fieldConfig.TEKCO_PatternType__c != PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
+            if (String.isNotBlank(fieldConfig.TEKCO_ObjectApiName__c)) {
                 objectApiNameSet.add(fieldConfig.TEKCO_ObjectApiName__c);
             }
         }
@@ -413,25 +411,54 @@ public with sharing class TEKCO_AnonymizationController {
         );
         insert auditLog;
 
-        String firstObjectApiName = objectsToProcess.remove(0);
-        List<TEKCO_AnonymizationFieldConfig__mdt> firstObjectConfigs =
-            configsByObject.get(firstObjectApiName);
+        Id batchJobId;
 
-        Id batchJobId = Database.executeBatch(
-            new TEKCO_AnonymizationBatch(
-                firstObjectApiName,
-                firstObjectConfigs,
-                patternsByType,
-                selectedBrands,
-                auditLog.Id,
-                objectsToProcess,
-                contentDocConfigs,
-                historyConfigs,
-                bypassSnapshot,
-                parentFiltersByObject
-            ),
-            DEFAULT_BATCH_SIZE
-        );
+        if (!objectsToProcess.isEmpty()) {
+            // Phase 1: regular field anonymization
+            String firstObjectApiName = objectsToProcess.remove(0);
+            List<TEKCO_AnonymizationFieldConfig__mdt> firstObjectConfigs =
+                configsByObject.get(firstObjectApiName);
+            batchJobId = Database.executeBatch(
+                new TEKCO_AnonymizationBatch(
+                    firstObjectApiName,
+                    firstObjectConfigs,
+                    patternsByType,
+                    selectedBrands,
+                    auditLog.Id,
+                    objectsToProcess,
+                    contentDocConfigs,
+                    historyConfigs,
+                    bypassSnapshot,
+                    parentFiltersByObject
+                ),
+                DEFAULT_BATCH_SIZE
+            );
+        } else if (!contentDocConfigs.isEmpty()) {
+            // No regular field configs — skip straight to ContentDocument deletion (Phase 2)
+            TEKCO_AnonymizationFieldConfig__mdt firstContentDocConfig = contentDocConfigs.remove(0);
+            batchJobId = Database.executeBatch(
+                new TEKCO_ContentDocumentBatch(
+                    firstContentDocConfig,
+                    selectedBrands,
+                    auditLog.Id,
+                    contentDocConfigs,
+                    historyConfigs,
+                    bypassSnapshot,
+                    parentFiltersByObject
+                ),
+                DEFAULT_BATCH_SIZE
+            );
+        } else {
+            // Nothing to process — close audit log immediately
+            TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
+            update new TEKCO_AnonymizationAuditLog__c(
+                Id              = auditLog.Id,
+                TEKCO_Status__c = 'Success',
+                TEKCO_EndTime__c = Datetime.now(),
+                TEKCO_ErrorMessage__c = 'No active field configurations found for selected scope.'
+            );
+            return auditLog.Id;
+        }
 
         auditLog.TEKCO_JobId__c = String.valueOf(batchJobId);
         update auditLog;

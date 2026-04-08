@@ -37,6 +37,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     @track isLoadingPreview = false;
     @track isRunning        = false;
     @track errorMessage     = '';
+    @track previewNote      = null;
 
     // ── Confirmation modal ────────────────────────────────────────────────────
     @track showConfirmPanel    = false;
@@ -119,20 +120,47 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         this.isLoadingPreview = true;
         this.previewByObject  = [];
 
-        const objectsToCount = this.selectedObjects.length > 0
+        const hasFilter = this.selectedObjects.length > 0;
+        const objectsToCount = hasFilter
             ? this.selectedObjects
             : this.objectOptions.map(o => o.value);
 
+        // Build a set of objects that ONLY have DELETE_CONTENT_DOCUMENT configs
+        // so we can display a meaningful label instead of a plain record count.
+        const contentDocOnly = new Set(
+            this.fieldConfigs.length > 0
+                ? Object.entries(
+                    this.fieldConfigs.reduce((acc, cfg) => {
+                        if (!acc[cfg.objectApiName]) acc[cfg.objectApiName] = { total: 0, contentDoc: 0 };
+                        acc[cfg.objectApiName].total++;
+                        if (cfg.isContentDoc) acc[cfg.objectApiName].contentDoc++;
+                        return acc;
+                    }, {})
+                  )
+                    .filter(([, counts]) => counts.total === counts.contentDoc)
+                    .map(([obj]) => obj)
+                : []
+        );
+
+        this.previewNote = hasFilter
+            ? null
+            : 'Aucun objet sélectionné — tous les objets configurés sont inclus.';
+
         const countPromises = objectsToCount.map(objectApiName =>
             getRecordCount({ objectApiName, selectedBrands: this.selectedBrands })
-                .then(count => ({ objectApiName, count }))
-                .catch(() => ({ objectApiName, count: -1 }))
+                .then(count => ({ objectApiName, count, isContentDocOnly: contentDocOnly.has(objectApiName) }))
+                .catch(() => ({ objectApiName, count: -1, isContentDocOnly: contentDocOnly.has(objectApiName) }))
         );
 
         Promise.all(countPromises).then(results => {
             this.previewByObject = results.map(result => ({
-                objectApiName: result.objectApiName,
-                countLabel: result.count === -1 ? 'Could not count' : `${result.count} record(s)`
+                objectApiName:    result.objectApiName,
+                isContentDocOnly: result.isContentDocOnly,
+                countLabel: result.count === -1
+                    ? 'Could not count'
+                    : result.isContentDocOnly
+                        ? `${result.count} enreg. (ContentDocumentLinks à supprimer)`
+                        : `${result.count} record(s)`
             }));
             this.isLoadingPreview = false;
         });
@@ -162,6 +190,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         this.selectedObjects = event.detail.value;
         this.fieldConfigs    = [];
         this.previewByObject = [];
+        this.previewNote     = null;
         // Reload record types scoped to the single selected object, or all if multiple/none
         const scopeObject = this.selectedObjects.length === 1 ? this.selectedObjects[0] : null;
         this.loadRecordTypes(scopeObject);
