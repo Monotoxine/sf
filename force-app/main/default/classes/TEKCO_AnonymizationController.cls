@@ -65,38 +65,63 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     /**
-     * @description Returns distinct Record Type Developer Names from active FieldConfig records,
-     *              optionally scoped to a given object.
-     *              Blank TEKCO_RecordTypeDeveloperName__c entries are excluded (they apply to all RTs).
+     * @description Returns Record Type options for the dual-listbox.
+     *              When scoped to a single object the label is the RT developer name alone.
+     *              When all objects are in scope the label includes the object(s) as context,
+     *              e.g. "Patient (Account)" or "Standard (Account, Contact)".
+     *              The value is always the plain RT developer name so backend filtering
+     *              (which is already object-scoped via configsByObject) stays unchanged.
      * @param objectApiName API name of the object to scope to, or blank for all objects.
-     * @return Sorted list of Record Type Developer Names.
+     * @return Sorted list of {label, value} maps ready for lightning-dual-listbox.
      */
     @AuraEnabled(cacheable=true)
-    public static List<String> getRecordTypes(String objectApiName) {
-        Set<String> recordTypeSet = new Set<String>();
+    public static List<Map<String, String>> getRecordTypes(String objectApiName) {
+        // RT developer name → sorted set of object API names that carry it
+        Map<String, Set<String>> objectsByRt = new Map<String, Set<String>>();
+
         List<TEKCO_AnonymizationFieldConfig__mdt> configs;
         if (String.isBlank(objectApiName)) {
             configs = [
-                SELECT TEKCO_RecordTypeDeveloperName__c
+                SELECT TEKCO_RecordTypeDeveloperName__c, TEKCO_ObjectApiName__c
                 FROM TEKCO_AnonymizationFieldConfig__mdt
                 WHERE TEKCO_IsActive__c = true
                     AND TEKCO_RecordTypeDeveloperName__c != null
             ];
         } else {
             configs = [
-                SELECT TEKCO_RecordTypeDeveloperName__c
+                SELECT TEKCO_RecordTypeDeveloperName__c, TEKCO_ObjectApiName__c
                 FROM TEKCO_AnonymizationFieldConfig__mdt
                 WHERE TEKCO_IsActive__c = true
                     AND TEKCO_ObjectApiName__c = :objectApiName
                     AND TEKCO_RecordTypeDeveloperName__c != null
             ];
         }
-        for (TEKCO_AnonymizationFieldConfig__mdt config : configs) {
-            recordTypeSet.add(config.TEKCO_RecordTypeDeveloperName__c);
+
+        for (TEKCO_AnonymizationFieldConfig__mdt cfg : configs) {
+            String rt = cfg.TEKCO_RecordTypeDeveloperName__c;
+            if (!objectsByRt.containsKey(rt)) {
+                objectsByRt.put(rt, new Set<String>());
+            }
+            objectsByRt.get(rt).add(cfg.TEKCO_ObjectApiName__c);
         }
-        List<String> recordTypes = new List<String>(recordTypeSet);
-        recordTypes.sort();
-        return recordTypes;
+
+        Boolean singleObjectScope = String.isNotBlank(objectApiName);
+        List<String> sortedRts = new List<String>(objectsByRt.keySet());
+        sortedRts.sort();
+
+        List<Map<String, String>> options = new List<Map<String, String>>();
+        for (String rt : sortedRts) {
+            String label;
+            if (singleObjectScope) {
+                label = rt;
+            } else {
+                List<String> objects = new List<String>(objectsByRt.get(rt));
+                objects.sort();
+                label = rt + ' (' + String.join(objects, ', ') + ')';
+            }
+            options.add(new Map<String, String>{ 'label' => label, 'value' => rt });
+        }
+        return options;
     }
 
     /**

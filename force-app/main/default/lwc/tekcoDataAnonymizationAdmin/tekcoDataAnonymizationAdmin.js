@@ -79,11 +79,12 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
     loadRecordTypes(objectApiName) {
         getRecordTypes({ objectApiName: objectApiName || null })
-            .then(values => {
-                this.recordTypeOptions = values.map(v => ({ label: v, value: v }));
-                // Drop any previously selected RT that no longer exists in the new scope
-                if (this.recordTypeOptions.length > 0) {
-                    const available = new Set(values);
+            .then(options => {
+                // options is already [{label, value}] — label carries object context when multi-scope
+                this.recordTypeOptions = options;
+                // Drop any previously selected RT whose value no longer exists in the new scope
+                if (options.length > 0) {
+                    const available = new Set(options.map(o => o.value));
                     this.selectedRecordTypes = this.selectedRecordTypes.filter(rt => available.has(rt));
                 } else {
                     this.selectedRecordTypes = [];
