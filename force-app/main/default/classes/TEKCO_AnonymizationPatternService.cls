@@ -150,8 +150,8 @@ public class TEKCO_AnonymizationPatternService {
         String externalId = getExternalId(record, pattern);
         if (String.isBlank(externalId)) externalId = PATTERN_ANON_FALLBACK;
 
-        String baseEmail = String.isNotBlank(pattern.Base_Email__c)
-            ? pattern.Base_Email__c
+        String baseEmail = String.isNotBlank(pattern.TEKCO_BaseEmail__c)
+            ? pattern.TEKCO_BaseEmail__c
             : currentValue;
 
         if (String.isBlank(baseEmail)) return currentValue;
@@ -171,12 +171,12 @@ public class TEKCO_AnonymizationPatternService {
     /**
      * @description SSN_SEQUENTIAL: generates sequential digits cycling 1–9 to the configured length.
      *              Example: length 13 → "1234567891234"
-     * @param pattern Pattern configuration record containing SSN_Length__c.
+     * @param pattern Pattern configuration record containing TEKCO_SsnLength__c.
      * @return        Sequential SSN string.
      */
     private static String applySsnSequential(TEKCO_AnonymizationPattern__mdt pattern) {
-        Integer targetLength = (pattern.SSN_Length__c != null)
-            ? Integer.valueOf(pattern.SSN_Length__c)
+        Integer targetLength = (pattern.TEKCO_SsnLength__c != null)
+            ? Integer.valueOf(pattern.TEKCO_SsnLength__c)
             : SSN_DEFAULT_LENGTH;
         String result = '';
         for (Integer index = 0; index < targetLength; index++) {
@@ -208,13 +208,13 @@ public class TEKCO_AnonymizationPatternService {
     /**
      * @description Reads the external ID field value from the record as configured in the pattern.
      * @param record  SObject being processed.
-     * @param pattern Pattern configuration record containing External_Id_Field__c.
+     * @param pattern Pattern configuration record containing TEKCO_ExternalIdField__c.
      * @return        External ID value as String, or empty string if unavailable.
      */
     private static String getExternalId(SObject record, TEKCO_AnonymizationPattern__mdt pattern) {
-        if (record == null || String.isBlank(pattern.External_Id_Field__c)) return '';
+        if (record == null || String.isBlank(pattern.TEKCO_ExternalIdField__c)) return '';
         try {
-            Object fieldValue = record.get(pattern.External_Id_Field__c);
+            Object fieldValue = record.get(pattern.TEKCO_ExternalIdField__c);
             return fieldValue != null ? String.valueOf(fieldValue) : '';
         } catch (Exception e) {
             return '';

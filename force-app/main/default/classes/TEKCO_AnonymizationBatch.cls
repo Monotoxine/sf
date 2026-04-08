@@ -6,7 +6,7 @@
  *              Chain order: TEKCO_AnonymizationBatch → TEKCO_ContentDocumentBatch → TEKCO_FieldHistoryBatch
  *
  *              Brand filter:      WHERE TEKCO_Brand__c IN :selectedBrands
- *              RecordType filter: per-field, from TEKCO_AnonymizationFieldConfig__mdt.Record_Type_Developer_Name__c
+ *              RecordType filter: per-field, from TEKCO_AnonymizationFieldConfig__mdt.TEKCO_RecordTypeDeveloperName__c
  *              Sandbox guard:     double-checked at controller + start() level.
  */
 public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Database.Stateful {
@@ -90,20 +90,20 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         Boolean needsRecordTypeId = false;
 
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : fieldConfigs) {
-            String patternType = fieldConfig.Pattern_Type__c;
+            String patternType = fieldConfig.TEKCO_PatternType__c;
             if (patternType == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT
                     || patternType == PATTERN_TYPE_EMAIL_MESSAGE_LOREM
                     || patternType == PATTERN_TYPE_KEEP) {
                 continue;
             }
 
-            fieldApiNames.add(fieldConfig.Field_API_Name__c);
+            fieldApiNames.add(fieldConfig.TEKCO_FieldApiName__c);
 
             TEKCO_AnonymizationPattern__mdt pattern = patternsByType.get(patternType);
-            if (pattern != null && String.isNotBlank(pattern.External_Id_Field__c)) {
-                fieldApiNames.add(pattern.External_Id_Field__c);
+            if (pattern != null && String.isNotBlank(pattern.TEKCO_ExternalIdField__c)) {
+                fieldApiNames.add(pattern.TEKCO_ExternalIdField__c);
             }
-            if (String.isNotBlank(fieldConfig.Record_Type_Developer_Name__c)) {
+            if (String.isNotBlank(fieldConfig.TEKCO_RecordTypeDeveloperName__c)) {
                 needsRecordTypeId = true;
             }
         }
@@ -141,7 +141,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
             Boolean isModified = false;
 
             for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : fieldConfigs) {
-                String patternType = fieldConfig.Pattern_Type__c;
+                String patternType = fieldConfig.TEKCO_PatternType__c;
                 if (patternType == PATTERN_TYPE_KEEP
                         || patternType == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT
                         || patternType == PATTERN_TYPE_EMAIL_MESSAGE_LOREM) {
@@ -149,23 +149,23 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 }
 
                 // RecordType filter — skip if record does not match the required RT
-                if (String.isNotBlank(fieldConfig.Record_Type_Developer_Name__c)) {
+                if (String.isNotBlank(fieldConfig.TEKCO_RecordTypeDeveloperName__c)) {
                     Id recordTypeId = (Id) record.get('RecordTypeId');
                     String recordTypeDeveloperName = recordTypeId != null
                         ? recordTypeDevNameById.get(recordTypeId)
                         : null;
                     if (recordTypeDeveloperName == null
-                            || recordTypeDeveloperName != fieldConfig.Record_Type_Developer_Name__c) {
+                            || recordTypeDeveloperName != fieldConfig.TEKCO_RecordTypeDeveloperName__c) {
                         continue;
                     }
                 }
 
                 TEKCO_AnonymizationPattern__mdt pattern = patternsByType.get(patternType);
-                if (pattern == null || !pattern.Is_Active__c) continue;
+                if (pattern == null || !pattern.TEKCO_IsActive__c) continue;
 
                 String currentValue;
                 try {
-                    currentValue = (String) record.get(fieldConfig.Field_API_Name__c);
+                    currentValue = (String) record.get(fieldConfig.TEKCO_FieldApiName__c);
                 } catch (Exception e) {
                     continue;
                 }
@@ -178,7 +178,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 );
 
                 if (newValue != null && newValue != currentValue) {
-                    record.put(fieldConfig.Field_API_Name__c, newValue);
+                    record.put(fieldConfig.TEKCO_FieldApiName__c, newValue);
                     isModified = true;
                 }
             }
@@ -244,7 +244,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 DEFAULT_BATCH_SIZE
             );
         } else if (!historyConfigs.isEmpty()) {
-            String firstHistoryObject = historyConfigs[0].Object_API_Name__c;
+            String firstHistoryObject = historyConfigs[0].TEKCO_ObjectApiName__c;
             List<TEKCO_AnonymizationFieldConfig__mdt> firstObjectHistoryConfigs =
                 popHistoryConfigsForObject(firstHistoryObject);
             Database.executeBatch(
@@ -271,15 +271,15 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     ) {
         return [
             SELECT
-                Object_API_Name__c,
-                Field_API_Name__c,
-                Pattern_Type__c,
-                Is_Active__c,
-                Record_Type_Developer_Name__c,
-                Delete_History__c
+                TEKCO_ObjectApiName__c,
+                TEKCO_FieldApiName__c,
+                TEKCO_PatternType__c,
+                TEKCO_IsActive__c,
+                TEKCO_RecordTypeDeveloperName__c,
+                TEKCO_DeleteHistory__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
-            WHERE Object_API_Name__c = :objectApiName
-                AND Is_Active__c = true
+            WHERE TEKCO_ObjectApiName__c = :objectApiName
+                AND TEKCO_IsActive__c = true
         ];
     }
 
@@ -291,7 +291,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         List<TEKCO_AnonymizationFieldConfig__mdt> remainingConfigs =
             new List<TEKCO_AnonymizationFieldConfig__mdt>();
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : historyConfigs) {
-            if (fieldConfig.Object_API_Name__c == objectApiName) {
+            if (fieldConfig.TEKCO_ObjectApiName__c == objectApiName) {
                 configsForObject.add(fieldConfig);
             } else {
                 remainingConfigs.add(fieldConfig);

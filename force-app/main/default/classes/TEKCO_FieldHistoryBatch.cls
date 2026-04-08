@@ -1,7 +1,7 @@
 /**
  * @author TEKCO Team, 07/04/2026
  * @description Phase 3 of the anonymization chain: deletes field history records for
- *              fields where TEKCO_AnonymizationFieldConfig__mdt.Delete_History__c = true.
+ *              fields where TEKCO_AnonymizationFieldConfig__mdt.TEKCO_DeleteHistory__c = true.
  *
  *              History object naming convention:
  *                Standard object → ObjectNameHistory     (e.g. AccountHistory)
@@ -36,7 +36,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     /**
      * @description Constructs the batch with context to delete history for one object.
      * @param objectApiName          API name of the object whose history to delete.
-     * @param objectHistoryConfigs   Field configs with Delete_History__c = true for this object.
+     * @param objectHistoryConfigs   Field configs with TEKCO_DeleteHistory__c = true for this object.
      * @param selectedBrands         Brand values to filter parent records (empty = all).
      * @param auditLogId             Id of the TEKCO_AnonymizationAuditLog__c record.
      * @param remainingHistoryConfigs Field configs for subsequent objects still to process.
@@ -77,8 +77,8 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
 
         Set<String> fieldApiNames = new Set<String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : objectHistoryConfigs) {
-            if (String.isNotBlank(fieldConfig.Field_API_Name__c)) {
-                fieldApiNames.add(fieldConfig.Field_API_Name__c);
+            if (String.isNotBlank(fieldConfig.TEKCO_FieldApiName__c)) {
+                fieldApiNames.add(fieldConfig.TEKCO_FieldApiName__c);
             }
         }
 
@@ -130,7 +130,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
      */
     public void finish(Database.BatchableContext bc) {
         if (!remainingHistoryConfigs.isEmpty()) {
-            String nextObjectApiName = remainingHistoryConfigs[0].Object_API_Name__c;
+            String nextObjectApiName = remainingHistoryConfigs[0].TEKCO_ObjectApiName__c;
             List<TEKCO_AnonymizationFieldConfig__mdt> nextObjectConfigs =
                 popConfigsForObject(nextObjectApiName);
             Database.executeBatch(
@@ -188,7 +188,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         List<TEKCO_AnonymizationFieldConfig__mdt> remainingConfigs =
             new List<TEKCO_AnonymizationFieldConfig__mdt>();
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : remainingHistoryConfigs) {
-            if (fieldConfig.Object_API_Name__c == objectApiName) {
+            if (fieldConfig.TEKCO_ObjectApiName__c == objectApiName) {
                 configsForObject.add(fieldConfig);
             } else {
                 remainingConfigs.add(fieldConfig);

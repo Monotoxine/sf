@@ -3,23 +3,23 @@
     <label>Address Street Random</label>
     <protected>false</protected>
     <values>
-        <field>Description__c</field>
+        <field>TEKCO_Description__c</field>
         <value xsi:type="xsd:string">Extract leading street number and add a random value between 1 and 20</value>
     </values>
     <values>
-        <field>External_Id_Field__c</field>
+        <field>TEKCO_ExternalIdField__c</field>
         <value xsi:nil="true"/>
     </values>
     <values>
-        <field>Base_Email__c</field>
+        <field>TEKCO_BaseEmail__c</field>
         <value xsi:nil="true"/>
     </values>
     <values>
-        <field>SSN_Length__c</field>
+        <field>TEKCO_SsnLength__c</field>
         <value xsi:nil="true"/>
     </values>
     <values>
-        <field>Is_Active__c</field>
+        <field>TEKCO_IsActive__c</field>
         <value xsi:type="xsd:boolean">true</value>
     </values>
 </CustomMetadata>

@@ -5,7 +5,7 @@
  *
  *              Triggered automatically from TEKCO_AnonymizationBatch.finish() for each object
  *              that has a TEKCO_AnonymizationFieldConfig__mdt entry with
- *              Pattern_Type__c = 'DELETE_CONTENT_DOCUMENT'.
+ *              TEKCO_PatternType__c = 'DELETE_CONTENT_DOCUMENT'.
  *
  *              Chain: TEKCO_ContentDocumentBatch (per object) → TEKCO_FieldHistoryBatch
  */
@@ -133,7 +133,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                 DEFAULT_BATCH_SIZE
             );
         } else if (!historyConfigs.isEmpty()) {
-            String firstHistoryObject = historyConfigs[0].Object_API_Name__c;
+            String firstHistoryObject = historyConfigs[0].TEKCO_ObjectApiName__c;
             List<TEKCO_AnonymizationFieldConfig__mdt> firstObjectHistoryConfigs =
                 popHistoryConfigsForObject(firstHistoryObject);
             Database.executeBatch(
@@ -163,7 +163,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         List<TEKCO_AnonymizationFieldConfig__mdt> remainingConfigs =
             new List<TEKCO_AnonymizationFieldConfig__mdt>();
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : historyConfigs) {
-            if (fieldConfig.Object_API_Name__c == objectApiName) {
+            if (fieldConfig.TEKCO_ObjectApiName__c == objectApiName) {
                 configsForObject.add(fieldConfig);
             } else {
                 remainingConfigs.add(fieldConfig);

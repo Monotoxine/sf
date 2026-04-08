@@ -49,14 +49,14 @@ public with sharing class TEKCO_AnonymizationController {
         Set<String> objectApiNameSet = new Set<String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : [
             SELECT
-                Object_API_Name__c,
-                Pattern_Type__c
+                TEKCO_ObjectApiName__c,
+                TEKCO_PatternType__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
-            WHERE Is_Active__c = true
+            WHERE TEKCO_IsActive__c = true
         ]) {
-            if (String.isNotBlank(fieldConfig.Object_API_Name__c)
-                    && fieldConfig.Pattern_Type__c != PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
-                objectApiNameSet.add(fieldConfig.Object_API_Name__c);
+            if (String.isNotBlank(fieldConfig.TEKCO_ObjectApiName__c)
+                    && fieldConfig.TEKCO_PatternType__c != PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
+                objectApiNameSet.add(fieldConfig.TEKCO_ObjectApiName__c);
             }
         }
         List<String> objectApiNames = new List<String>(objectApiNameSet);
@@ -76,31 +76,31 @@ public with sharing class TEKCO_AnonymizationController {
         if (String.isBlank(objectApiName)) {
             fieldConfigRecords = [
                 SELECT
-                    Object_API_Name__c,
-                    Field_API_Name__c,
-                    Pattern_Type__c,
-                    Is_Active__c,
-                    Record_Type_Developer_Name__c,
-                    Delete_History__c
+                    TEKCO_ObjectApiName__c,
+                    TEKCO_FieldApiName__c,
+                    TEKCO_PatternType__c,
+                    TEKCO_IsActive__c,
+                    TEKCO_RecordTypeDeveloperName__c,
+                    TEKCO_DeleteHistory__c
                 FROM TEKCO_AnonymizationFieldConfig__mdt
-                WHERE Is_Active__c = true
-                    AND Pattern_Type__c != :PATTERN_TYPE_DELETE_CONTENT_DOCUMENT
-                ORDER BY Object_API_Name__c, Field_API_Name__c
+                WHERE TEKCO_IsActive__c = true
+                    AND TEKCO_PatternType__c != :PATTERN_TYPE_DELETE_CONTENT_DOCUMENT
+                ORDER BY TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c
             ];
         } else {
             fieldConfigRecords = [
                 SELECT
-                    Object_API_Name__c,
-                    Field_API_Name__c,
-                    Pattern_Type__c,
-                    Is_Active__c,
-                    Record_Type_Developer_Name__c,
-                    Delete_History__c
+                    TEKCO_ObjectApiName__c,
+                    TEKCO_FieldApiName__c,
+                    TEKCO_PatternType__c,
+                    TEKCO_IsActive__c,
+                    TEKCO_RecordTypeDeveloperName__c,
+                    TEKCO_DeleteHistory__c
                 FROM TEKCO_AnonymizationFieldConfig__mdt
-                WHERE Is_Active__c = true
-                    AND Pattern_Type__c != :PATTERN_TYPE_DELETE_CONTENT_DOCUMENT
-                    AND Object_API_Name__c = :objectApiName
-                ORDER BY Field_API_Name__c
+                WHERE TEKCO_IsActive__c = true
+                    AND TEKCO_PatternType__c != :PATTERN_TYPE_DELETE_CONTENT_DOCUMENT
+                    AND TEKCO_ObjectApiName__c = :objectApiName
+                ORDER BY TEKCO_FieldApiName__c
             ];
         }
 
@@ -109,17 +109,17 @@ public with sharing class TEKCO_AnonymizationController {
 
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : fieldConfigRecords) {
             FieldConfigDTO fieldConfigDto        = new FieldConfigDTO();
-            fieldConfigDto.objectApiName         = fieldConfig.Object_API_Name__c;
-            fieldConfigDto.fieldApiName          = fieldConfig.Field_API_Name__c;
-            fieldConfigDto.patternType           = fieldConfig.Pattern_Type__c;
-            fieldConfigDto.recordTypeDeveloperName = fieldConfig.Record_Type_Developer_Name__c;
-            fieldConfigDto.deleteHistory         = fieldConfig.Delete_History__c;
+            fieldConfigDto.objectApiName         = fieldConfig.TEKCO_ObjectApiName__c;
+            fieldConfigDto.fieldApiName          = fieldConfig.TEKCO_FieldApiName__c;
+            fieldConfigDto.patternType           = fieldConfig.TEKCO_PatternType__c;
+            fieldConfigDto.recordTypeDeveloperName = fieldConfig.TEKCO_RecordTypeDeveloperName__c;
+            fieldConfigDto.deleteHistory         = fieldConfig.TEKCO_DeleteHistory__c;
 
-            TEKCO_AnonymizationPattern__mdt patternRecord = patternsByType.get(fieldConfig.Pattern_Type__c);
+            TEKCO_AnonymizationPattern__mdt patternRecord = patternsByType.get(fieldConfig.TEKCO_PatternType__c);
             fieldConfigDto.patternDescription = (patternRecord != null
-                    && String.isNotBlank(patternRecord.Description__c))
-                ? patternRecord.Description__c
-                : fieldConfig.Pattern_Type__c;
+                    && String.isNotBlank(patternRecord.TEKCO_Description__c))
+                ? patternRecord.TEKCO_Description__c
+                : fieldConfig.TEKCO_PatternType__c;
 
             fieldConfigDtos.add(fieldConfigDto);
         }
@@ -217,15 +217,15 @@ public with sharing class TEKCO_AnonymizationController {
 
         List<TEKCO_AnonymizationFieldConfig__mdt> allFieldConfigs = [
             SELECT
-                Object_API_Name__c,
-                Field_API_Name__c,
-                Pattern_Type__c,
-                Is_Active__c,
-                Record_Type_Developer_Name__c,
-                Delete_History__c
+                TEKCO_ObjectApiName__c,
+                TEKCO_FieldApiName__c,
+                TEKCO_PatternType__c,
+                TEKCO_IsActive__c,
+                TEKCO_RecordTypeDeveloperName__c,
+                TEKCO_DeleteHistory__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
-            WHERE Is_Active__c = true
-                AND Object_API_Name__c IN :selectedObjects
+            WHERE TEKCO_IsActive__c = true
+                AND TEKCO_ObjectApiName__c IN :selectedObjects
         ];
 
         // Bucket 1: regular field anonymization grouped by object (respecting exclusions)
@@ -240,24 +240,24 @@ public with sharing class TEKCO_AnonymizationController {
             new List<TEKCO_AnonymizationFieldConfig__mdt>();
 
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : allFieldConfigs) {
-            String fieldKey = fieldConfig.Object_API_Name__c + '.' + fieldConfig.Field_API_Name__c;
+            String fieldKey = fieldConfig.TEKCO_ObjectApiName__c + '.' + fieldConfig.TEKCO_FieldApiName__c;
 
-            if (fieldConfig.Pattern_Type__c == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
-                contentDocObjectSet.add(fieldConfig.Object_API_Name__c);
+            if (fieldConfig.TEKCO_PatternType__c == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
+                contentDocObjectSet.add(fieldConfig.TEKCO_ObjectApiName__c);
                 continue;
             }
 
             if (excludedFieldKeys.contains(fieldKey)) continue;
 
-            if (!configsByObject.containsKey(fieldConfig.Object_API_Name__c)) {
+            if (!configsByObject.containsKey(fieldConfig.TEKCO_ObjectApiName__c)) {
                 configsByObject.put(
-                    fieldConfig.Object_API_Name__c,
+                    fieldConfig.TEKCO_ObjectApiName__c,
                     new List<TEKCO_AnonymizationFieldConfig__mdt>()
                 );
             }
-            configsByObject.get(fieldConfig.Object_API_Name__c).add(fieldConfig);
+            configsByObject.get(fieldConfig.TEKCO_ObjectApiName__c).add(fieldConfig);
 
-            if (fieldConfig.Delete_History__c) {
+            if (fieldConfig.TEKCO_DeleteHistory__c) {
                 historyConfigs.add(fieldConfig);
             }
         }
@@ -316,13 +316,13 @@ public with sharing class TEKCO_AnonymizationController {
         for (TEKCO_AnonymizationPattern__mdt patternRecord : [
             SELECT
                 DeveloperName,
-                Description__c,
-                Base_Email__c,
-                External_Id_Field__c,
-                SSN_Length__c,
-                Is_Active__c
+                TEKCO_Description__c,
+                TEKCO_BaseEmail__c,
+                TEKCO_ExternalIdField__c,
+                TEKCO_SsnLength__c,
+                TEKCO_IsActive__c
             FROM TEKCO_AnonymizationPattern__mdt
-            WHERE Is_Active__c = true
+            WHERE TEKCO_IsActive__c = true
         ]) {
             patternsByType.put(patternRecord.DeveloperName, patternRecord);
         }

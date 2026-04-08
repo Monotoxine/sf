@@ -3,19 +3,19 @@
     <label>Account PersonMailingStreet</label>
     <protected>false</protected>
     <values>
-        <field>Object_API_Name__c</field>
+        <field>TEKCO_ObjectApiName__c</field>
         <value xsi:type="xsd:string">Account</value>
     </values>
     <values>
-        <field>Field_API_Name__c</field>
+        <field>TEKCO_FieldApiName__c</field>
         <value xsi:type="xsd:string">PersonMailingStreet</value>
     </values>
     <values>
-        <field>Pattern_Type__c</field>
+        <field>TEKCO_PatternType__c</field>
         <value xsi:type="xsd:string">ADDRESS_STREET_RANDOM</value>
     </values>
     <values>
-        <field>Is_Active__c</field>
+        <field>TEKCO_IsActive__c</field>
         <value xsi:type="xsd:boolean">true</value>
     </values>
 </CustomMetadata>

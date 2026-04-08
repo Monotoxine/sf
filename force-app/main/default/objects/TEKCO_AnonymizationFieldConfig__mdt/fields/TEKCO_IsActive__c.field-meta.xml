@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
-    <fullName>External_Id_Field__c</fullName>
+    <fullName>TEKCO_IsActive__c</fullName>
+    <defaultValue>true</defaultValue>
     <fieldManageability>DeveloperControlled</fieldManageability>
-    <label>External ID Field API Name</label>
-    <length>255</length>
-    <type>Text</type>
+    <label>Is Active</label>
+    <type>Checkbox</type>
 </CustomField>

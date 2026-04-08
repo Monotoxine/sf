@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
-    <fullName>Description__c</fullName>
+    <fullName>TEKCO_SsnLength__c</fullName>
     <fieldManageability>DeveloperControlled</fieldManageability>
-    <label>Description</label>
-    <length>255</length>
-    <type>Text</type>
+    <label>SSN Length</label>
+    <precision>18</precision>
+    <scale>0</scale>
+    <type>Number</type>
+    <unique>false</unique>
 </CustomField>
