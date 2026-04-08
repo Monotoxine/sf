@@ -85,19 +85,31 @@ public class TEKCO_AnonymizationBypassService {
             LIMIT 1
         ];
 
+        // Resolve (or create) the user-level record to write back to
+        TEKCO_BypassSettings__c recordToRestore = existingRecords.isEmpty()
+            ? new TEKCO_BypassSettings__c(SetupOwnerId = userId)
+            : existingRecords[0];
+
+        Map<String, Schema.SObjectField> fieldMap =
+            Schema.SObjectType.TEKCO_BypassSettings__c.fields.getMap();
+
         if (!snapshot.hasPreExistingRecord) {
-            if (!existingRecords.isEmpty()) {
-                delete existingRecords;
+            // No user-level record existed before activate() — explicitly disable every bypass flag.
+            // Deletion is not used here because a Profile/Org-level record with bypass=true would
+            // re-enable the bypass after deletion, defeating the restore.
+            for (String fieldName : fieldMap.keySet()) {
+                Schema.DescribeFieldResult fd = fieldMap.get(fieldName).getDescribe();
+                if (fd.getType() == Schema.DisplayType.BOOLEAN && fd.isUpdateable()) {
+                    recordToRestore.put(fieldName, false);
+                }
             }
         } else {
-            TEKCO_BypassSettings__c recordToRestore = existingRecords.isEmpty()
-                ? new TEKCO_BypassSettings__c(SetupOwnerId = userId)
-                : existingRecords[0];
-
+            // A user-level record existed before — restore its original boolean values
             for (String fieldName : snapshot.preExistingFieldValues.keySet()) {
                 recordToRestore.put(fieldName, snapshot.preExistingFieldValues.get(fieldName));
             }
-            upsert recordToRestore;
         }
+
+        upsert recordToRestore;
     }
 }
