@@ -59,6 +59,8 @@ public class TEKCO_AnonymizationPatternService {
         TEKCO_AnonymizationPattern__mdt pattern
     ) {
         if (String.isBlank(patternType)) return currentValue;
+        // Never anonymize an empty field — keep it as-is
+        if (String.isBlank(currentValue)) return currentValue;
 
         switch on patternType {
             when 'NAME_FIRST_LETTER' {
@@ -74,7 +76,7 @@ public class TEKCO_AnonymizationPatternService {
                 return applyEmailPlusExternalId(currentValue, record, pattern, true);
             }
             when 'SSN_SEQUENTIAL' {
-                return applySsnSequential(pattern);
+                return applySsnSequential(currentValue, pattern);
             }
             when 'LOREM_IPSUM' {
                 return LOREM_TEXT;
@@ -169,15 +171,21 @@ public class TEKCO_AnonymizationPatternService {
     }
 
     /**
-     * @description SSN_SEQUENTIAL: generates sequential digits cycling 1–9 to the configured length.
-     *              Example: length 13 → "1234567891234"
-     * @param pattern Pattern configuration record containing TEKCO_SsnLength__c.
-     * @return        Sequential SSN string.
+     * @description SSN_SEQUENTIAL: generates sequential digits cycling 1–9.
+     *              Length is taken from the actual value so the anonymized SSN is the same
+     *              length as the original. Falls back to TEKCO_SsnLength__c, then to the
+     *              default constant, so the field is never left blank.
+     *              Example: "1234567890123" (13 chars) → "1234567891234" (13 chars)
+     * @param currentValue Current field value (already guaranteed non-blank by the caller).
+     * @param pattern      Pattern configuration record containing TEKCO_SsnLength__c.
+     * @return             Sequential SSN string of the same length as the original.
      */
-    private static String applySsnSequential(TEKCO_AnonymizationPattern__mdt pattern) {
-        Integer targetLength = (pattern.TEKCO_SsnLength__c != null)
-            ? Integer.valueOf(pattern.TEKCO_SsnLength__c)
-            : SSN_DEFAULT_LENGTH;
+    private static String applySsnSequential(String currentValue, TEKCO_AnonymizationPattern__mdt pattern) {
+        Integer targetLength = String.isNotBlank(currentValue)
+            ? currentValue.trim().length()
+            : (pattern.TEKCO_SsnLength__c != null
+                ? Integer.valueOf(pattern.TEKCO_SsnLength__c)
+                : SSN_DEFAULT_LENGTH);
         String result = '';
         for (Integer index = 0; index < targetLength; index++) {
             result += String.valueOf(Math.mod(index, 9) + 1);
