@@ -15,6 +15,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     private static final Integer MAX_CAPTURED_ERRORS   = 50;
     private static final String  PATTERN_TYPE_KEEP     = 'KEEP';
     private static final String  PATTERN_TYPE_DELETE_CONTENT_DOCUMENT = 'DELETE_CONTENT_DOCUMENT';
+    private static final String  PATTERN_TYPE_EMAIL_MESSAGE_LOREM     = 'EMAIL_MESSAGE_LOREM';
 
     // ── Stateful fields ───────────────────────────────────────────────────────
 
@@ -92,8 +93,22 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     public Database.QueryLocator start(Database.BatchableContext bc) {
         TEKCO_AnonymizationSandboxGuard.assertIsSandbox();
 
+        // Detect EMAIL_MESSAGE_LOREM configs — requires Status field + no direct brand filter
+        Boolean hasEmailMessageLorem = false;
+        for (TEKCO_AnonymizationFieldConfig__mdt fc : fieldConfigs) {
+            if (fc.TEKCO_PatternType__c == PATTERN_TYPE_EMAIL_MESSAGE_LOREM) {
+                hasEmailMessageLorem = true;
+                break;
+            }
+        }
+
         Set<String> fieldApiNames = new Set<String>{ 'Id' };
         Boolean needsRecordTypeId = false;
+
+        // Status required to decide update-vs-delete for EMAIL_MESSAGE_LOREM records
+        if (hasEmailMessageLorem) {
+            fieldApiNames.add('Status');
+        }
 
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : fieldConfigs) {
             String patternType = fieldConfig.TEKCO_PatternType__c;
@@ -149,7 +164,9 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 soqlQuery += ' WHERE ' + String.join(parentConditions, ' AND ');
             }
             soqlQuery += ')';
-        } else if (!selectedBrands.isEmpty()) {
+        } else if (!hasEmailMessageLorem && !selectedBrands.isEmpty()) {
+            // EmailMessage has no TEKCO_Brand__c — when EMAIL_MESSAGE_LOREM configs are present
+            // and no parent is configured, select all records without a brand filter.
             soqlQuery += ' WHERE TEKCO_Brand__c IN :selectedBrands';
         }
 
@@ -163,14 +180,35 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
      */
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
         List<SObject> recordsToUpdate = new List<SObject>();
+        List<SObject> recordsToDelete = new List<SObject>();
 
         for (SObject record : scope) {
-            Boolean isModified = false;
+            Boolean isModified    = false;
+            Boolean shouldDelete  = false;
 
             for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : fieldConfigs) {
                 String patternType = fieldConfig.TEKCO_PatternType__c;
                 if (patternType == PATTERN_TYPE_KEEP
                         || patternType == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
+                    continue;
+                }
+
+                // EMAIL_MESSAGE_LOREM: Draft → apply lorem, non-Draft → delete the record
+                if (patternType == PATTERN_TYPE_EMAIL_MESSAGE_LOREM) {
+                    String emailStatus = (String) record.get('Status');
+                    if (emailStatus == 'Draft') {
+                        String currentValue;
+                        try {
+                            currentValue = (String) record.get(fieldConfig.TEKCO_FieldApiName__c);
+                        } catch (Exception e) { continue; }
+                        if (String.isNotBlank(currentValue)) {
+                            record.put(fieldConfig.TEKCO_FieldApiName__c,
+                                TEKCO_AnonymizationPatternService.LOREM_TEXT);
+                            isModified = true;
+                        }
+                    } else {
+                        shouldDelete = true;
+                    }
                     continue;
                 }
 
@@ -209,23 +247,47 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 }
             }
 
-            if (isModified) recordsToUpdate.add(record);
+            // A non-Draft EmailMessage is deleted — do not also attempt to update it
+            if (shouldDelete) {
+                recordsToDelete.add(record);
+            } else if (isModified) {
+                recordsToUpdate.add(record);
+            }
         }
 
-        if (recordsToUpdate.isEmpty()) return;
-
-        Database.SaveResult[] saveResults = Database.update(recordsToUpdate, false);
-        for (Database.SaveResult saveResult : saveResults) {
-            if (saveResult.isSuccess()) {
-                recordsProcessed++;
-            } else {
-                recordsFailed++;
-                if (errors.size() < MAX_CAPTURED_ERRORS) {
-                    List<String> errorMessages = new List<String>();
-                    for (Database.Error dmlError : saveResult.getErrors()) {
-                        errorMessages.add(dmlError.getMessage());
+        if (!recordsToUpdate.isEmpty()) {
+            Database.SaveResult[] saveResults = Database.update(recordsToUpdate, false);
+            for (Database.SaveResult saveResult : saveResults) {
+                if (saveResult.isSuccess()) {
+                    recordsProcessed++;
+                } else {
+                    recordsFailed++;
+                    if (errors.size() < MAX_CAPTURED_ERRORS) {
+                        List<String> errorMessages = new List<String>();
+                        for (Database.Error dmlError : saveResult.getErrors()) {
+                            errorMessages.add(dmlError.getMessage());
+                        }
+                        errors.add(saveResult.getId() + ': ' + String.join(errorMessages, '; '));
                     }
-                    errors.add(saveResult.getId() + ': ' + String.join(errorMessages, '; '));
+                }
+            }
+        }
+
+        if (!recordsToDelete.isEmpty()) {
+            Database.DeleteResult[] deleteResults = Database.delete(recordsToDelete, false);
+            for (Database.DeleteResult deleteResult : deleteResults) {
+                if (deleteResult.isSuccess()) {
+                    recordsProcessed++;
+                } else {
+                    recordsFailed++;
+                    if (errors.size() < MAX_CAPTURED_ERRORS) {
+                        List<String> errorMessages = new List<String>();
+                        for (Database.Error dmlError : deleteResult.getErrors()) {
+                            errorMessages.add(dmlError.getMessage());
+                        }
+                        errors.add('Delete ' + deleteResult.getId() + ': '
+                            + String.join(errorMessages, '; '));
+                    }
                 }
             }
         }

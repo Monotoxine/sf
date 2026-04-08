@@ -13,7 +13,7 @@
  *   KEEP                            - No change
  *   ADDRESS_STREET_RANDOM           - Street number + random 1-20
  *   DELETE_CONTENT_DOCUMENT         - Handled by dedicated batch (skip here)
- *   EMAIL_MESSAGE_LOREM             - Fixed lorem ipsum text (same as LOREM_IPSUM, for EmailMessage fields)
+ *   EMAIL_MESSAGE_LOREM             - Draft → lorem ipsum on the field; non-Draft → record deleted (handled in batch)
  */
 public class TEKCO_AnonymizationPatternService {
 
@@ -87,11 +87,11 @@ public class TEKCO_AnonymizationPatternService {
             when 'KEEP' {
                 return currentValue;
             }
-            when 'EMAIL_MESSAGE_LOREM' {
-                return LOREM_TEXT; // same lorem text as LOREM_IPSUM, applied to EmailMessage fields
-            }
             when 'DELETE_CONTENT_DOCUMENT' {
                 return null; // handled by TEKCO_ContentDocumentBatch
+            }
+            when 'EMAIL_MESSAGE_LOREM' {
+                return null; // handled directly in TEKCO_AnonymizationBatch (Draft→update, else→delete)
             }
             when else {
                 return currentValue;
