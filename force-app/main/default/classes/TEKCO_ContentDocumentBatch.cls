@@ -150,42 +150,51 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
     /**
      * @description Chains to the next object's ContentDocumentBatch, or starts Phase 3,
      *              or finalizes the run if all phases are complete.
+     *              Wrapped in try/catch so any error closes the audit log as Failed
+     *              instead of leaving it stuck in Running status.
      * @param bc Batch context provided by the platform.
      */
     public void finish(Database.BatchableContext bc) {
-        if (!remainingContentDocObjects.isEmpty()) {
-            String nextObjectApiName = remainingContentDocObjects.remove(0);
-            Database.executeBatch(
-                new TEKCO_ContentDocumentBatch(
-                    nextObjectApiName,
-                    selectedBrands,
-                    auditLogId,
-                    remainingContentDocObjects,
-                    historyConfigs,
-                    bypassSnapshot,
-                    parentFiltersByObject
-                ),
-                DEFAULT_BATCH_SIZE
-            );
-        } else if (!historyConfigs.isEmpty()) {
-            String firstHistoryObject = historyConfigs[0].TEKCO_ObjectApiName__c;
-            List<TEKCO_AnonymizationFieldConfig__mdt> firstObjectHistoryConfigs =
-                popHistoryConfigsForObject(firstHistoryObject);
-            Database.executeBatch(
-                new TEKCO_FieldHistoryBatch(
-                    firstHistoryObject,
-                    firstObjectHistoryConfigs,
-                    selectedBrands,
-                    auditLogId,
-                    historyConfigs,
-                    bypassSnapshot,
-                    parentFiltersByObject
-                ),
-                DEFAULT_BATCH_SIZE
-            );
-        } else {
-            TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-            updateAuditLog();
+        try {
+            if (!remainingContentDocObjects.isEmpty()) {
+                String nextObjectApiName = remainingContentDocObjects.remove(0);
+                Database.executeBatch(
+                    new TEKCO_ContentDocumentBatch(
+                        nextObjectApiName,
+                        selectedBrands,
+                        auditLogId,
+                        remainingContentDocObjects,
+                        historyConfigs,
+                        bypassSnapshot,
+                        parentFiltersByObject
+                    ),
+                    DEFAULT_BATCH_SIZE
+                );
+            } else if (!historyConfigs.isEmpty()) {
+                String firstHistoryObject = historyConfigs[0].TEKCO_ObjectApiName__c;
+                List<TEKCO_AnonymizationFieldConfig__mdt> firstObjectHistoryConfigs =
+                    popHistoryConfigsForObject(firstHistoryObject);
+                Database.executeBatch(
+                    new TEKCO_FieldHistoryBatch(
+                        firstHistoryObject,
+                        firstObjectHistoryConfigs,
+                        selectedBrands,
+                        auditLogId,
+                        historyConfigs,
+                        bypassSnapshot,
+                        parentFiltersByObject
+                    ),
+                    DEFAULT_BATCH_SIZE
+                );
+            } else {
+                TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
+                updateAuditLog();
+            }
+        } catch (Exception e) {
+            try {
+                TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
+            } catch (Exception restoreEx) { /* silent */ }
+            closeAuditLogAsFailed(e.getMessage());
         }
     }
 
@@ -213,13 +222,27 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         if (auditLogId == null) return;
         try {
             update new TEKCO_AnonymizationAuditLog__c(
-                Id               = auditLogId,
-                TEKCO_Status__c        = recordsFailed > 0 ? 'Partial' : 'Success',
+                Id                    = auditLogId,
+                TEKCO_Status__c       = recordsFailed > 0 ? 'Partial' : 'Success',
                 TEKCO_EndTime__c      = Datetime.now(),
                 TEKCO_ErrorMessage__c = errors.isEmpty() ? null : String.join(errors, '\n')
             );
         } catch (Exception e) {
             // Silent — audit log failure must not break the batch chain
         }
+    }
+
+    private void closeAuditLogAsFailed(String chainError) {
+        if (auditLogId == null) return;
+        try {
+            String errorMsg = (errors.isEmpty() ? '' : String.join(errors, '\n') + '\n')
+                + 'Chain error in finish(): ' + chainError;
+            update new TEKCO_AnonymizationAuditLog__c(
+                Id                    = auditLogId,
+                TEKCO_Status__c       = 'Failed',
+                TEKCO_EndTime__c      = Datetime.now(),
+                TEKCO_ErrorMessage__c = errorMsg
+            );
+        } catch (Exception e) { /* silent */ }
     }
 }
