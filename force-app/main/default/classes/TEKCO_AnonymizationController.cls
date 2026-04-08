@@ -65,13 +65,52 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     /**
+     * @description Returns distinct Record Type Developer Names from active FieldConfig records,
+     *              optionally scoped to a given object.
+     *              Blank TEKCO_RecordTypeDeveloperName__c entries are excluded (they apply to all RTs).
+     * @param objectApiName API name of the object to scope to, or blank for all objects.
+     * @return Sorted list of Record Type Developer Names.
+     */
+    @AuraEnabled(cacheable=true)
+    public static List<String> getRecordTypes(String objectApiName) {
+        Set<String> recordTypeSet = new Set<String>();
+        List<TEKCO_AnonymizationFieldConfig__mdt> configs;
+        if (String.isBlank(objectApiName)) {
+            configs = [
+                SELECT TEKCO_RecordTypeDeveloperName__c
+                FROM TEKCO_AnonymizationFieldConfig__mdt
+                WHERE TEKCO_IsActive__c = true
+                    AND TEKCO_RecordTypeDeveloperName__c != null
+            ];
+        } else {
+            configs = [
+                SELECT TEKCO_RecordTypeDeveloperName__c
+                FROM TEKCO_AnonymizationFieldConfig__mdt
+                WHERE TEKCO_IsActive__c = true
+                    AND TEKCO_ObjectApiName__c = :objectApiName
+                    AND TEKCO_RecordTypeDeveloperName__c != null
+            ];
+        }
+        for (TEKCO_AnonymizationFieldConfig__mdt config : configs) {
+            recordTypeSet.add(config.TEKCO_RecordTypeDeveloperName__c);
+        }
+        List<String> recordTypes = new List<String>(recordTypeSet);
+        recordTypes.sort();
+        return recordTypes;
+    }
+
+    /**
      * @description Returns field configs for a given object (or all objects if blank),
-     *              enriched with pattern description for display in the LWC.
-     * @param objectApiName API name of the object to filter by, or blank for all objects.
+     *              optionally filtered by Record Type, enriched with pattern description.
+     * @param objectApiName       API name of the object to filter by, or blank for all objects.
+     * @param selectedRecordTypes Record Type Developer Names to filter by (empty = all).
      * @return List of FieldConfigDTO enriched with pattern description.
      */
     @AuraEnabled(cacheable=true)
-    public static List<FieldConfigDTO> getFieldConfigs(String objectApiName) {
+    public static List<FieldConfigDTO> getFieldConfigs(
+        String objectApiName,
+        List<String> selectedRecordTypes
+    ) {
         List<TEKCO_AnonymizationFieldConfig__mdt> fieldConfigRecords;
         if (String.isBlank(objectApiName)) {
             fieldConfigRecords = [
@@ -104,16 +143,27 @@ public with sharing class TEKCO_AnonymizationController {
             ];
         }
 
+        // In-memory RT filter: keep configs with no RT (applies to all) OR matching a selected RT
+        Set<String> rtFilter = (selectedRecordTypes != null && !selectedRecordTypes.isEmpty())
+            ? new Set<String>(selectedRecordTypes)
+            : null;
+
         Map<String, TEKCO_AnonymizationPattern__mdt> patternsByType = buildPatternMap();
         List<FieldConfigDTO> fieldConfigDtos = new List<FieldConfigDTO>();
 
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : fieldConfigRecords) {
-            FieldConfigDTO fieldConfigDto        = new FieldConfigDTO();
-            fieldConfigDto.objectApiName         = fieldConfig.TEKCO_ObjectApiName__c;
-            fieldConfigDto.fieldApiName          = fieldConfig.TEKCO_FieldApiName__c;
-            fieldConfigDto.patternType           = fieldConfig.TEKCO_PatternType__c;
+            if (rtFilter != null
+                    && String.isNotBlank(fieldConfig.TEKCO_RecordTypeDeveloperName__c)
+                    && !rtFilter.contains(fieldConfig.TEKCO_RecordTypeDeveloperName__c)) {
+                continue;
+            }
+
+            FieldConfigDTO fieldConfigDto          = new FieldConfigDTO();
+            fieldConfigDto.objectApiName           = fieldConfig.TEKCO_ObjectApiName__c;
+            fieldConfigDto.fieldApiName            = fieldConfig.TEKCO_FieldApiName__c;
+            fieldConfigDto.patternType             = fieldConfig.TEKCO_PatternType__c;
             fieldConfigDto.recordTypeDeveloperName = fieldConfig.TEKCO_RecordTypeDeveloperName__c;
-            fieldConfigDto.deleteHistory         = fieldConfig.TEKCO_DeleteHistory__c;
+            fieldConfigDto.deleteHistory           = fieldConfig.TEKCO_DeleteHistory__c;
 
             TEKCO_AnonymizationPattern__mdt patternRecord = patternsByType.get(fieldConfig.TEKCO_PatternType__c);
             fieldConfigDto.patternDescription = (patternRecord != null
@@ -178,16 +228,18 @@ public with sharing class TEKCO_AnonymizationController {
      * @description Launches the anonymization batch chain.
      *              Requires TEKCO_AnonymizeData custom permission and a sandbox org.
      *              Activates bypass settings before the chain starts and restores them at the end.
-     * @param selectedBrands  Brand values to filter records (empty = all brands).
-     * @param selectedObjects Object API names to process (empty = all configured objects).
-     * @param excludedFields  Fields to skip in this run, format "ObjectApiName.FieldApiName".
-     * @return                Id of the created TEKCO_AnonymizationAuditLog__c record.
+     * @param selectedBrands      Brand values to filter records (empty = all brands).
+     * @param selectedObjects     Object API names to process (empty = all configured objects).
+     * @param excludedFields      Fields to skip in this run, format "ObjectApiName.FieldApiName".
+     * @param selectedRecordTypes Record Type Developer Names to restrict to (empty = all RTs).
+     * @return                    Id of the created TEKCO_AnonymizationAuditLog__c record.
      */
     @AuraEnabled
     public static Id startAnonymization(
         List<String> selectedBrands,
         List<String> selectedObjects,
-        List<String> excludedFields
+        List<String> excludedFields,
+        List<String> selectedRecordTypes
     ) {
         if (!FeatureManagement.checkPermission('TEKCO_AnonymizeData')) {
             throw new AuraHandledException(
@@ -227,6 +279,20 @@ public with sharing class TEKCO_AnonymizationController {
             WHERE TEKCO_IsActive__c = true
                 AND TEKCO_ObjectApiName__c IN :selectedObjects
         ];
+
+        // Record Type filter: keep configs with no RT (applies to all) OR matching a selected RT
+        if (selectedRecordTypes != null && !selectedRecordTypes.isEmpty()) {
+            Set<String> rtFilter = new Set<String>(selectedRecordTypes);
+            List<TEKCO_AnonymizationFieldConfig__mdt> filteredConfigs =
+                new List<TEKCO_AnonymizationFieldConfig__mdt>();
+            for (TEKCO_AnonymizationFieldConfig__mdt fc : allFieldConfigs) {
+                if (String.isBlank(fc.TEKCO_RecordTypeDeveloperName__c)
+                        || rtFilter.contains(fc.TEKCO_RecordTypeDeveloperName__c)) {
+                    filteredConfigs.add(fc);
+                }
+            }
+            allFieldConfigs = filteredConfigs;
+        }
 
         // Bucket 1: regular field anonymization grouped by object (respecting exclusions)
         Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>> configsByObject =

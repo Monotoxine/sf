@@ -4,6 +4,7 @@ import hasAnonymizePermission from '@salesforce/customPermission/TEKCO_Anonymize
 
 import getBrands          from '@salesforce/apex/TEKCO_AnonymizationController.getBrands';
 import getObjects         from '@salesforce/apex/TEKCO_AnonymizationController.getObjects';
+import getRecordTypes     from '@salesforce/apex/TEKCO_AnonymizationController.getRecordTypes';
 import getFieldConfigs    from '@salesforce/apex/TEKCO_AnonymizationController.getFieldConfigs';
 import getRecordCount     from '@salesforce/apex/TEKCO_AnonymizationController.getRecordCount';
 import getAuditLogs       from '@salesforce/apex/TEKCO_AnonymizationController.getAuditLogs';
@@ -16,12 +17,14 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     hasPermission = hasAnonymizePermission;
 
     // ── Filter state ─────────────────────────────────────────────────────────
-    @track selectedBrands  = [];
-    @track selectedObjects = [];
+    @track selectedBrands      = [];
+    @track selectedObjects     = [];
+    @track selectedRecordTypes = [];
 
     // ── Picklist options ─────────────────────────────────────────────────────
-    @track brandOptions  = [];
-    @track objectOptions = [];
+    @track brandOptions      = [];
+    @track objectOptions     = [];
+    @track recordTypeOptions = [];
 
     // ── Data ─────────────────────────────────────────────────────────────────
     // fieldConfigs: array of FieldConfigDTO enriched with `enabled` (checkbox state)
@@ -42,6 +45,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     connectedCallback() {
         this.loadBrands();
         this.loadObjects();
+        this.loadRecordTypes(null);
         this.loadAuditLogs();
     }
 
@@ -67,10 +71,26 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             .catch(err => this.showError('Failed to load objects', err));
     }
 
+    loadRecordTypes(objectApiName) {
+        getRecordTypes({ objectApiName: objectApiName || null })
+            .then(values => {
+                this.recordTypeOptions = values.map(v => ({ label: v, value: v }));
+                // Drop any previously selected RT that no longer exists in the new scope
+                if (this.recordTypeOptions.length > 0) {
+                    const available = new Set(values);
+                    this.selectedRecordTypes = this.selectedRecordTypes.filter(rt => available.has(rt));
+                } else {
+                    this.selectedRecordTypes = [];
+                }
+            })
+            .catch(err => this.showError('Failed to load record types', err));
+    }
+
     loadFieldConfigs() {
         this.isLoading = true;
         const objectApiName = this.selectedObjects.length === 1 ? this.selectedObjects[0] : null;
-        getFieldConfigs({ objectApiName })
+        const selectedRecordTypes = this.selectedRecordTypes.length > 0 ? this.selectedRecordTypes : null;
+        getFieldConfigs({ objectApiName, selectedRecordTypes })
             .then(configs => {
                 // Enrich each config with a unique key and enabled=true by default
                 this.fieldConfigs = configs.map(cfg => ({
@@ -133,6 +153,15 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         this.selectedObjects = event.detail.value;
         this.fieldConfigs    = [];
         this.previewByObject = [];
+        // Reload record types scoped to the single selected object, or all if multiple/none
+        const scopeObject = this.selectedObjects.length === 1 ? this.selectedObjects[0] : null;
+        this.loadRecordTypes(scopeObject);
+    }
+
+    handleRecordTypeChange(event) {
+        this.selectedRecordTypes = event.detail.value;
+        this.fieldConfigs        = [];
+        this.previewByObject     = [];
     }
 
     handleSelectAllBrands() {
@@ -141,6 +170,11 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
     handleSelectAllObjects() {
         this.selectedObjects = this.objectOptions.map(o => o.value);
+        this.loadRecordTypes(null);
+    }
+
+    handleSelectAllRecordTypes() {
+        this.selectedRecordTypes = this.recordTypeOptions.map(o => o.value);
     }
 
     handlePreview() {
@@ -174,6 +208,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             'WARNING: You are about to anonymize data.\n\n' +
             `Brands: ${this.selectedBrands.length ? this.selectedBrands.join(', ') : 'ALL'}\n` +
             `Objects: ${this.selectedObjects.length ? this.selectedObjects.join(', ') : 'ALL configured'}\n` +
+            `Record Types: ${this.selectedRecordTypes.length ? this.selectedRecordTypes.join(', ') : 'ALL'}\n` +
             `Bypassed fields: ${excludedFields.length ? excludedFields.join(', ') : 'none'}\n\n` +
             'This action is IRREVERSIBLE. Confirm?'
         )) return;
@@ -182,9 +217,10 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         this.errorMessage = '';
 
         startAnonymization({
-            selectedBrands:  this.selectedBrands,
-            selectedObjects: this.selectedObjects.length > 0 ? this.selectedObjects : null,
-            excludedFields:  excludedFields.length > 0 ? excludedFields : null
+            selectedBrands:      this.selectedBrands,
+            selectedObjects:     this.selectedObjects.length > 0 ? this.selectedObjects : null,
+            excludedFields:      excludedFields.length > 0 ? excludedFields : null,
+            selectedRecordTypes: this.selectedRecordTypes.length > 0 ? this.selectedRecordTypes : null
         })
         .then(auditLogId => {
             this.isRunning = false;
@@ -223,11 +259,12 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
     // ── Computed getters ──────────────────────────────────────────────────────
 
-    get hasFieldConfigs()   { return this.fieldConfigs.length > 0; }
-    get hasPreview()        { return this.previewByObject.length > 0; }
-    get hasAuditLogs()      { return this.auditLogs.length > 0; }
-    get isStartDisabled()   { return !this.hasPermission || this.isRunning; }
-    get startLabel()        { return this.isRunning ? 'Running...' : 'Launch Anonymization'; }
+    get hasFieldConfigs()      { return this.fieldConfigs.length > 0; }
+    get hasPreview()           { return this.previewByObject.length > 0; }
+    get hasAuditLogs()         { return this.auditLogs.length > 0; }
+    get hasRecordTypeOptions() { return this.recordTypeOptions.length > 0; }
+    get isStartDisabled()      { return !this.hasPermission || this.isRunning; }
+    get startLabel()           { return this.isRunning ? 'Running...' : 'Launch Anonymization'; }
     get permissionWarning() {
         return this.hasPermission ? ''
             : 'You need the "TEKCO Anonymize Data" custom permission to trigger anonymization.';

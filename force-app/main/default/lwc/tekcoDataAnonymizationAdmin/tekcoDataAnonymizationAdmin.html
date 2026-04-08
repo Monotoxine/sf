@@ -15,7 +15,7 @@
             <div class="slds-grid slds-gutters slds-m-bottom_medium slds-wrap">
 
                 <!-- Brand multi-select -->
-                <div class="slds-col slds-size_1-of-2">
+                <div class="slds-col slds-size_1-of-3">
                     <div class="slds-form-element">
                         <div class="slds-grid slds-grid_align-spread">
                             <label class="slds-form-element__label">Brands</label>
@@ -39,7 +39,7 @@
                 </div>
 
                 <!-- Object multi-select -->
-                <div class="slds-col slds-size_1-of-2">
+                <div class="slds-col slds-size_1-of-3">
                     <div class="slds-form-element">
                         <div class="slds-grid slds-grid_align-spread">
                             <label class="slds-form-element__label">Objects</label>
@@ -60,6 +60,44 @@
                             size="5">
                         </lightning-dual-listbox>
                     </div>
+                </div>
+
+                <!-- Record Type multi-select (visible only when RT-specific configs exist) -->
+                <div class="slds-col slds-size_1-of-3">
+                    <template if:true={hasRecordTypeOptions}>
+                        <div class="slds-form-element">
+                            <div class="slds-grid slds-grid_align-spread">
+                                <label class="slds-form-element__label">Record Types</label>
+                                <lightning-button
+                                    label="Select All"
+                                    variant="base"
+                                    class="slds-m-bottom_xx-small"
+                                    onclick={handleSelectAllRecordTypes}>
+                                </lightning-button>
+                            </div>
+                            <lightning-dual-listbox
+                                name="recordTypes"
+                                source-label="Available"
+                                selected-label="Selected"
+                                options={recordTypeOptions}
+                                value={selectedRecordTypes}
+                                onchange={handleRecordTypeChange}
+                                size="5">
+                            </lightning-dual-listbox>
+                            <p class="slds-form-element__help slds-m-top_xx-small">
+                                Leave empty to process all Record Types.
+                                RT-agnostic configs always run.
+                            </p>
+                        </div>
+                    </template>
+                    <template if:false={hasRecordTypeOptions}>
+                        <div class="slds-form-element">
+                            <label class="slds-form-element__label">Record Types</label>
+                            <p class="slds-text-color_weak slds-m-top_x-small">
+                                No Record Type-specific configs for the selected object(s).
+                            </p>
+                        </div>
+                    </template>
                 </div>
             </div>
 
