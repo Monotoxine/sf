@@ -104,7 +104,8 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
                     ...cfg,
                     configKey:             `${cfg.objectApiName}.${cfg.fieldApiName}`,
                     enabled:               true,
-                    originalDeleteHistory: cfg.deleteHistory
+                    originalDeleteHistory: cfg.deleteHistory,
+                    isContentDoc:          cfg.patternType === 'DELETE_CONTENT_DOCUMENT'
                 }));
                 this.isLoading = false;
             })

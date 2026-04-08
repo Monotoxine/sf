@@ -25,7 +25,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     private List<String>                                  selectedBrands;
     private Id                                            auditLogId;
     private List<String>                                  remainingObjects;
-    private List<String>                                  contentDocObjects;
+    private List<TEKCO_AnonymizationFieldConfig__mdt>     contentDocConfigs;
     private List<TEKCO_AnonymizationFieldConfig__mdt>     historyConfigs;
     private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
     // key = child object API name → [parentObjectApiName, parentLookupField, parentRecordTypeDvName]
@@ -62,7 +62,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         List<String> selectedBrands,
         Id auditLogId,
         List<String> remainingObjects,
-        List<String> contentDocObjects,
+        List<TEKCO_AnonymizationFieldConfig__mdt> contentDocConfigs,
         List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs,
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
         Map<String, List<String>> parentFiltersByObject
@@ -72,9 +72,10 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         this.patternsByType       = patternsByType;
         this.selectedBrands       = selectedBrands    != null ? selectedBrands    : new List<String>();
         this.auditLogId           = auditLogId;
-        this.remainingObjects     = remainingObjects  != null ? remainingObjects  : new List<String>();
-        this.contentDocObjects    = contentDocObjects != null ? contentDocObjects : new List<String>();
-        this.historyConfigs       = historyConfigs    != null ? historyConfigs
+        this.remainingObjects  = remainingObjects  != null ? remainingObjects  : new List<String>();
+        this.contentDocConfigs = contentDocConfigs != null ? contentDocConfigs
+            : new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        this.historyConfigs    = historyConfigs    != null ? historyConfigs
             : new List<TEKCO_AnonymizationFieldConfig__mdt>();
         this.bypassSnapshot       = bypassSnapshot;
         this.parentFiltersByObject = parentFiltersByObject != null
@@ -254,21 +255,21 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         selectedBrands,
                         auditLogId,
                         remainingObjects,
-                        contentDocObjects,
+                        contentDocConfigs,
                         historyConfigs,
                         bypassSnapshot,
                         parentFiltersByObject
                     ),
                     DEFAULT_BATCH_SIZE
                 );
-            } else if (!contentDocObjects.isEmpty()) {
-                String firstContentDocObject = contentDocObjects.remove(0);
+            } else if (!contentDocConfigs.isEmpty()) {
+                TEKCO_AnonymizationFieldConfig__mdt firstContentDocConfig = contentDocConfigs.remove(0);
                 Database.executeBatch(
                     new TEKCO_ContentDocumentBatch(
-                        firstContentDocObject,
+                        firstContentDocConfig,
                         selectedBrands,
                         auditLogId,
-                        contentDocObjects,
+                        contentDocConfigs,
                         historyConfigs,
                         bypassSnapshot,
                         parentFiltersByObject

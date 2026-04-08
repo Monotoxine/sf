@@ -151,7 +151,6 @@ public with sharing class TEKCO_AnonymizationController {
                     TEKCO_ParentRecordTypeDeveloperName__c
                 FROM TEKCO_AnonymizationFieldConfig__mdt
                 WHERE TEKCO_IsActive__c = true
-                    AND TEKCO_PatternType__c != :PATTERN_TYPE_DELETE_CONTENT_DOCUMENT
                 ORDER BY TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c
             ];
         } else {
@@ -168,7 +167,6 @@ public with sharing class TEKCO_AnonymizationController {
                     TEKCO_ParentRecordTypeDeveloperName__c
                 FROM TEKCO_AnonymizationFieldConfig__mdt
                 WHERE TEKCO_IsActive__c = true
-                    AND TEKCO_PatternType__c != :PATTERN_TYPE_DELETE_CONTENT_DOCUMENT
                     AND TEKCO_ObjectApiName__c = :objectApiName
                 ORDER BY TEKCO_FieldApiName__c
             ];
@@ -340,8 +338,9 @@ public with sharing class TEKCO_AnonymizationController {
         Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>> configsByObject =
             new Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>>();
 
-        // Bucket 2: objects needing ContentDocument deletion
-        Set<String> contentDocObjectSet = new Set<String>();
+        // Bucket 2: ContentDocument deletion — full CMT configs (RT-aware, one batch per config)
+        List<TEKCO_AnonymizationFieldConfig__mdt> contentDocConfigs =
+            new List<TEKCO_AnonymizationFieldConfig__mdt>();
 
         // Bucket 3: field history deletion configs
         List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs =
@@ -351,7 +350,10 @@ public with sharing class TEKCO_AnonymizationController {
             String fieldKey = fieldConfig.TEKCO_ObjectApiName__c + '.' + fieldConfig.TEKCO_FieldApiName__c;
 
             if (fieldConfig.TEKCO_PatternType__c == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
-                contentDocObjectSet.add(fieldConfig.TEKCO_ObjectApiName__c);
+                // Respect "Run" exclusions from the LWC (user unchecked the row)
+                if (!excludedFieldKeys.contains(fieldKey)) {
+                    contentDocConfigs.add(fieldConfig);
+                }
                 continue;
             }
 
@@ -379,7 +381,7 @@ public with sharing class TEKCO_AnonymizationController {
             if (configsByObject.containsKey(objectApiName)) objectsToProcess.add(objectApiName);
         }
 
-        List<String> contentDocObjects = new List<String>(contentDocObjectSet);
+        // contentDocConfigs already built in the bucket loop above
 
         // Build parent filter map: childObjectApiName → [parentObject, parentLookup, parentRT]
         // The first config that defines a parent filter for each object wins.
@@ -423,7 +425,7 @@ public with sharing class TEKCO_AnonymizationController {
                 selectedBrands,
                 auditLog.Id,
                 objectsToProcess,
-                contentDocObjects,
+                contentDocConfigs,
                 historyConfigs,
                 bypassSnapshot,
                 parentFiltersByObject
