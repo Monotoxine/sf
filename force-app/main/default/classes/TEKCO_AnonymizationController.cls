@@ -40,26 +40,59 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     /**
-     * @description Returns distinct object API names from active TEKCO_AnonymizationFieldConfig__mdt.
-     *              Includes objects that only have DELETE_CONTENT_DOCUMENT entries so they are
-     *              visible and selectable in the LWC scope picker.
-     * @return Sorted list of object API names.
+     * @description Returns object options for the LWC scope picker.
+     *              Label includes the parent object in parentheses when one is configured,
+     *              e.g. "Address__c (Account)". Value is always the plain object API name.
+     * @return Sorted list of {label, value} maps ready for lightning-dual-listbox.
      */
     @AuraEnabled(cacheable=true)
-    public static List<String> getObjects() {
+    public static List<Map<String, String>> getObjects() {
+        // Build: objectApiName → first non-blank parentObjectApiName found for that object
+        Map<String, String> parentByObject = new Map<String, String>();
+        for (TEKCO_AnonymizationFieldConfig__mdt fc : [
+            SELECT TEKCO_ObjectApiName__c, TEKCO_ParentObjectApiName__c
+            FROM TEKCO_AnonymizationFieldConfig__mdt
+            WHERE TEKCO_IsActive__c = true
+              AND TEKCO_ObjectApiName__c != null
+        ]) {
+            String obj    = fc.TEKCO_ObjectApiName__c;
+            String parent = fc.TEKCO_ParentObjectApiName__c;
+            // Register the object; prefer a non-blank parent value if one exists
+            if (!parentByObject.containsKey(obj)
+                    || (String.isBlank(parentByObject.get(obj)) && String.isNotBlank(parent))) {
+                parentByObject.put(obj, parent);
+            }
+        }
+
+        List<String> sortedObjects = new List<String>(parentByObject.keySet());
+        sortedObjects.sort();
+
+        List<Map<String, String>> options = new List<Map<String, String>>();
+        for (String obj : sortedObjects) {
+            String parent = parentByObject.get(obj);
+            String label  = String.isNotBlank(parent) ? obj + ' (' + parent + ')' : obj;
+            options.add(new Map<String, String>{ 'label' => label, 'value' => obj });
+        }
+        return options;
+    }
+
+    /**
+     * @description Returns the distinct object API names (values only) for internal use.
+     * @return Sorted list of object API names.
+     */
+    private static List<String> getObjectApiNames() {
         Set<String> objectApiNameSet = new Set<String>();
-        for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : [
+        for (TEKCO_AnonymizationFieldConfig__mdt fc : [
             SELECT TEKCO_ObjectApiName__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
             WHERE TEKCO_IsActive__c = true
+              AND TEKCO_ObjectApiName__c != null
         ]) {
-            if (String.isNotBlank(fieldConfig.TEKCO_ObjectApiName__c)) {
-                objectApiNameSet.add(fieldConfig.TEKCO_ObjectApiName__c);
-            }
+            objectApiNameSet.add(fc.TEKCO_ObjectApiName__c);
         }
-        List<String> objectApiNames = new List<String>(objectApiNameSet);
-        objectApiNames.sort();
-        return objectApiNames;
+        List<String> result = new List<String>(objectApiNameSet);
+        result.sort();
+        return result;
     }
 
     /**
@@ -282,7 +315,7 @@ public with sharing class TEKCO_AnonymizationController {
         TEKCO_AnonymizationSandboxGuard.assertIsSandbox();
 
         if (selectedObjects == null || selectedObjects.isEmpty()) {
-            selectedObjects = getObjects();
+            selectedObjects = getObjectApiNames();
         }
         if (selectedObjects.isEmpty()) {
             throw new AuraHandledException(

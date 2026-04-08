@@ -72,8 +72,9 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
     loadObjects() {
         getObjects()
-            .then(values => {
-                this.objectOptions = values.map(v => ({ label: v, value: v }));
+            .then(options => {
+                // options is already [{label, value}] — label includes parent object in parens when set
+                this.objectOptions = options;
             })
             .catch(err => this.showError('Failed to load objects', err));
     }
