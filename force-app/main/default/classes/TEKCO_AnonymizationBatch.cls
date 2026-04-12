@@ -13,7 +13,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
 
     private static final Integer DEFAULT_BATCH_SIZE    = 200;
     private static final Integer MAX_CAPTURED_ERRORS   = 50;
-    private static final String  PATTERN_TYPE_KEEP     = 'KEEP';
     private static final String  PATTERN_TYPE_DELETE_CONTENT_DOCUMENT = 'DELETE_CONTENT_DOCUMENT';
     private static final String  PATTERN_TYPE_EMAIL_MESSAGE_LOREM     = 'EMAIL_MESSAGE_LOREM';
 
@@ -112,8 +111,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
 
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : fieldConfigs) {
             String patternType = fieldConfig.TEKCO_PatternType__c;
-            if (patternType == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT
-                    || patternType == PATTERN_TYPE_KEEP) {
+            if (patternType == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
                 continue;
             }
 
@@ -188,8 +186,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
 
             for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : fieldConfigs) {
                 String patternType = fieldConfig.TEKCO_PatternType__c;
-                if (patternType == PATTERN_TYPE_KEEP
-                        || patternType == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
+                if (patternType == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
                     continue;
                 }
 
