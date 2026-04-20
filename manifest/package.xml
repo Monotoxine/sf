@@ -2,13 +2,6 @@
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
 	<types>
 		<members>pLM_LDCT_OrganizationSpeakersHandler</members>
-		<members>TEKCO_AnonymizationSandboxGuard</members>
-		<members>TEKCO_AnonymizationPatternService</members>
-		<members>TEKCO_AnonymizationBypassService</members>
-		<members>TEKCO_AnonymizationController</members>
-		<members>TEKCO_AnonymizationBatch</members>
-		<members>TEKCO_ContentDocumentBatch</members>
-		<members>TEKCO_FieldHistoryBatch</members>
 		<name>ApexClass</name>
 	</types>
 	<types>
@@ -153,34 +146,6 @@
 		<members>LDCT_speaker_and_product__c.Product__c</members>
 		<members>LDCT_speaker_and_product__c.Speaker__c</members>
 		<members>LDCT_speaker_and_product__c.Title_ptf__c</members>
-		<!-- TEKCO_AnonymizationAuditLog__c -->
-		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_BrandFilter__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_EndTime__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_ErrorMessage__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_FieldsAnonymized__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_JobId__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_ObjectApiName__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_RecordsFailed__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_RecordsProcessed__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_StartTime__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_Status__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c.TEKCO_TriggeredBy__c</members>
-		<!-- TEKCO_AnonymizationPattern__mdt -->
-		<members>TEKCO_AnonymizationPattern__mdt.TEKCO_BaseEmail__c</members>
-		<members>TEKCO_AnonymizationPattern__mdt.TEKCO_Description__c</members>
-		<members>TEKCO_AnonymizationPattern__mdt.TEKCO_ExternalIdField__c</members>
-		<members>TEKCO_AnonymizationPattern__mdt.TEKCO_IsActive__c</members>
-		<members>TEKCO_AnonymizationPattern__mdt.TEKCO_SsnLength__c</members>
-		<!-- TEKCO_AnonymizationFieldConfig__mdt -->
-		<members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_DeleteHistory__c</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_FieldApiName__c</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_IsActive__c</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ObjectApiName__c</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ParentLookupFieldApiName__c</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ParentObjectApiName__c</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ParentRecordTypeDeveloperName__c</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_PatternType__c</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_RecordTypeDeveloperName__c</members>
 		<name>CustomField</name>
 	</types>
 	<types>
@@ -189,14 +154,7 @@
 		<members>LDCT_Speaker__c</members>
 		<members>LDCT_affiliate__c</members>
 		<members>LDCT_speaker_and_product__c</members>
-		<members>TEKCO_AnonymizationAuditLog__c</members>
-		<members>TEKCO_AnonymizationPattern__mdt</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt</members>
 		<name>CustomObject</name>
-	</types>
-	<types>
-		<members>TEKCO_AnonymizationAuditLog__c-TEKCO Anonymization Audit Log Layout</members>
-		<name>Layout</name>
 	</types>
 	<types>
 		<members>PLM_LDCT_Create_LDCT_Project</members>
@@ -215,63 +173,11 @@
 		<members>pLM_LDCT_Screen3CreateSpeaker</members>
 		<members>pLM_LDCT_Screen4ModificationOfSpeaker</members>
 		<members>pLM_LDCT_Screen4_1FundSpeakerModification</members>
-		<members>tekcoDataAnonymizationAdmin</members>
 		<name>LightningComponentBundle</name>
-	</types>
-	<types>
-		<members>TEKCO_AnonymizeData</members>
-		<name>CustomPermission</name>
-	</types>
-	<types>
-		<members>TEKCO_AnonymizationAdmin</members>
-		<name>PermissionSet</name>
-	</types>
-	<types>
-		<members>TEKCO_Data_Anonymization</members>
-		<name>CustomTab</name>
 	</types>
 	<types>
 		<members>Run_Team_Tools</members>
 		<name>CustomApplication</name>
-	</types>
-	<types>
-		<!-- TEKCO_AnonymizationPattern__mdt records -->
-		<members>TEKCO_AnonymizationPattern__mdt.ADDRESS_STREET_RANDOM</members>
-		<members>TEKCO_AnonymizationPattern__mdt.DELETE_CONTENT_DOCUMENT</members>
-		<members>TEKCO_AnonymizationPattern__mdt.EMAIL_MESSAGE_LOREM</members>
-		<members>TEKCO_AnonymizationPattern__mdt.EMAIL_PLUS_EXTERNALID</members>
-		<members>TEKCO_AnonymizationPattern__mdt.EMAIL_PLUS_EXTERNALID_SUBDOMAIN</members>
-		<members>TEKCO_AnonymizationPattern__mdt.KEEP</members>
-		<members>TEKCO_AnonymizationPattern__mdt.LOREM_IPSUM</members>
-		<members>TEKCO_AnonymizationPattern__mdt.NAME_FIRST_LETTER</members>
-		<members>TEKCO_AnonymizationPattern__mdt.PHONE_MASK</members>
-		<members>TEKCO_AnonymizationPattern__mdt.SSN_SEQUENTIAL</members>
-		<!-- TEKCO_AnonymizationFieldConfig__mdt records -->
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_ACCCO_Email__c</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_ACCCO_SocialSecurityNumber__pc</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_ACCES_SecondEmail__c</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_ACCMG_RecallEmail__c</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_BillingCity</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_BillingStreet</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_Description</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_FUNCA_InvoiceEmail__c</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_FirstName</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_LastName</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_PASCO_OtherPhone1__c</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_PASCO_OtherPhone2__c</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_PersonEmail</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_PersonMailingCity</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_PersonMailingStreet</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_PersonMobilePhone</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_PersonOtherPhone</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_Phone</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_ShippingCity</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_ShippingStreet</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_TEKCO_PersonEmail__c</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_TEKCO_PersonMobilePhone__c</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_TEKCO_PersonOtherPhone__c</members>
-		<members>TEKCO_AnonymizationFieldConfig__mdt.Account_ContentDocument</members>
-		<name>CustomMetadata</name>
 	</types>
 	<version>65.0</version>
 </Package>
