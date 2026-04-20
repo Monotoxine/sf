@@ -76,7 +76,7 @@ Tout le code est dans `TEKCO_AnonymizationPatternService.cls` — méthode `appl
 | `NAME_FIRST_LETTER` | `"Jean"` | `"JEXT001"` (1ère lettre + ExternalId) | ~108 |
 | `PHONE_MASK` | `"+33123456789"` | `"+33100000000"` (4 chars + zéros) | ~125 |
 | `EMAIL_PLUS_EXTERNALID` | `"sf@air.com"` | `"sf+EXT001@air.com"` | ~145 |
-| `EMAIL_PLUS_EXTERNALID_SUBDOMAIN` | idem | `"sf+EXT001+myorg@air.com"` (+ subdomain) | ~145 |
+| `EMAIL_PLUS_EXTERNALID_SUBDOMAIN` | `"sf@air.com"` | `"sf+EXT001@air.com.fr.mmedlej"` (suffixe après domaine) | ~145 |
 | `SSN_SEQUENTIAL` | `"1234567890"` | `"1234567891"` (séquentiel 1-9, même longueur) | ~182 |
 | `LOREM_IPSUM` | n'importe quoi | texte lorem fixe | ~81 |
 | `ADDRESS_STREET_RANDOM` | `"123 Rue de la Paix"` | `"137 Rue de la Paix"` (num + offset 1-20) | ~204 |

@@ -7,7 +7,7 @@
  *   NAME_FIRST_LETTER               - First letter + ExternalId
  *   PHONE_MASK                      - First 4 chars + zeros
  *   EMAIL_PLUS_EXTERNALID           - base+ExternalId@domain
- *   EMAIL_PLUS_EXTERNALID_SUBDOMAIN - base+ExternalId+orgSubdomain@domain
+ *   EMAIL_PLUS_EXTERNALID_SUBDOMAIN - base+ExternalId@domain.country.sandbox
  *   SSN_SEQUENTIAL                  - Sequential digits to configured length
  *   LOREM_IPSUM                     - Fixed lorem ipsum text
  *   ADDRESS_STREET_RANDOM           - Street number + random 1-20
@@ -133,13 +133,15 @@ public class TEKCO_AnonymizationPatternService {
 
     /**
      * @description EMAIL_PLUS_EXTERNALID / EMAIL_PLUS_EXTERNALID_SUBDOMAIN:
-     *              Inserts ExternalId (and optionally org subdomain) as a plus-alias.
+     *              Inserts ExternalId as a plus-alias. The SUBDOMAIN variant also appends
+     *              a org-derived suffix after the domain.
      *              Example: "sf_sap@airliquide.com" + "EXT001" → "sf_sap+EXT001@airliquide.com"
-     *              With subdomain: "sf_sap+EXT001+myorg--uat1@airliquide.com"
+     *              With subdomain (org = "airliquidehhc-fr--mmedlej.sandbox.my.salesforce.com"):
+     *                → "sf_sap+EXT001@airliquide.com.fr.mmedlej"
      * @param currentValue    Current field value.
      * @param record          SObject being processed.
      * @param pattern         Pattern configuration record.
-     * @param appendSubdomain Whether to append the org subdomain suffix.
+     * @param appendSubdomain Whether to append the org-derived domain suffix.
      * @return                Anonymized email address.
      */
     private static String applyEmailPlusExternalId(
@@ -164,9 +166,28 @@ public class TEKCO_AnonymizationPatternService {
         String domain    = baseEmail.substring(atIndex);
 
         if (appendSubdomain) {
-            return localPart + '+' + externalId + '+' + orgSubdomain + domain;
+            return localPart + '+' + externalId + domain + '.' + parseOrgSuffix(orgSubdomain);
         }
         return localPart + '+' + externalId + domain;
+    }
+
+    /**
+     * @description Parses the org subdomain into a short "country.sandbox" suffix.
+     *              "airliquidehhc-fr--mmedlej" → "fr.mmedlej"
+     *              Falls back to the raw subdomain if the expected format is not found.
+     */
+    private static String parseOrgSuffix(String subdomain) {
+        if (String.isBlank(subdomain)) return subdomain;
+        if (subdomain.contains('--')) {
+            String[] parts    = subdomain.split('--');
+            String sandboxName = parts[1];
+            String orgPart     = parts[0];
+            String country     = orgPart.contains('-')
+                ? orgPart.substringAfterLast('-')
+                : orgPart;
+            return country + '.' + sandboxName;
+        }
+        return subdomain;
     }
 
     /**
