@@ -125,7 +125,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         } else {
             // Direct filter on the child object
             List<String> conditions = new List<String>();
-            if (!selectedBrands.isEmpty()) {
+            if (!selectedBrands.isEmpty() && hasBrandField(objectApiName)) {
                 conditions.add('TEKCO_Brand__c IN :selectedBrands');
             }
             if (String.isNotBlank(recordTypeDvName)) {
@@ -236,6 +236,12 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static Boolean hasBrandField(String objectApiName) {
+        Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
+        return sot != null
+            && sot.getDescribe().fields.getMap().containsKey('tekco_brand__c');
+    }
 
     private List<TEKCO_AnonymizationFieldConfig__mdt> popHistoryConfigsForObject(
         String objectApiName

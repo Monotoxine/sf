@@ -170,7 +170,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 parentSubquery += ' WHERE ' + String.join(parentConditions, ' AND ');
             }
             topConditions.add(parentLookupField + ' IN (' + parentSubquery + ')');
-        } else if (!hasEmailMessageLorem && !selectedBrands.isEmpty()) {
+        } else if (!hasEmailMessageLorem && !selectedBrands.isEmpty() && hasBrandField(objectApiName)) {
             // EmailMessage has no TEKCO_Brand__c — when EMAIL_MESSAGE_LOREM configs are present
             // and no parent is configured, select all records without a brand filter.
             topConditions.add('TEKCO_Brand__c IN :selectedBrands');
@@ -383,6 +383,12 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static Boolean hasBrandField(String objectApiName) {
+        Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
+        return sot != null
+            && sot.getDescribe().fields.getMap().containsKey('tekco_brand__c');
+    }
 
     private static List<TEKCO_AnonymizationFieldConfig__mdt> loadFieldConfigs(
         String objectApiName
