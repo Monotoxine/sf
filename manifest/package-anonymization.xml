@@ -46,6 +46,7 @@
         <members>TEKCO_AnonymizationAuditLog__c.TEKCO_Status__c</members>
         <members>TEKCO_AnonymizationAuditLog__c.TEKCO_TriggeredBy__c</members>
         <!-- ── TEKCO_AnonymizationFieldConfig__mdt ── -->
+        <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_AdditionalFilter__c</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_DeleteHistory__c</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_FieldApiName__c</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_IsActive__c</members>

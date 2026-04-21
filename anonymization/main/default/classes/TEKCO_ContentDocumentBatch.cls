@@ -25,6 +25,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
     private List<TEKCO_AnonymizationFieldConfig__mdt>     historyConfigs;
     private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
     private Map<String, List<String>>                     parentFiltersByObject;
+    private Map<String, String>                           additionalFiltersByObject;
 
     // Populated in start() when a parent filter is active; bound in the QueryLocator string
     private Set<Id>                                       relevantChildIds;
@@ -44,6 +45,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
      * @param historyConfigs             Field configs needing history deletion (Phase 3).
      * @param bypassSnapshot             Bypass state snapshot to restore at chain end.
      * @param parentFiltersByObject      Map of child object → [parentObject, parentLookup, parentRT].
+     * @param additionalFiltersByObject  Map of object → raw WHERE fragment for extra filtering.
      */
     public TEKCO_ContentDocumentBatch(
         TEKCO_AnonymizationFieldConfig__mdt currentConfig,
@@ -52,7 +54,8 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         List<TEKCO_AnonymizationFieldConfig__mdt> remainingContentDocConfigs,
         List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs,
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
-        Map<String, List<String>> parentFiltersByObject
+        Map<String, List<String>> parentFiltersByObject,
+        Map<String, String> additionalFiltersByObject
     ) {
         this.objectApiName              = currentConfig?.TEKCO_ObjectApiName__c;
         this.recordTypeDvName           = currentConfig?.TEKCO_RecordTypeDeveloperName__c;
@@ -66,6 +69,8 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         this.bypassSnapshot             = bypassSnapshot;
         this.parentFiltersByObject      = parentFiltersByObject != null
             ? parentFiltersByObject : new Map<String, List<String>>();
+        this.additionalFiltersByObject  = additionalFiltersByObject != null
+            ? additionalFiltersByObject : new Map<String, String>();
     }
 
     // ── Batchable Interface ───────────────────────────────────────────────────
@@ -84,6 +89,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         String parentLookupField      = (parentFilter != null && parentFilter.size() > 1) ? parentFilter.get(1) : null;
         String parentRecordTypeDvName = (parentFilter != null && parentFilter.size() > 2) ? parentFilter.get(2) : null;
 
+        String additionalFilter = additionalFiltersByObject.get(objectApiName);
         String innerFilter = '';
         if (String.isNotBlank(parentObjectApiName)) {
             // Nested subqueries are forbidden — resolve child IDs upfront (runs once in start())
@@ -101,13 +107,19 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                 parentQuery += ' WHERE ' + String.join(parentConditions, ' AND ');
             }
             Set<Id> parentIds = new Map<Id, SObject>(Database.query(parentQuery)).keySet();
-            // Also apply child RT filter when resolving child IDs
-            String childQuery = 'SELECT Id FROM ' + objectApiName
-                + ' WHERE ' + parentLookupField + ' IN :parentIds';
+            // Also apply child RT + additional filter when resolving child IDs
+            List<String> childConditions = new List<String>{
+                parentLookupField + ' IN :parentIds'
+            };
             if (String.isNotBlank(recordTypeDvName)) {
-                childQuery += ' AND RecordType.DeveloperName = \''
-                    + String.escapeSingleQuotes(recordTypeDvName) + '\'';
+                childConditions.add('RecordType.DeveloperName = \''
+                    + String.escapeSingleQuotes(recordTypeDvName) + '\'');
             }
+            if (String.isNotBlank(additionalFilter)) {
+                childConditions.add(additionalFilter);
+            }
+            String childQuery = 'SELECT Id FROM ' + objectApiName
+                + ' WHERE ' + String.join(childConditions, ' AND ');
             this.relevantChildIds = new Map<Id, SObject>(Database.query(childQuery)).keySet();
             innerFilter = ' WHERE Id IN :relevantChildIds';
         } else {
@@ -120,6 +132,9 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                 conditions.add(
                     'RecordType.DeveloperName = \'' + String.escapeSingleQuotes(recordTypeDvName) + '\''
                 );
+            }
+            if (String.isNotBlank(additionalFilter)) {
+                conditions.add(additionalFilter);
             }
             if (!conditions.isEmpty()) {
                 innerFilter = ' WHERE ' + String.join(conditions, ' AND ');
@@ -186,7 +201,8 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                         remainingContentDocConfigs,
                         historyConfigs,
                         bypassSnapshot,
-                        parentFiltersByObject
+                        parentFiltersByObject,
+                        additionalFiltersByObject
                     ),
                     DEFAULT_BATCH_SIZE
                 );
@@ -202,7 +218,8 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                         auditLogId,
                         historyConfigs,
                         bypassSnapshot,
-                        parentFiltersByObject
+                        parentFiltersByObject,
+                        additionalFiltersByObject
                     ),
                     DEFAULT_BATCH_SIZE
                 );

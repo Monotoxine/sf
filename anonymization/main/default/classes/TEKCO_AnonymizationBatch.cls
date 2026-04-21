@@ -29,6 +29,8 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
     // key = child object API name → [parentObjectApiName, parentLookupField, parentRecordTypeDvName]
     private Map<String, List<String>>                     parentFiltersByObject;
+    // key = object API name → raw WHERE fragment appended to the object's query
+    private Map<String, String>                           additionalFiltersByObject;
 
     // RecordType Id → DeveloperName map, populated in start()
     private Map<Id, String>                               recordTypeDevNameById =
@@ -52,7 +54,8 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
      * @param contentDocObjects Objects needing ContentDocument deletion (Phase 2).
      * @param historyConfigs    Field configs needing history deletion (Phase 3).
      * @param bypassSnapshot       Bypass state snapshot to restore at chain end.
-     * @param parentFiltersByObject Map of child object → [parentObject, parentLookup, parentRT].
+     * @param parentFiltersByObject     Map of child object → [parentObject, parentLookup, parentRT].
+     * @param additionalFiltersByObject Map of object → raw WHERE fragment for extra filtering.
      */
     public TEKCO_AnonymizationBatch(
         String objectApiName,
@@ -64,7 +67,8 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         List<TEKCO_AnonymizationFieldConfig__mdt> contentDocConfigs,
         List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs,
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
-        Map<String, List<String>> parentFiltersByObject
+        Map<String, List<String>> parentFiltersByObject,
+        Map<String, String> additionalFiltersByObject
     ) {
         this.objectApiName        = objectApiName;
         this.fieldConfigs         = fieldConfigs;
@@ -79,6 +83,8 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         this.bypassSnapshot       = bypassSnapshot;
         this.parentFiltersByObject = parentFiltersByObject != null
             ? parentFiltersByObject : new Map<String, List<String>>();
+        this.additionalFiltersByObject = additionalFiltersByObject != null
+            ? additionalFiltersByObject : new Map<String, String>();
     }
 
     // ── Batchable Interface ───────────────────────────────────────────────────
@@ -144,6 +150,9 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         String parentObjectApiName    = (parentFilter != null && parentFilter.size() > 0) ? parentFilter.get(0) : null;
         String parentLookupField      = (parentFilter != null && parentFilter.size() > 1) ? parentFilter.get(1) : null;
         String parentRecordTypeDvName = (parentFilter != null && parentFilter.size() > 2) ? parentFilter.get(2) : null;
+        String additionalFilter       = additionalFiltersByObject.get(objectApiName);
+
+        List<String> topConditions = new List<String>();
 
         if (String.isNotBlank(parentObjectApiName)) {
             // Filter via parent object subquery (child may not have TEKCO_Brand__c)
@@ -156,16 +165,23 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                     'RecordType.DeveloperName = \'' + String.escapeSingleQuotes(parentRecordTypeDvName) + '\''
                 );
             }
-            soqlQuery += ' WHERE ' + parentLookupField
-                + ' IN (SELECT Id FROM ' + parentObjectApiName;
+            String parentSubquery = 'SELECT Id FROM ' + parentObjectApiName;
             if (!parentConditions.isEmpty()) {
-                soqlQuery += ' WHERE ' + String.join(parentConditions, ' AND ');
+                parentSubquery += ' WHERE ' + String.join(parentConditions, ' AND ');
             }
-            soqlQuery += ')';
+            topConditions.add(parentLookupField + ' IN (' + parentSubquery + ')');
         } else if (!hasEmailMessageLorem && !selectedBrands.isEmpty()) {
             // EmailMessage has no TEKCO_Brand__c — when EMAIL_MESSAGE_LOREM configs are present
             // and no parent is configured, select all records without a brand filter.
-            soqlQuery += ' WHERE TEKCO_Brand__c IN :selectedBrands';
+            topConditions.add('TEKCO_Brand__c IN :selectedBrands');
+        }
+
+        if (String.isNotBlank(additionalFilter)) {
+            topConditions.add(additionalFilter);
+        }
+
+        if (!topConditions.isEmpty()) {
+            soqlQuery += ' WHERE ' + String.join(topConditions, ' AND ');
         }
 
         return Database.getQueryLocator(soqlQuery);
@@ -314,7 +330,8 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         contentDocConfigs,
                         historyConfigs,
                         bypassSnapshot,
-                        parentFiltersByObject
+                        parentFiltersByObject,
+                        additionalFiltersByObject
                     ),
                     DEFAULT_BATCH_SIZE
                 );
@@ -328,7 +345,8 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         contentDocConfigs,
                         historyConfigs,
                         bypassSnapshot,
-                        parentFiltersByObject
+                        parentFiltersByObject,
+                        additionalFiltersByObject
                     ),
                     DEFAULT_BATCH_SIZE
                 );
@@ -344,7 +362,8 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         auditLogId,
                         historyConfigs,
                         bypassSnapshot,
-                        parentFiltersByObject
+                        parentFiltersByObject,
+                        additionalFiltersByObject
                     ),
                     DEFAULT_BATCH_SIZE
                 );
