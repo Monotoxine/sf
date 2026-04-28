@@ -11,18 +11,23 @@ public with sharing class TEKCO_AnonymizationController {
      * @description Returns all active values from the TEKCO_Brands global picklist value set.
      *              Apex has no direct API for global value sets — values are sourced via
      *              Account.TEKCO_Brand__c which is bound to the TEKCO_Brands global value set.
-     * @return Sorted list of active brand values
+     * @return Sorted list of {label, value} maps — label is the display label, value is the stored API value
      */
     @AuraEnabled(cacheable=true)
-    public static List<String> getBrands() {
-        List<String> brandValues = new List<String>();
+    public static List<Map<String, String>> getBrands() {
+        List<Map<String, String>> brandOptions = new List<Map<String, String>>();
         try {
             Schema.DescribeFieldResult fieldDescriptor =
                 Schema.SObjectType.Account.fields.getMap()
                     .get('tekco_brand__c')
                     .getDescribe();
             for (Schema.PicklistEntry entry : fieldDescriptor.getPicklistValues()) {
-                if (entry.isActive()) brandValues.add(entry.getValue());
+                if (entry.isActive()) {
+                    brandOptions.add(new Map<String, String>{
+                        'label' => entry.getLabel(),
+                        'value' => entry.getValue()
+                    });
+                }
             }
         } catch (Exception e) {
             throw new AuraHandledException(
@@ -30,8 +35,7 @@ public with sharing class TEKCO_AnonymizationController {
                 + e.getMessage()
             );
         }
-        brandValues.sort();
-        return brandValues;
+        return brandOptions;
     }
 
     /**
