@@ -101,9 +101,13 @@ public with sharing class TEKCO_AnonymizationController {
     public static List<Map<String, String>> getRecordTypes(List<String> selectedObjects) {
         if (selectedObjects == null || selectedObjects.isEmpty()) return new List<Map<String, String>>();
 
+        // Normalize keys to lowercase — SOQL IN bind is case-insensitive but Apex Map lookups are not
+        Map<String, String> lowerToOriginal = new Map<String, String>();
         Map<String, Set<String>> rtsByObject = new Map<String, Set<String>>();
         for (String obj : selectedObjects) {
-            rtsByObject.put(obj, new Set<String>());
+            String lower = obj.toLowerCase();
+            lowerToOriginal.put(lower, obj);
+            rtsByObject.put(lower, new Set<String>());
         }
 
         for (TEKCO_AnonymizationFieldConfig__mdt cfg : [
@@ -113,12 +117,13 @@ public with sharing class TEKCO_AnonymizationController {
               AND TEKCO_ObjectApiName__c IN :selectedObjects
               AND TEKCO_RecordTypeDeveloperName__c != null
         ]) {
-            rtsByObject.get(cfg.TEKCO_ObjectApiName__c).add(cfg.TEKCO_RecordTypeDeveloperName__c);
+            Set<String> rts = rtsByObject.get(cfg.TEKCO_ObjectApiName__c.toLowerCase());
+            if (rts != null) rts.add(cfg.TEKCO_RecordTypeDeveloperName__c);
         }
 
         List<Map<String, String>> options = new List<Map<String, String>>();
         for (String obj : selectedObjects) {
-            List<String> sortedRts = new List<String>(rtsByObject.get(obj));
+            List<String> sortedRts = new List<String>(rtsByObject.get(obj.toLowerCase()));
             sortedRts.sort();
             for (String rt : sortedRts) {
                 options.add(new Map<String, String>{
