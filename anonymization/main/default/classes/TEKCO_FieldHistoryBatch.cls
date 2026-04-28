@@ -52,8 +52,20 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     public Database.QueryLocator start(Database.BatchableContext bc) {
         TEKCO_AnonymizationSandboxGuard.assertIsSandbox();
 
+        if (Schema.getGlobalDescribe().get(objectApiName) == null) {
+            errors.add('Object not found in org, skipped: ' + objectApiName);
+            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+        }
+
         String historyObjectName = computeHistoryObjectName(objectApiName);
         String parentIdFieldName = computeParentIdFieldName(objectApiName);
+
+        if (Schema.getGlobalDescribe().get(historyObjectName) == null) {
+            errors.add('Field history not enabled for object, skipped: ' + objectApiName);
+            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+        }
+
+        try {
 
         Set<String> fieldApiNames = new Set<String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : objectHistoryConfigs) {
@@ -118,6 +130,10 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         }
 
         return Database.getQueryLocator(soqlQuery);
+        } catch (Exception e) {
+            errors.add('Failed to build query for ' + objectApiName + ': ' + e.getMessage());
+            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+        }
     }
 
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
