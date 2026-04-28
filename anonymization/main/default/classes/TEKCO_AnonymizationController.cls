@@ -5,6 +5,7 @@
 public with sharing class TEKCO_AnonymizationController {
 
     private static final String PATTERN_TYPE_DELETE_CONTENT_DOCUMENT = 'DELETE_CONTENT_DOCUMENT';
+    private static final Integer DEFAULT_BATCH_SIZE = 200;
 
     /**
      * @description Returns all active values from Account.TEKCO_Brand__c
