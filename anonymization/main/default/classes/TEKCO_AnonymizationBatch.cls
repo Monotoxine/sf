@@ -319,15 +319,15 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 );
             } else {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-                updateAuditLog('Final');
+                TEKCO_AnonymizationAuditService.finalize(auditLogId, recordsProcessed, recordsFailed, errors);
                 return;
             }
-            updateAuditLog('Running');
+            TEKCO_AnonymizationAuditService.markRunning(auditLogId, recordsProcessed, recordsFailed, errors);
         } catch (Exception e) {
             try {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
             } catch (Exception restoreEx) {  }
-            closeAuditLogAsFailed(e.getMessage());
+            TEKCO_AnonymizationAuditService.closeFailed(auditLogId, recordsProcessed, recordsFailed, errors, e.getMessage());
         }
     }
 
@@ -374,36 +374,4 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         return configsForObject;
     }
 
-    private void updateAuditLog(String phase) {
-        if (auditLogId == null) return;
-        try {
-            Boolean isFinal = phase == 'Final';
-            update new TEKCO_AnonymizationAuditLog__c(
-                Id                        = auditLogId,
-                TEKCO_RecordsProcessed__c = recordsProcessed,
-                TEKCO_RecordsFailed__c    = recordsFailed,
-                TEKCO_Status__c           = isFinal ? (recordsFailed > 0 ? 'Partial' : 'Success') : 'Running',
-                TEKCO_EndTime__c          = isFinal ? Datetime.now() : null,
-                TEKCO_ErrorMessage__c     = errors.isEmpty() ? null : String.join(errors, '\n')
-            );
-        } catch (Exception e) {
-        
-        }
-    }
-
-    private void closeAuditLogAsFailed(String chainError) {
-        if (auditLogId == null) return;
-        try {
-            String errorMsg = (errors.isEmpty() ? '' : String.join(errors, '\n') + '\n')
-                + 'Chain error in finish(): ' + chainError;
-            update new TEKCO_AnonymizationAuditLog__c(
-                Id                        = auditLogId,
-                TEKCO_RecordsProcessed__c = recordsProcessed,
-                TEKCO_RecordsFailed__c    = recordsFailed,
-                TEKCO_Status__c           = 'Failed',
-                TEKCO_EndTime__c          = Datetime.now(),
-                TEKCO_ErrorMessage__c     = errorMsg
-            );
-        } catch (Exception e) { }
-    }
 }
