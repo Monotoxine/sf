@@ -44,7 +44,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     connectedCallback() {
         this.loadBrands();
         this.loadObjects();
-        this.loadRecordTypes(null);
+        this.loadRecordTypes([]);
         this.loadAuditLogs();
     }
 
@@ -69,18 +69,12 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             .catch(err => this.showError('Failed to load objects', err));
     }
 
-    loadRecordTypes(objectApiName) {
-        getRecordTypes({ objectApiName: objectApiName || null })
+    loadRecordTypes(selectedObjects) {
+        getRecordTypes({ selectedObjects: selectedObjects || [] })
             .then(options => {
-                // options is already [{label, value}] — label carries object context when multi-scope
-                this.recordTypeOptions = options;
-                // Drop any previously selected RT whose value no longer exists in the new scope
-                if (options.length > 0) {
-                    const available = new Set(options.map(o => o.value));
-                    this.selectedRecordTypes = this.selectedRecordTypes.filter(rt => available.has(rt));
-                } else {
-                    this.selectedRecordTypes = [];
-                }
+                this.recordTypeOptions = options.map(o => ({ label: o.label, value: o.value }));
+                const available = new Set(options.map(o => o.value));
+                this.selectedRecordTypes = this.selectedRecordTypes.filter(rt => available.has(rt));
             })
             .catch(err => this.showError('Failed to load record types', err));
     }
@@ -180,9 +174,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         this.fieldConfigs    = [];
         this.previewByObject = [];
         this.previewNote     = null;
-        // Reload record types scoped to the single selected object, or all if multiple/none
-        const scopeObject = this.selectedObjects.length === 1 ? this.selectedObjects[0] : null;
-        this.loadRecordTypes(scopeObject);
+        this.loadRecordTypes(this.selectedObjects);
     }
 
     handleRecordTypeChange(event) {
@@ -197,7 +189,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
     handleSelectAllObjects() {
         this.selectedObjects = this.objectOptions.map(o => o.value);
-        this.loadRecordTypes(null);
+        this.loadRecordTypes(this.selectedObjects);
     }
 
     handleSelectAllRecordTypes() {
