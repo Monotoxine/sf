@@ -112,7 +112,10 @@ public with sharing class TEKCO_AnonymizationController {
 
         List<Map<String, String>> options = new List<Map<String, String>>();
         for (String rt : sortedRts) {
-            options.add(new Map<String, String>{ 'label' => rt, 'value' => rt });
+            options.add(new Map<String, String>{
+                'label' => rt + ' (' + objectApiName + ')',
+                'value' => rt
+            });
         }
         return options;
     }
