@@ -87,35 +87,41 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     /**
-     * @description Returns Record Type options for a given object.
-     *              Returns an empty list if no object is selected.
-     * @param objectApiName API name of the object to scope to
-     * @return Sorted list of {label, value} maps
+     * @description Returns Record Type options for the given objects.
+     *              Returns an empty list if no objects are selected.
+     *              Label format: RT_DeveloperName (ObjectApiName) to distinguish RTs across objects.
+     * @param selectedObjects List of object API names to scope to
+     * @return List of {label, value} maps ordered by object then RT developer name
      */
     @AuraEnabled(cacheable=true)
-    public static List<Map<String, String>> getRecordTypes(String objectApiName) {
-        if (String.isBlank(objectApiName)) return new List<Map<String, String>>();
+    public static List<Map<String, String>> getRecordTypes(List<String> selectedObjects) {
+        if (selectedObjects == null || selectedObjects.isEmpty()) return new List<Map<String, String>>();
 
-        List<String> sortedRts = new List<String>();
+        Map<String, Set<String>> rtsByObject = new Map<String, Set<String>>();
+        for (String obj : selectedObjects) {
+            rtsByObject.put(obj, new Set<String>());
+        }
+
         for (TEKCO_AnonymizationFieldConfig__mdt cfg : [
-            SELECT TEKCO_RecordTypeDeveloperName__c
+            SELECT TEKCO_RecordTypeDeveloperName__c, TEKCO_ObjectApiName__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
             WHERE TEKCO_IsActive__c = true
-              AND TEKCO_ObjectApiName__c = :objectApiName
+              AND TEKCO_ObjectApiName__c IN :selectedObjects
               AND TEKCO_RecordTypeDeveloperName__c != null
         ]) {
-            if (!sortedRts.contains(cfg.TEKCO_RecordTypeDeveloperName__c)) {
-                sortedRts.add(cfg.TEKCO_RecordTypeDeveloperName__c);
-            }
+            rtsByObject.get(cfg.TEKCO_ObjectApiName__c).add(cfg.TEKCO_RecordTypeDeveloperName__c);
         }
-        sortedRts.sort();
 
         List<Map<String, String>> options = new List<Map<String, String>>();
-        for (String rt : sortedRts) {
-            options.add(new Map<String, String>{
-                'label' => rt + ' (' + objectApiName + ')',
-                'value' => rt
-            });
+        for (String obj : selectedObjects) {
+            List<String> sortedRts = new List<String>(rtsByObject.get(obj));
+            sortedRts.sort();
+            for (String rt : sortedRts) {
+                options.add(new Map<String, String>{
+                    'label' => rt + ' (' + obj + ')',
+                    'value' => rt
+                });
+            }
         }
         return options;
     }
