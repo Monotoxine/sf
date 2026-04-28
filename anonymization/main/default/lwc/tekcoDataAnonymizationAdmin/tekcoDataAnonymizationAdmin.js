@@ -55,7 +55,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     loadBrands() {
         getBrands()
             .then(options => {
-                this.brandOptions = options;
+                this.brandOptions = options.map(o => ({ label: o.label, value: o.value }));
             })
             .catch(err => this.showError('Failed to load brands', err));
     }
