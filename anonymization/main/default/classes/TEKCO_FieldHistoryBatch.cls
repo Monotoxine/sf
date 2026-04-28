@@ -79,7 +79,6 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         String additionalFilter = additionalFiltersByObject.get(objectApiName);
 
         if (String.isNotBlank(parentObjectApiName)) {
-            // Resolve child IDs upfront to avoid forbidden nested subqueries
             List<String> parentConditions = new List<String>();
             if (!selectedBrands.isEmpty()) {
                 parentConditions.add('TEKCO_Brand__c IN :selectedBrands');
@@ -164,7 +163,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         } catch (Exception e) {
             try {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-            } catch (Exception restoreEx) { /* silent */ }
+            } catch (Exception restoreEx) { }
             TEKCO_AnonymizationAuditService.closeFailed(auditLogId, recordsFailed, errors, e.getMessage());
         }
     }
@@ -178,8 +177,6 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
 
     /**
      * @description Returns the history SObject API name for a given object
-     * @param objectApiName API name of the parent object.
-     * @return              API name of the corresponding history object.
      */
     @TestVisible
     private static String computeHistoryObjectName(String objectApiName) {
@@ -191,8 +188,6 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
 
     /**
      * @description Returns the parent ID field name on the history object
-     * @param objectApiName API name of the parent object.
-     * @return              API name of the parent ID field on the history object.
      */
     @TestVisible
     private static String computeParentIdFieldName(String objectApiName) {

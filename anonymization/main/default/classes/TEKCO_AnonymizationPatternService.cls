@@ -11,7 +11,7 @@
  *   SSN_SEQUENTIAL                  - Sequential digits to configured length
  *   LOREM_IPSUM                     - Fixed lorem ipsum text
  *   ADDRESS_STREET_RANDOM           - Street number + random 1-20
- *   DELETE_CONTENT_DOCUMENT         - Handled by dedicated batch (skip here)
+ *   DELETE_CONTENT_DOCUMENT         - Handled by dedicated batch
  *   EMAIL_MESSAGE_LOREM             - Draft → lorem ipsum on the field; non-Draft → record deleted (handled in batch)
  */
 public class TEKCO_AnonymizationPatternService {
@@ -25,7 +25,6 @@ public class TEKCO_AnonymizationPatternService {
     private static final Integer ADDRESS_RANDOM_MAX    = 20;
     private static final Integer SSN_DEFAULT_LENGTH    = 15;
 
-    // Cached org subdomain — computed once per transaction
     private static String orgSubdomain {
         get {
             if (orgSubdomain == null) {
@@ -41,16 +40,6 @@ public class TEKCO_AnonymizationPatternService {
         set;
     }
 
-    /**
-     * @description Main dispatcher — routes to the correct anonymization algorithm.
-     *              Returns null for special patterns (DELETE_CONTENT_DOCUMENT, EMAIL_MESSAGE_LOREM)
-     *              which are handled by their own batch classes.
-     * @param patternType  DeveloperName of the TEKCO_AnonymizationPattern__mdt record.
-     * @param currentValue Current field value (null-safe).
-     * @param record       SObject being processed (used to read ExternalId).
-     * @param pattern      The TEKCO_AnonymizationPattern__mdt configuration record.
-     * @return             Anonymized value, or null to signal that this field should be skipped.
-     */
     public static String applyPattern(
         String patternType,
         String currentValue,
@@ -58,7 +47,6 @@ public class TEKCO_AnonymizationPatternService {
         TEKCO_AnonymizationPattern__mdt pattern
     ) {
         if (String.isBlank(patternType)) return currentValue;
-        // Never anonymize an empty field — keep it as-is
         if (String.isBlank(currentValue)) return currentValue;
 
         switch on patternType {
@@ -95,15 +83,9 @@ public class TEKCO_AnonymizationPatternService {
         }
     }
 
-    // ── Pattern Implementations ───────────────────────────────────────────────
-
     /**
      * @description NAME_FIRST_LETTER: first letter of value concatenated with the ExternalId value.
      *              Example: "Jean" + "EXT001" → "JEXT001"
-     * @param currentValue Current field value.
-     * @param record       SObject being processed.
-     * @param pattern      Pattern configuration record.
-     * @return             Anonymized value.
      */
     private static String applyNameFirstLetter(
         String currentValue,
@@ -119,8 +101,6 @@ public class TEKCO_AnonymizationPatternService {
     /**
      * @description PHONE_MASK: keeps the first 4 characters and replaces the rest with zeros.
      *              Example: "+33123456789" → "+33100000000"
-     * @param currentValue Current field value.
-     * @return             Masked phone number.
      */
     private static String applyPhoneMask(String currentValue) {
         if (String.isBlank(currentValue)) return currentValue;
@@ -138,11 +118,6 @@ public class TEKCO_AnonymizationPatternService {
      *              Example: "sf_sap@airliquide.com" + "EXT001" → "sf_sap+EXT001@airliquide.com"
      *              With subdomain (org = "airliquidehhc-fr--mmedlej.sandbox.my.salesforce.com"):
      *                → "sf_sap+EXT001@airliquide.com.fr.mmedlej"
-     * @param currentValue    Current field value.
-     * @param record          SObject being processed.
-     * @param pattern         Pattern configuration record.
-     * @param appendSubdomain Whether to append the org-derived domain suffix.
-     * @return                Anonymized email address.
      */
     private static String applyEmailPlusExternalId(
         String currentValue,
@@ -196,9 +171,6 @@ public class TEKCO_AnonymizationPatternService {
      *              length as the original. Falls back to TEKCO_SsnLength__c, then to the
      *              default constant, so the field is never left blank.
      *              Example: "1234567890123" (13 chars) → "1234567891234" (13 chars)
-     * @param currentValue Current field value (already guaranteed non-blank by the caller).
-     * @param pattern      Pattern configuration record containing TEKCO_SsnLength__c.
-     * @return             Sequential SSN string of the same length as the original.
      */
     private static String applySsnSequential(String currentValue, TEKCO_AnonymizationPattern__mdt pattern) {
         Integer targetLength = String.isNotBlank(currentValue)
@@ -219,8 +191,6 @@ public class TEKCO_AnonymizationPatternService {
      *              Example: "123 Rue de la Paix"  → "137 Rue de la Paix"
      *              Example: "Allée 12 des Fleurs" → "Allée 26 des Fleurs"
      *              If no number is found, returns value unchanged.
-     * @param currentValue Current field value.
-     * @return             Address with the street number offset by a random amount.
      */
     private static String applyAddressStreetRandom(String currentValue) {
         if (String.isBlank(currentValue)) return currentValue;
@@ -231,14 +201,6 @@ public class TEKCO_AnonymizationPatternService {
         return currentValue.replaceFirst('\\d+', String.valueOf(streetNumber + randomOffset));
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    /**
-     * @description Reads the external ID field value from the record as configured in the pattern.
-     * @param record  SObject being processed.
-     * @param pattern Pattern configuration record containing TEKCO_ExternalIdField__c.
-     * @return        External ID value as String, or empty string if unavailable.
-     */
     private static String getExternalId(SObject record, TEKCO_AnonymizationPattern__mdt pattern) {
         if (record == null || String.isBlank(pattern.TEKCO_ExternalIdField__c)) return '';
         try {

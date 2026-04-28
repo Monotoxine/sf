@@ -65,7 +65,6 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         String additionalFilter = additionalFiltersByObject.get(objectApiName);
         String innerFilter = '';
         if (String.isNotBlank(parentObjectApiName)) {
-            // Nested subqueries are forbidden — resolve child IDs upfront (runs once in start())
             List<String> parentConditions = new List<String>();
             if (!selectedBrands.isEmpty()) {
                 parentConditions.add('TEKCO_Brand__c IN :selectedBrands');
@@ -80,7 +79,6 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                 parentQuery += ' WHERE ' + String.join(parentConditions, ' AND ');
             }
             Set<Id> parentIds = new Map<Id, SObject>(Database.query(parentQuery)).keySet();
-            // Also apply child RT + additional filter when resolving child IDs
             List<String> childConditions = new List<String>{
                 parentLookupField + ' IN :parentIds'
             };
@@ -96,7 +94,6 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
             this.relevantChildIds = new Map<Id, SObject>(Database.query(childQuery)).keySet();
             innerFilter = ' WHERE Id IN :relevantChildIds';
         } else {
-            // Direct filter on the child object
             List<String> conditions = new List<String>();
             if (!selectedBrands.isEmpty() && hasBrandField(objectApiName)) {
                 conditions.add('TEKCO_Brand__c IN :selectedBrands');
@@ -196,7 +193,6 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static Boolean hasBrandField(String objectApiName) {
         Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);

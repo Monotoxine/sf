@@ -182,7 +182,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                     continue;
                 }
 
-                // RecordType filter — skip if record does not match the required RT
                 if (String.isNotBlank(fieldConfig.TEKCO_RecordTypeDeveloperName__c)) {
                     Id recordTypeId = (Id) record.get('RecordTypeId');
                     String recordTypeDeveloperName = recordTypeId != null
@@ -330,8 +329,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
             TEKCO_AnonymizationAuditService.closeFailed(auditLogId, recordsProcessed, recordsFailed, errors, e.getMessage());
         }
     }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static Boolean hasBrandField(String objectApiName) {
         Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
