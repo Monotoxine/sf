@@ -85,14 +85,14 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         const selectedRecordTypes = this.selectedRecordTypes.length > 0 ? this.selectedRecordTypes : null;
         getFieldConfigs({ objectApiName, selectedRecordTypes })
             .then(configs => {
-                // Enrich each config with a unique key and enabled=true by default
-                this.fieldConfigs = configs.map(cfg => ({
-                    ...cfg,
-                    configKey:             `${cfg.objectApiName}.${cfg.fieldApiName}`,
-                    enabled:               true,
-                    originalDeleteHistory: cfg.deleteHistory,
-                    isContentDoc:          cfg.patternType === 'DELETE_CONTENT_DOCUMENT'
-                }));
+                this.fieldConfigs = configs
+                    .filter(cfg => cfg.patternType !== 'DELETE_CONTENT_DOCUMENT')
+                    .map(cfg => ({
+                        ...cfg,
+                        configKey:             `${cfg.objectApiName}.${cfg.fieldApiName}`,
+                        enabled:               true,
+                        originalDeleteHistory: cfg.deleteHistory
+                    }));
                 this.isLoading = false;
             })
             .catch(err => {
@@ -110,42 +110,20 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             ? this.selectedObjects
             : this.objectOptions.map(o => o.value);
 
-        // Build a set of objects that ONLY have DELETE_CONTENT_DOCUMENT configs
-        // so we can display a meaningful label instead of a plain record count.
-        const contentDocOnly = new Set(
-            this.fieldConfigs.length > 0
-                ? Object.entries(
-                    this.fieldConfigs.reduce((acc, cfg) => {
-                        if (!acc[cfg.objectApiName]) acc[cfg.objectApiName] = { total: 0, contentDoc: 0 };
-                        acc[cfg.objectApiName].total++;
-                        if (cfg.isContentDoc) acc[cfg.objectApiName].contentDoc++;
-                        return acc;
-                    }, {})
-                  )
-                    .filter(([, counts]) => counts.total === counts.contentDoc)
-                    .map(([obj]) => obj)
-                : []
-        );
-
         this.previewNote = hasFilter
             ? null
             : 'Aucun objet sélectionné — tous les objets configurés sont inclus.';
 
         const countPromises = objectsToCount.map(objectApiName =>
             getRecordCount({ objectApiName, selectedBrands: this.selectedBrands })
-                .then(count => ({ objectApiName, count, isContentDocOnly: contentDocOnly.has(objectApiName) }))
-                .catch(() => ({ objectApiName, count: -1, isContentDocOnly: contentDocOnly.has(objectApiName) }))
+                .then(count => ({ objectApiName, count }))
+                .catch(() => ({ objectApiName, count: -1 }))
         );
 
         Promise.all(countPromises).then(results => {
             this.previewByObject = results.map(result => ({
-                objectApiName:    result.objectApiName,
-                isContentDocOnly: result.isContentDocOnly,
-                countLabel: result.count === -1
-                    ? 'Could not count'
-                    : result.isContentDocOnly
-                        ? `${result.count} enreg. (ContentDocumentLinks à supprimer)`
-                        : `${result.count} record(s)`
+                objectApiName: result.objectApiName,
+                countLabel:    result.count === -1 ? 'Could not count' : `${result.count} record(s)`
             }));
             this.isLoadingPreview = false;
         });

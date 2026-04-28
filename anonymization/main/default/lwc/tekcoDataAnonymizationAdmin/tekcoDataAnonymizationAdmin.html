@@ -179,12 +179,7 @@
                                             <td><div class="slds-truncate">{field.fieldApiName}</div></td>
                                             <td>
                                                 <div class="slds-truncate">
-                                                    <template if:true={field.isContentDoc}>
-                                                        <span class="slds-badge slds-badge_inverse">{field.patternType}</span>
-                                                    </template>
-                                                    <template if:false={field.isContentDoc}>
-                                                        <span class="slds-badge">{field.patternType}</span>
-                                                    </template>
+                                                    <span class="slds-badge">{field.patternType}</span>
                                                 </div>
                                             </td>
                                             <td>
@@ -196,7 +191,6 @@
                                                 <input
                                                     type="checkbox"
                                                     checked={field.deleteHistory}
-                                                    disabled={field.isContentDoc}
                                                     data-key={field.configKey}
                                                     onchange={handleDeleteHistoryToggle} />
                                             </td>
