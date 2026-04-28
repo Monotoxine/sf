@@ -358,7 +358,9 @@ public with sharing class TEKCO_AnonymizationController {
             String fieldKey = fieldConfig.TEKCO_ObjectApiName__c + '.' + fieldConfig.TEKCO_FieldApiName__c;
 
             if (fieldConfig.TEKCO_PatternType__c == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
-                contentDocConfigs.add(fieldConfig);
+                if (!excludedFieldKeys.contains(fieldKey)) {
+                    contentDocConfigs.add(fieldConfig);
+                }
                 continue;
             }
 
