@@ -14,6 +14,7 @@
  *   SSN_SEQUENTIAL                  - Sequential digits to configured length
  *   LOREM_IPSUM                     - Fixed lorem ipsum text
  *   ADDRESS_STREET_RANDOM           - Street number + random 1-20
+ *   KEEP                            - No-op: field value is left unchanged
  *   DELETE_CONTENT_DOCUMENT         - Handled by dedicated batch
  *   EMAIL_MESSAGE_LOREM             - Draft → lorem ipsum on the field; non-Draft → record deleted (handled in batch)
  */
@@ -82,6 +83,9 @@ public class TEKCO_AnonymizationPatternService {
             }
             when 'ADDRESS_STREET_RANDOM' {
                 return applyAddressStreetRandom(currentValue);
+            }
+            when 'KEEP' {
+                return currentValue;
             }
             when 'DELETE_CONTENT_DOCUMENT' {
                 return null; // handled by TEKCO_ContentDocumentBatch
