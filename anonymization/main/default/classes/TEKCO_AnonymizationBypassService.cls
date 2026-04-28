@@ -1,16 +1,8 @@
 /**
- * @author TEKCO Team, 07/04/2026
+ * @author
  * @description Activates all boolean bypass flags on TEKCO_BypassSettings__c (Hierarchy Custom Setting)
  *              for the running user before the anonymization batch starts, then restores the original
- *              state once the entire batch chain is complete.
- *
- *              Why User-level override?
- *              Hierarchy priority: User > Profile > Org.
- *              Setting a User-level record only affects the running user; other users and org defaults
- *              are untouched. Deleting the User-level record afterward automatically reverts to the
- *              Profile/Org default.
- *
- *              All boolean fields are discovered dynamically via Schema describe — no hardcoding needed.
+ *              state once the entire batch chain is complete
  */
 public class TEKCO_AnonymizationBypassService {
 

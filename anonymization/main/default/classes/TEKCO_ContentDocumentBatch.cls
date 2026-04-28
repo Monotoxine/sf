@@ -1,21 +1,15 @@
 /**
- * @author TEKCO Team, 07/04/2026
+ * @author
  * @description Phase 2 of the anonymization chain: deletes ContentDocument records
  *              linked to records of the target object, filtered by brand and/or Record Type
  *              as configured in TEKCO_AnonymizationFieldConfig__mdt
- *              (TEKCO_PatternType__c = 'DELETE_CONTENT_DOCUMENT').
- *
- *              One batch instance per CMT config — multiple configs for the same object
- *              with different Record Types each get their own batch run.
- *
- *              Chain: TEKCO_ContentDocumentBatch (per config) → TEKCO_FieldHistoryBatch
+ *              (TEKCO_PatternType__c = 'DELETE_CONTENT_DOCUMENT')
  */
 public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, Database.Stateful {
 
     private static final Integer DEFAULT_BATCH_SIZE  = 200;
     private static final Integer MAX_CAPTURED_ERRORS = 50;
 
-    // Extracted from the current CMT config
     private String                                        objectApiName;
     private String                                        recordTypeDvName;
 
@@ -27,26 +21,12 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
     private Map<String, List<String>>                     parentFiltersByObject;
     private Map<String, String>                           additionalFiltersByObject;
 
-    // Populated in start() when a parent filter is active; bound in the QueryLocator string
     private Set<Id>                                       relevantChildIds;
 
     private Integer recordsDeleted = 0;
     private Integer recordsFailed  = 0;
     private List<String> errors    = new List<String>();
 
-    // ── Constructor ───────────────────────────────────────────────────────────
-
-    /**
-     * @description Constructs the batch for one DELETE_CONTENT_DOCUMENT CMT config.
-     * @param currentConfig              The CMT config driving this batch (object + RT).
-     * @param selectedBrands             Brand values to filter parent records (empty = all).
-     * @param auditLogId                 Id of the TEKCO_AnonymizationAuditLog__c record.
-     * @param remainingContentDocConfigs Remaining configs still needing ContentDocument deletion.
-     * @param historyConfigs             Field configs needing history deletion (Phase 3).
-     * @param bypassSnapshot             Bypass state snapshot to restore at chain end.
-     * @param parentFiltersByObject      Map of child object → [parentObject, parentLookup, parentRT].
-     * @param additionalFiltersByObject  Map of object → raw WHERE fragment for extra filtering.
-     */
     public TEKCO_ContentDocumentBatch(
         TEKCO_AnonymizationFieldConfig__mdt currentConfig,
         List<String> selectedBrands,
@@ -73,14 +53,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
             ? additionalFiltersByObject : new Map<String, String>();
     }
 
-    // ── Batchable Interface ───────────────────────────────────────────────────
 
-    /**
-     * @description Queries ContentDocumentLink records linked to the target object's records,
-     *              scoped by brand, Record Type from the CMT config, and optional parent filter.
-     * @param bc Batch context provided by the platform.
-     * @return   QueryLocator for the ContentDocumentLink records.
-     */
     public Database.QueryLocator start(Database.BatchableContext bc) {
         TEKCO_AnonymizationSandboxGuard.assertIsSandbox();
 
@@ -147,11 +120,6 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         return Database.getQueryLocator(soqlQuery);
     }
 
-    /**
-     * @description Collects unique ContentDocument IDs from the link records and deletes them.
-     * @param bc    Batch context provided by the platform.
-     * @param scope ContentDocumentLink records to process in this chunk.
-     */
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
         Set<Id> contentDocumentIds = new Set<Id>();
         for (SObject contentDocumentLink : scope) {
@@ -182,13 +150,6 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         }
     }
 
-    /**
-     * @description Chains to the next object's ContentDocumentBatch, or starts Phase 3,
-     *              or finalizes the run if all phases are complete.
-     *              Wrapped in try/catch so any error closes the audit log as Failed
-     *              instead of leaving it stuck in Running status.
-     * @param bc Batch context provided by the platform.
-     */
     public void finish(Database.BatchableContext bc) {
         try {
             if (!remainingContentDocConfigs.isEmpty()) {
@@ -230,12 +191,10 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         } catch (Exception e) {
             try {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-            } catch (Exception restoreEx) { /* silent */ }
+            } catch (Exception restoreEx) {}
             closeAuditLogAsFailed(e.getMessage());
         }
     }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private List<TEKCO_AnonymizationFieldConfig__mdt> popHistoryConfigsForObject(
         String objectApiName
@@ -265,7 +224,6 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                 TEKCO_ErrorMessage__c = errors.isEmpty() ? null : String.join(errors, '\n')
             );
         } catch (Exception e) {
-            // Silent — audit log failure must not break the batch chain
         }
     }
 
@@ -280,6 +238,6 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                 TEKCO_EndTime__c      = Datetime.now(),
                 TEKCO_ErrorMessage__c = errorMsg
             );
-        } catch (Exception e) { /* silent */ }
+        } catch (Exception e) { }
     }
 }

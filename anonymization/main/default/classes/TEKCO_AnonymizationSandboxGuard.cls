@@ -1,18 +1,11 @@
 /**
- * @author TEKCO Team, 07/04/2026
- * @description Hard block that prevents anonymization from running on a Production org.
- *              Must be called at every entry point (controller + batch start()).
+ * @author
+ * @description Hard block that prevents anonymization from running on a Production org
  */
 public class TEKCO_AnonymizationSandboxGuard {
 
     public class ProductionOrgException extends Exception {}
 
-    /**
-     * @description Asserts the current org is a sandbox.
-     *              Throws ProductionOrgException immediately if IsSandbox is false.
-     *              No DML is ever executed if this throws.
-     * @throws ProductionOrgException if the running org is not a sandbox.
-     */
     public static void assertIsSandbox() {
         Organization org = [
             SELECT IsSandbox

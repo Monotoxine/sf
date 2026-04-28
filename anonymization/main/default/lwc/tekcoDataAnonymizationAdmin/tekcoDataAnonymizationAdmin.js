@@ -16,38 +16,30 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
     hasPermission = hasAnonymizePermission;
 
-    // ── Filter state ─────────────────────────────────────────────────────────
     @track selectedBrands      = [];
     @track selectedObjects     = [];
     @track selectedRecordTypes = [];
 
-    // ── Picklist options ─────────────────────────────────────────────────────
     @track brandOptions      = [];
     @track objectOptions     = [];
     @track recordTypeOptions = [];
 
-    // ── Data ─────────────────────────────────────────────────────────────────
-    // fieldConfigs: array of FieldConfigDTO enriched with `enabled` (checkbox state)
     @track fieldConfigs    = [];
     @track previewByObject = [];
     @track auditLogs       = [];
 
-    // ── UI flags ─────────────────────────────────────────────────────────────
     @track isLoading        = false;
     @track isLoadingPreview = false;
     @track isRunning        = false;
     @track errorMessage     = '';
     @track previewNote      = null;
 
-    // ── Confirmation modal ────────────────────────────────────────────────────
     @track showConfirmPanel    = false;
     @track confirmSummaryLines = [];
 
     _pendingExcludedFields        = [];
     _pendingDisabledHistoryFields = [];
     _auditTimer = null;
-
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     connectedCallback() {
         this.loadBrands();
@@ -59,8 +51,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     disconnectedCallback() {
         this.stopAuditPoll();
     }
-
-    // ── Data loaders ──────────────────────────────────────────────────────────
 
     loadBrands() {
         getBrands()
@@ -180,8 +170,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             })
             .catch(() => {});
     }
-
-    // ── Handlers ──────────────────────────────────────────────────────────────
 
     handleBrandChange(event) {
         this.selectedBrands = event.detail.value;
@@ -330,8 +318,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         this.loadAuditLogs();
     }
 
-    // ── Audit polling ─────────────────────────────────────────────────────────
-
     startAuditPoll() {
         this._auditTimer = setInterval(() => {
             this.loadAuditLogs();
@@ -347,8 +333,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             this._auditTimer = null;
         }
     }
-
-    // ── Computed getters ──────────────────────────────────────────────────────
 
     get hasFieldConfigs()      { return this.fieldConfigs.length > 0; }
     get hasPreview()           { return this.previewByObject.length > 0; }
@@ -371,8 +355,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         });
         return Object.values(groupMap);
     }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
 
     computeStatusBadgeClass(status) {
         const statusClassMap = {

@@ -1,18 +1,7 @@
 /**
- * @author TEKCO Team, 07/04/2026
+ * @author
  * @description Phase 3 of the anonymization chain: deletes field history records for
- *              fields where TEKCO_AnonymizationFieldConfig__mdt.TEKCO_DeleteHistory__c = true.
- *
- *              History object naming convention:
- *                Standard object → ObjectNameHistory     (e.g. AccountHistory)
- *                Custom object   → ObjectName__History   (e.g. MyObject__History)
- *
- *              Parent ID field convention:
- *                Standard object → ObjectNameId          (e.g. AccountId)
- *                Custom object   → ParentId
- *
- *              One batch instance per object. Chains to the next object's TEKCO_FieldHistoryBatch
- *              until all history configs are processed, then finalizes the audit log.
+ *              fields where TEKCO_AnonymizationFieldConfig__mdt.TEKCO_DeleteHistory__c = true
  */
 public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Database.Stateful {
 
@@ -29,26 +18,12 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     private Map<String, List<String>>                     parentFiltersByObject;
     private Map<String, String>                           additionalFiltersByObject;
 
-    // Populated in start() when a parent filter is active; bound in the QueryLocator string
     private Set<Id>                                       relevantChildIds;
 
     private Integer recordsDeleted = 0;
     private Integer recordsFailed  = 0;
     private List<String> errors    = new List<String>();
 
-    // ── Constructor ───────────────────────────────────────────────────────────
-
-    /**
-     * @description Constructs the batch with context to delete history for one object.
-     * @param objectApiName          API name of the object whose history to delete.
-     * @param objectHistoryConfigs   Field configs with TEKCO_DeleteHistory__c = true for this object.
-     * @param selectedBrands         Brand values to filter parent records (empty = all).
-     * @param auditLogId             Id of the TEKCO_AnonymizationAuditLog__c record.
-     * @param remainingHistoryConfigs Field configs for subsequent objects still to process.
-     * @param bypassSnapshot         Bypass state snapshot to restore at chain end.
-     * @param parentFiltersByObject     Map of child object → [parentObject, parentLookup, parentRT].
-     * @param additionalFiltersByObject Map of object → raw WHERE fragment for extra filtering.
-     */
     public TEKCO_FieldHistoryBatch(
         String objectApiName,
         List<TEKCO_AnonymizationFieldConfig__mdt> objectHistoryConfigs,
@@ -74,14 +49,6 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
             ? additionalFiltersByObject : new Map<String, String>();
     }
 
-    // ── Batchable Interface ───────────────────────────────────────────────────
-
-    /**
-     * @description Builds the dynamic SOQL query to select history records for the
-     *              configured fields, filtering parent records by brand where applicable.
-     * @param bc Batch context provided by the platform.
-     * @return   QueryLocator for the history records to delete.
-     */
     public Database.QueryLocator start(Database.BatchableContext bc) {
         TEKCO_AnonymizationSandboxGuard.assertIsSandbox();
 
@@ -153,11 +120,6 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         return Database.getQueryLocator(soqlQuery);
     }
 
-    /**
-     * @description Deletes the history records in the current scope.
-     * @param bc    Batch context provided by the platform.
-     * @param scope History records to delete in this chunk.
-     */
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
         Database.DeleteResult[] deleteResults = Database.delete(scope, false);
         for (Database.DeleteResult deleteResult : deleteResults) {
@@ -176,12 +138,6 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         }
     }
 
-    /**
-     * @description Chains to the next object's TEKCO_FieldHistoryBatch, or finalizes the run.
-     *              Wrapped in try/catch so any error closes the audit log as Failed
-     *              instead of leaving it stuck in Running status.
-     * @param bc Batch context provided by the platform.
-     */
     public void finish(Database.BatchableContext bc) {
         try {
             if (!remainingHistoryConfigs.isEmpty()) {
@@ -213,12 +169,9 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
 
     /**
-     * @description Returns the history SObject API name for a given object.
-     *              Standard: Account → AccountHistory
-     *              Custom:   MyObj__c → MyObj__History
+     * @description Returns the history SObject API name for a given object
      * @param objectApiName API name of the parent object.
      * @return              API name of the corresponding history object.
      */
@@ -231,9 +184,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     }
 
     /**
-     * @description Returns the parent ID field name on the history object.
-     *              Standard: Account → AccountId
-     *              Custom:   MyObj__c → ParentId
+     * @description Returns the parent ID field name on the history object
      * @param objectApiName API name of the parent object.
      * @return              API name of the parent ID field on the history object.
      */
@@ -271,7 +222,6 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
                 TEKCO_ErrorMessage__c = errors.isEmpty() ? null : String.join(errors, '\n')
             );
         } catch (Exception e) {
-            // Silent — audit log failure must not break the batch chain
         }
     }
 
@@ -286,6 +236,6 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
                 TEKCO_EndTime__c      = Datetime.now(),
                 TEKCO_ErrorMessage__c = errorMsg
             );
-        } catch (Exception e) { /* silent */ }
+        } catch (Exception e) {}
     }
 }

@@ -1,5 +1,5 @@
 /**
- * @author TEKCO Team, 07/04/2026
+ * @author
  * @description Applies anonymization patterns defined in TEKCO_AnonymizationPattern__mdt.
  *              Routes to the correct algorithm based on the pattern type.
  *

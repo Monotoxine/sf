@@ -1,25 +1,18 @@
 /**
- * @author TEKCO Team, 07/04/2026
- * @description AuraEnabled controller for the tekcoDataAnonymizationAdmin LWC.
- *
- *              Brands:    read directly from the TEKCO_Brand__c picklist on Account via Schema describe.
- *              Objects:   derived from active TEKCO_AnonymizationFieldConfig__mdt records.
- *              Permission guard: TEKCO_AnonymizeData custom permission.
- *              Sandbox guard:    double-checked at controller + batch level.
+ * @author 
+ * @description AuraEnabled controller for the tekcoDataAnonymizationAdmin LWC
  */
 public with sharing class TEKCO_AnonymizationController {
 
-    private static final String PATTERN_TYPE_DELETE_CONTENT_DOCUMENT = 'DELETE_CONTENT_DOCUMENT';
+    private static final String PATTERN_TYPE_DELETE_CONTENT_DOCUMENT = 'DELETE_CONTENT_DOCUMENT'; // FIX ME to be removed ?not done automatically
     private static final Integer DEFAULT_BATCH_SIZE = 200;
 
-    // ── Read Methods ─────────────────────────────────────────────────────────
-
     /**
-     * @description Returns all active picklist values from Account.TEKCO_Brand__c.
-     * @return Sorted list of active brand values.
+     * @description Returns all active picklist values from Account.TEKCO_Brand__c
+     * @return Sorted list of active brand values
      */
     @AuraEnabled(cacheable=true)
-    public static List<String> getBrands() {
+    public static List<String> getBrands() { // FIX ME to be switched par values from brand picklist value set ?
         List<String> brandValues = new List<String>();
         try {
             Schema.DescribeFieldResult fieldDescriptor =
@@ -40,14 +33,11 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     /**
-     * @description Returns object options for the LWC scope picker.
-     *              Label includes the parent object in parentheses when one is configured,
-     *              e.g. "Address__c (Account)". Value is always the plain object API name.
-     * @return Sorted list of {label, value} maps ready for lightning-dual-listbox.
+     * @description Returns object options for the LWC picker from configured values in TEKCO_AnonymizationFieldConfig__mdt
+     * @return Sorted list of {label, value} maps
      */
     @AuraEnabled(cacheable=true)
     public static List<Map<String, String>> getObjects() {
-        // Build: objectApiName → first non-blank parentObjectApiName found for that object
         Map<String, String> parentByObject = new Map<String, String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fc : [
             SELECT TEKCO_ObjectApiName__c, TEKCO_ParentObjectApiName__c
@@ -57,7 +47,6 @@ public with sharing class TEKCO_AnonymizationController {
         ]) {
             String obj    = fc.TEKCO_ObjectApiName__c;
             String parent = fc.TEKCO_ParentObjectApiName__c;
-            // Register the object; prefer a non-blank parent value if one exists
             if (!parentByObject.containsKey(obj)
                     || (String.isBlank(parentByObject.get(obj)) && String.isNotBlank(parent))) {
                 parentByObject.put(obj, parent);
@@ -77,8 +66,8 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     /**
-     * @description Returns the distinct object API names (values only) for internal use.
-     * @return Sorted list of object API names.
+     * @description Returns the distinct object API names (values only) for internal use
+     * @return Sorted list of object API names
      */
     private static List<String> getObjectApiNames() {
         Set<String> objectApiNameSet = new Set<String>();
@@ -96,22 +85,16 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     /**
-     * @description Returns Record Type options for the dual-listbox.
-     *              When scoped to a single object the label is the RT developer name alone.
-     *              When all objects are in scope the label includes the object(s) as context,
-     *              e.g. "Patient (Account)" or "Standard (Account, Contact)".
-     *              The value is always the plain RT developer name so backend filtering
-     *              (which is already object-scoped via configsByObject) stays unchanged.
-     * @param objectApiName API name of the object to scope to, or blank for all objects.
-     * @return Sorted list of {label, value} maps ready for lightning-dual-listbox.
+     * @description Returns Record Type options
+     * @param objectApiName API name of the object to scope to or blank for all objects
+     * @return Sorted list of {label, value} maps
      */
     @AuraEnabled(cacheable=true)
     public static List<Map<String, String>> getRecordTypes(String objectApiName) {
-        // RT developer name → sorted set of object API names that carry it
         Map<String, Set<String>> objectsByRt = new Map<String, Set<String>>();
 
         List<TEKCO_AnonymizationFieldConfig__mdt> configs;
-        if (String.isBlank(objectApiName)) {
+        if (String.isBlank(objectApiName)) { //FIX ME to be removed no record type is available if no obejct is selected no need to query 
             configs = [
                 SELECT TEKCO_RecordTypeDeveloperName__c, TEKCO_ObjectApiName__c
                 FROM TEKCO_AnonymizationFieldConfig__mdt
@@ -140,6 +123,7 @@ public with sharing class TEKCO_AnonymizationController {
         List<String> sortedRts = new List<String>(objectsByRt.keySet());
         sortedRts.sort();
 
+        // FIX ME remove no need only show record type if object is filled
         List<Map<String, String>> options = new List<Map<String, String>>();
         for (String rt : sortedRts) {
             String label;
@@ -205,7 +189,6 @@ public with sharing class TEKCO_AnonymizationController {
             ];
         }
 
-        // In-memory RT filter: keep configs with no RT (applies to all) OR matching a selected RT
         Set<String> rtFilter = (selectedRecordTypes != null && !selectedRecordTypes.isEmpty())
             ? new Set<String>(selectedRecordTypes)
             : null;
@@ -251,7 +234,7 @@ public with sharing class TEKCO_AnonymizationController {
     @AuraEnabled(cacheable=false)
     public static Integer getRecordCount(String objectApiName, List<String> selectedBrands) {
         if (String.isBlank(objectApiName)) return 0;
-        try {
+        try { // FIX ME add recordtype selection and any additionnal conditions in custom metadata types
             String soqlQuery = 'SELECT COUNT(Id) cnt FROM ' + objectApiName;
             if (selectedBrands != null && !selectedBrands.isEmpty()) {
                 soqlQuery += ' WHERE TEKCO_Brand__c IN :selectedBrands';
@@ -288,18 +271,11 @@ public with sharing class TEKCO_AnonymizationController {
         ];
     }
 
-    // ── Write Methods ─────────────────────────────────────────────────────────
-
     /**
-     * @description Launches the anonymization batch chain.
-     *              Requires TEKCO_AnonymizeData custom permission and a sandbox org.
-     *              Activates bypass settings before the chain starts and restores them at the end.
-     * @param selectedBrands      Brand values to filter records (empty = all brands).
-     * @param selectedObjects     Object API names to process (empty = all configured objects).
-     * @param excludedFields      Fields to skip in this run, format "ObjectApiName.FieldApiName".
-     * @param selectedRecordTypes  Record Type Developer Names to restrict to (empty = all RTs).
-     * @param disabledHistoryFields Field keys ("Object.Field") where history deletion was disabled by the user.
-     * @return                     Id of the created TEKCO_AnonymizationAuditLog__c record.
+     * @description Launches the anonymization batch chain
+     *              Requires TEKCO_AnonymizeData custom permission and a sandbox org
+     *              Activates bypass settings before the chain starts and restores them at the end
+     * @return                     Id of the created TEKCO_AnonymizationAuditLog__c record
      */
     @AuraEnabled
     public static Id startAnonymization(
@@ -332,7 +308,6 @@ public with sharing class TEKCO_AnonymizationController {
         Set<String> disabledHistoryFieldKeys = new Set<String>();
         if (disabledHistoryFields != null) disabledHistoryFieldKeys.addAll(disabledHistoryFields);
 
-        // Activate trigger bypass for the running user (restored at end of batch chain)
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot =
             TEKCO_AnonymizationBypassService.activate();
 
@@ -355,7 +330,6 @@ public with sharing class TEKCO_AnonymizationController {
                 AND TEKCO_ObjectApiName__c IN :selectedObjects
         ];
 
-        // Record Type filter: keep configs with no RT (applies to all) OR matching a selected RT
         if (selectedRecordTypes != null && !selectedRecordTypes.isEmpty()) {
             Set<String> rtFilter = new Set<String>(selectedRecordTypes);
             List<TEKCO_AnonymizationFieldConfig__mdt> filteredConfigs =
@@ -385,7 +359,6 @@ public with sharing class TEKCO_AnonymizationController {
             String fieldKey = fieldConfig.TEKCO_ObjectApiName__c + '.' + fieldConfig.TEKCO_FieldApiName__c;
 
             if (fieldConfig.TEKCO_PatternType__c == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
-                // Respect "Run" exclusions from the LWC (user unchecked the row)
                 if (!excludedFieldKeys.contains(fieldKey)) {
                     contentDocConfigs.add(fieldConfig);
                 }
@@ -416,10 +389,7 @@ public with sharing class TEKCO_AnonymizationController {
             if (configsByObject.containsKey(objectApiName)) objectsToProcess.add(objectApiName);
         }
 
-        // contentDocConfigs already built in the bucket loop above
-
         // Build parent filter map: childObjectApiName → [parentObject, parentLookup, parentRT]
-        // The first config that defines a parent filter for each object wins.
         Map<String, List<String>> parentFiltersByObject = new Map<String, List<String>>();
         for (TEKCO_AnonymizationFieldConfig__mdt fc : allFieldConfigs) {
             String obj = fc.TEKCO_ObjectApiName__c;
@@ -436,7 +406,6 @@ public with sharing class TEKCO_AnonymizationController {
         }
 
         // Build additional filter map: objectApiName → raw WHERE fragment
-        // The first config that defines a filter for each object wins.
         Map<String, String> additionalFiltersByObject = new Map<String, String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fc : allFieldConfigs) {
             String obj = fc.TEKCO_ObjectApiName__c;
@@ -483,7 +452,6 @@ public with sharing class TEKCO_AnonymizationController {
                 DEFAULT_BATCH_SIZE
             );
         } else if (!contentDocConfigs.isEmpty()) {
-            // No regular field configs — skip straight to ContentDocument deletion (Phase 2)
             TEKCO_AnonymizationFieldConfig__mdt firstContentDocConfig = contentDocConfigs.remove(0);
             batchJobId = Database.executeBatch(
                 new TEKCO_ContentDocumentBatch(
@@ -499,7 +467,6 @@ public with sharing class TEKCO_AnonymizationController {
                 DEFAULT_BATCH_SIZE
             );
         } else {
-            // Nothing to process — close audit log immediately
             TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
             update new TEKCO_AnonymizationAuditLog__c(
                 Id              = auditLog.Id,
@@ -515,8 +482,6 @@ public with sharing class TEKCO_AnonymizationController {
 
         return auditLog.Id;
     }
-
-    // ── Internal Helpers ──────────────────────────────────────────────────────
 
     private static Map<String, TEKCO_AnonymizationPattern__mdt> buildPatternMap() {
         Map<String, TEKCO_AnonymizationPattern__mdt> patternsByType =
@@ -536,8 +501,6 @@ public with sharing class TEKCO_AnonymizationController {
         }
         return patternsByType;
     }
-
-    // ── DTOs ──────────────────────────────────────────────────────────────────
 
     /**
      * @description Data transfer object for field configuration display in the LWC.

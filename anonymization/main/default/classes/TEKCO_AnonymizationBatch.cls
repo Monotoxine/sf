@@ -1,13 +1,6 @@
 /**
- * @author TEKCO Team, 07/04/2026
- * @description Phase 1 of the anonymization chain: field-level value updates.
- *              Processes all configured fields per object, applies patterns, and updates records.
- *
- *              Chain order: TEKCO_AnonymizationBatch → TEKCO_ContentDocumentBatch → TEKCO_FieldHistoryBatch
- *
- *              Brand filter:      WHERE TEKCO_Brand__c IN :selectedBrands
- *              RecordType filter: per-field, from TEKCO_AnonymizationFieldConfig__mdt.TEKCO_RecordTypeDeveloperName__c
- *              Sandbox guard:     double-checked at controller + start() level.
+ * @author 
+ * @description Chain order: TEKCO_AnonymizationBatch → TEKCO_ContentDocumentBatch → TEKCO_FieldHistoryBatch
  */
 public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Database.Stateful {
 
@@ -15,8 +8,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     private static final Integer MAX_CAPTURED_ERRORS   = 50;
     private static final String  PATTERN_TYPE_DELETE_CONTENT_DOCUMENT = 'DELETE_CONTENT_DOCUMENT';
     private static final String  PATTERN_TYPE_EMAIL_MESSAGE_LOREM     = 'EMAIL_MESSAGE_LOREM';
-
-    // ── Stateful fields ───────────────────────────────────────────────────────
 
     private String                                        objectApiName;
     private List<TEKCO_AnonymizationFieldConfig__mdt>     fieldConfigs;
@@ -27,12 +18,9 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     private List<TEKCO_AnonymizationFieldConfig__mdt>     contentDocConfigs;
     private List<TEKCO_AnonymizationFieldConfig__mdt>     historyConfigs;
     private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
-    // key = child object API name → [parentObjectApiName, parentLookupField, parentRecordTypeDvName]
-    private Map<String, List<String>>                     parentFiltersByObject;
-    // key = object API name → raw WHERE fragment appended to the object's query
-    private Map<String, String>                           additionalFiltersByObject;
 
-    // RecordType Id → DeveloperName map, populated in start()
+    private Map<String, List<String>>                     parentFiltersByObject;
+    private Map<String, String>                           additionalFiltersByObject;
     private Map<Id, String>                               recordTypeDevNameById =
         new Map<Id, String>();
 
@@ -40,23 +28,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     private Integer recordsFailed    = 0;
     private List<String> errors      = new List<String>();
 
-    // ── Constructor ───────────────────────────────────────────────────────────
 
-    /**
-     * @description Constructs the batch with full context to process one object
-     *              and pass the remaining work to the next batch in the chain.
-     * @param objectApiName     API name of the object to anonymize.
-     * @param fieldConfigs      Field configs for this object.
-     * @param patternsByType    All active patterns keyed by DeveloperName.
-     * @param selectedBrands    Brand values to filter records (empty = all).
-     * @param auditLogId        Id of the TEKCO_AnonymizationAuditLog__c record.
-     * @param remainingObjects  Objects still to be anonymized after this one.
-     * @param contentDocObjects Objects needing ContentDocument deletion (Phase 2).
-     * @param historyConfigs    Field configs needing history deletion (Phase 3).
-     * @param bypassSnapshot       Bypass state snapshot to restore at chain end.
-     * @param parentFiltersByObject     Map of child object → [parentObject, parentLookup, parentRT].
-     * @param additionalFiltersByObject Map of object → raw WHERE fragment for extra filtering.
-     */
     public TEKCO_AnonymizationBatch(
         String objectApiName,
         List<TEKCO_AnonymizationFieldConfig__mdt> fieldConfigs,
@@ -87,18 +59,9 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
             ? additionalFiltersByObject : new Map<String, String>();
     }
 
-    // ── Batchable Interface ───────────────────────────────────────────────────
-
-    /**
-     * @description Builds the dynamic SOQL query to select records for this object.
-     *              Only queries fields required by the configured patterns.
-     * @param bc Batch context provided by the platform.
-     * @return   QueryLocator for the records to process.
-     */
     public Database.QueryLocator start(Database.BatchableContext bc) {
         TEKCO_AnonymizationSandboxGuard.assertIsSandbox();
 
-        // Detect EMAIL_MESSAGE_LOREM configs — requires Status field + no direct brand filter
         Boolean hasEmailMessageLorem = false;
         for (TEKCO_AnonymizationFieldConfig__mdt fc : fieldConfigs) {
             if (fc.TEKCO_PatternType__c == PATTERN_TYPE_EMAIL_MESSAGE_LOREM) {
@@ -155,7 +118,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         List<String> topConditions = new List<String>();
 
         if (String.isNotBlank(parentObjectApiName)) {
-            // Filter via parent object subquery (child may not have TEKCO_Brand__c)
             List<String> parentConditions = new List<String>();
             if (!selectedBrands.isEmpty()) {
                 parentConditions.add('TEKCO_Brand__c IN :selectedBrands');
@@ -171,8 +133,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
             }
             topConditions.add(parentLookupField + ' IN (' + parentSubquery + ')');
         } else if (!hasEmailMessageLorem && !selectedBrands.isEmpty()) {
-            // EmailMessage has no TEKCO_Brand__c — when EMAIL_MESSAGE_LOREM configs are present
-            // and no parent is configured, select all records without a brand filter.
             topConditions.add('TEKCO_Brand__c IN :selectedBrands');
         }
 
@@ -187,11 +147,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         return Database.getQueryLocator(soqlQuery);
     }
 
-    /**
-     * @description Applies configured anonymization patterns to each record in the scope.
-     * @param bc    Batch context provided by the platform.
-     * @param scope Records to process in this batch chunk.
-     */
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
         List<SObject> recordsToUpdate = new List<SObject>();
         List<SObject> recordsToDelete = new List<SObject>();
@@ -306,13 +261,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         }
     }
 
-    /**
-     * @description Chains to the next batch in the sequence or finalizes the audit log.
-     *              Wrapped in try/catch: any exception (governor limit, executeBatch quota, etc.)
-     *              closes the audit log as Failed and restores bypass settings so the chain
-     *              never gets stuck in Running status.
-     * @param bc Batch context provided by the platform.
-     */
     public void finish(Database.BatchableContext bc) {
         try {
             if (!remainingObjects.isEmpty()) {
@@ -372,17 +320,14 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 updateAuditLog('Final');
                 return;
             }
-            // Intermediate update only after executeBatch succeeded — avoids rollback on failure
             updateAuditLog('Running');
         } catch (Exception e) {
             try {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-            } catch (Exception restoreEx) { /* silent */ }
+            } catch (Exception restoreEx) {  }
             closeAuditLogAsFailed(e.getMessage());
         }
     }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static List<TEKCO_AnonymizationFieldConfig__mdt> loadFieldConfigs(
         String objectApiName
@@ -432,7 +377,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 TEKCO_ErrorMessage__c     = errors.isEmpty() ? null : String.join(errors, '\n')
             );
         } catch (Exception e) {
-            // Silent — audit log failure must not break the batch chain
+        
         }
     }
 
@@ -449,6 +394,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 TEKCO_EndTime__c          = Datetime.now(),
                 TEKCO_ErrorMessage__c     = errorMsg
             );
-        } catch (Exception e) { /* silent */ }
+        } catch (Exception e) { }
     }
 }
