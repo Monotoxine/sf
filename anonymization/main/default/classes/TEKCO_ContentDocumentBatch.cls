@@ -58,6 +58,13 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         TEKCO_AnonymizationSandboxGuard.assertIsSandbox();
 
         List<String> parentFilter = parentFiltersByObject.get(objectApiName);
+
+        if (Schema.getGlobalDescribe().get(objectApiName) == null) {
+            errors.add('Object not found in org, skipped: ' + objectApiName);
+            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+        }
+
+        try {
         String parentObjectApiName    = (parentFilter != null && parentFilter.size() > 0) ? parentFilter.get(0) : null;
         String parentLookupField      = (parentFilter != null && parentFilter.size() > 1) ? parentFilter.get(1) : null;
         String parentRecordTypeDvName = (parentFilter != null && parentFilter.size() > 2) ? parentFilter.get(2) : null;
@@ -115,6 +122,10 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
             + ' WHERE LinkedEntityId IN (SELECT Id FROM ' + objectApiName + innerFilter + ')';
 
         return Database.getQueryLocator(soqlQuery);
+        } catch (Exception e) {
+            errors.add('Failed to build query for ' + objectApiName + ': ' + e.getMessage());
+            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+        }
     }
 
     public void execute(Database.BatchableContext bc, List<SObject> scope) {

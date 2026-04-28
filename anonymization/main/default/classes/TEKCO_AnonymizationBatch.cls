@@ -63,6 +63,13 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         TEKCO_AnonymizationSandboxGuard.assertIsSandbox();
 
         Boolean hasEmailMessageLorem = false;
+
+        if (Schema.getGlobalDescribe().get(objectApiName) == null) {
+            errors.add('Object not found in org, skipped: ' + objectApiName);
+            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+        }
+
+        try {
         for (TEKCO_AnonymizationFieldConfig__mdt fc : fieldConfigs) {
             if (fc.TEKCO_PatternType__c == PATTERN_TYPE_EMAIL_MESSAGE_LOREM) {
                 hasEmailMessageLorem = true;
@@ -147,6 +154,10 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         }
 
         return Database.getQueryLocator(soqlQuery);
+        } catch (Exception e) {
+            errors.add('Failed to build query for ' + objectApiName + ': ' + e.getMessage());
+            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+        }
     }
 
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
