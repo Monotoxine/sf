@@ -207,18 +207,34 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     /**
-     * @description Returns an approximate record count for a given object + brand filter.
-     * @param objectApiName  API name of the object to count.
-     * @param selectedBrands Brand values to filter by (empty = all brands).
+     * @description Returns an approximate record count for a given object, brand, and record type filter.
+     * @param objectApiName      API name of the object to count.
+     * @param selectedBrands     Brand values to filter by (empty = all brands).
+     * @param selectedRecordType Record Type Developer Name to filter by (blank = all record types).
      * @return Record count, or -1 if the count could not be retrieved.
      */
     @AuraEnabled(cacheable=false)
-    public static Integer getRecordCount(String objectApiName, List<String> selectedBrands) {
+    public static Integer getRecordCount(
+        String objectApiName,
+        List<String> selectedBrands,
+        String selectedRecordType
+    ) {
         if (String.isBlank(objectApiName)) return 0;
-        try { // FIX ME add recordtype selection and any additionnal conditions in custom metadata types
-            String soqlQuery = 'SELECT COUNT(Id) cnt FROM ' + objectApiName;
+        try {
+            List<String> conditions = new List<String>();
             if (selectedBrands != null && !selectedBrands.isEmpty()) {
-                soqlQuery += ' WHERE TEKCO_Brand__c IN :selectedBrands';
+                conditions.add('TEKCO_Brand__c IN :selectedBrands');
+            }
+            if (String.isNotBlank(selectedRecordType)) {
+                conditions.add(
+                    'RecordType.DeveloperName = \''
+                    + String.escapeSingleQuotes(selectedRecordType)
+                    + '\''
+                );
+            }
+            String soqlQuery = 'SELECT COUNT(Id) cnt FROM ' + objectApiName;
+            if (!conditions.isEmpty()) {
+                soqlQuery += ' WHERE ' + String.join(conditions, ' AND ');
             }
             List<AggregateResult> queryResults = Database.query(soqlQuery);
             return Integer.valueOf(queryResults[0].get('cnt'));
