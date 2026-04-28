@@ -104,7 +104,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
                 + fieldPrefix + ' IN :relevantChildIds';
         } else {
             List<String> childConditions = new List<String>();
-            if (!selectedBrands.isEmpty()) {
+            if (!selectedBrands.isEmpty() && hasBrandField(objectApiName)) {
                 childConditions.add('TEKCO_Brand__c IN :selectedBrands');
             }
             if (String.isNotBlank(additionalFilter)) {
@@ -169,6 +169,12 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         }
     }
 
+
+    private static Boolean hasBrandField(String objectApiName) {
+        Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
+        return sot != null
+            && sot.getDescribe().fields.getMap().containsKey('tekco_brand__c');
+    }
 
     /**
      * @description Returns the history SObject API name for a given object
