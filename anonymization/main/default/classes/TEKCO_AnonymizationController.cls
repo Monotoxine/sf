@@ -4,14 +4,11 @@
  */
 public with sharing class TEKCO_AnonymizationController {
 
-    private static final String PATTERN_TYPE_DELETE_CONTENT_DOCUMENT = 'DELETE_CONTENT_DOCUMENT'; // FIX ME to be removed ?not done automatically
-    private static final Integer DEFAULT_BATCH_SIZE = 200;
+    private static final String PATTERN_TYPE_DELETE_CONTENT_DOCUMENT = 'DELETE_CONTENT_DOCUMENT';
 
     /**
-     * @description Returns all active values from the TEKCO_Brands global picklist value set.
-     *              Apex has no direct API for global value sets — values are sourced via
-     *              Account.TEKCO_Brand__c which is bound to the TEKCO_Brands global value set.
-     * @return Sorted list of {label, value} maps — label is the display label, value is the stored API value
+     * @description Returns all active values from Account.TEKCO_Brand__c
+     * @return Sorted list of {label, value} maps
      */
     @AuraEnabled(cacheable=true)
     public static List<Map<String, String>> getBrands() {
@@ -91,17 +88,13 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     /**
-     * @description Returns Record Type options for the given objects.
-     *              Returns an empty list if no objects are selected.
-     *              Label format: RT_DeveloperName (ObjectApiName) to distinguish RTs across objects.
-     * @param selectedObjects List of object API names to scope to
+     * @description Returns Record Type options for the given objects
+     *              Returns an empty list if no objects are selected
      * @return List of {label, value} maps ordered by object then RT developer name
      */
     @AuraEnabled(cacheable=true)
     public static List<Map<String, String>> getRecordTypes(List<String> selectedObjects) {
         if (selectedObjects == null || selectedObjects.isEmpty()) return new List<Map<String, String>>();
-
-        // Normalize keys to lowercase — SOQL IN bind is case-insensitive but Apex Map lookups are not
         Map<String, String> lowerToOriginal = new Map<String, String>();
         Map<String, Set<String>> rtsByObject = new Map<String, Set<String>>();
         for (String obj : selectedObjects) {
@@ -136,11 +129,8 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     /**
-     * @description Returns field configs for a given object (or all objects if blank),
-     *              optionally filtered by Record Type, enriched with pattern description.
-     * @param objectApiName       API name of the object to filter by, or blank for all objects.
-     * @param selectedRecordTypes Record Type Developer Names to filter by (empty = all).
-     * @return List of FieldConfigDTO enriched with pattern description.
+     * @description Returns field configs for a given object (or all objects if blank) filtered by Record Type  with pattern description
+     * @return List of FieldConfigDTO with pattern description
      */
     @AuraEnabled(cacheable=true)
     public static List<FieldConfigDTO> getFieldConfigs(
@@ -222,11 +212,8 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     /**
-     * @description Returns an approximate record count for a given object, brand, and record type filter.
-     * @param objectApiName      API name of the object to count.
-     * @param selectedBrands     Brand values to filter by (empty = all brands).
-     * @param selectedRecordType Record Type Developer Name to filter by (blank = all record types).
-     * @return Record count, or -1 if the count could not be retrieved.
+     * @description Returns an approximate record count for a given object, brand, and record type filter
+     * @return Record count, or -1 if the count could not be retrieved
      */
     @AuraEnabled(cacheable=false)
     public static Integer getRecordCount(
@@ -259,8 +246,8 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     /**
-     * @description Returns the last 20 audit log records ordered by start time descending.
-     * @return List of TEKCO_AnonymizationAuditLog__c records.
+     * @description Returns the last 20 audit log records ordered by start time descending
+     * @return List of TEKCO_AnonymizationAuditLog__c records
      */
     @AuraEnabled(cacheable=false)
     public static List<TEKCO_AnonymizationAuditLog__c> getAuditLogs() {
@@ -359,7 +346,7 @@ public with sharing class TEKCO_AnonymizationController {
         Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>> configsByObject =
             new Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>>();
 
-        // Bucket 2: ContentDocument deletion — full CMT configs (RT-aware, one batch per config)
+        // Bucket 2: ContentDocument deletion — full CMT configs
         List<TEKCO_AnonymizationFieldConfig__mdt> contentDocConfigs =
             new List<TEKCO_AnonymizationFieldConfig__mdt>();
 
