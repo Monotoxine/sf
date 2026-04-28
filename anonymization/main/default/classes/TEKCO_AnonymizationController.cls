@@ -87,56 +87,32 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     /**
-     * @description Returns Record Type options
-     * @param objectApiName API name of the object to scope to or blank for all objects
+     * @description Returns Record Type options for a given object.
+     *              Returns an empty list if no object is selected.
+     * @param objectApiName API name of the object to scope to
      * @return Sorted list of {label, value} maps
      */
     @AuraEnabled(cacheable=true)
     public static List<Map<String, String>> getRecordTypes(String objectApiName) {
-        Map<String, Set<String>> objectsByRt = new Map<String, Set<String>>();
+        if (String.isBlank(objectApiName)) return new List<Map<String, String>>();
 
-        List<TEKCO_AnonymizationFieldConfig__mdt> configs;
-        if (String.isBlank(objectApiName)) { //FIX ME to be removed no record type is available if no obejct is selected no need to query 
-            configs = [
-                SELECT TEKCO_RecordTypeDeveloperName__c, TEKCO_ObjectApiName__c
-                FROM TEKCO_AnonymizationFieldConfig__mdt
-                WHERE TEKCO_IsActive__c = true
-                    AND TEKCO_RecordTypeDeveloperName__c != null
-            ];
-        } else {
-            configs = [
-                SELECT TEKCO_RecordTypeDeveloperName__c, TEKCO_ObjectApiName__c
-                FROM TEKCO_AnonymizationFieldConfig__mdt
-                WHERE TEKCO_IsActive__c = true
-                    AND TEKCO_ObjectApiName__c = :objectApiName
-                    AND TEKCO_RecordTypeDeveloperName__c != null
-            ];
-        }
-
-        for (TEKCO_AnonymizationFieldConfig__mdt cfg : configs) {
-            String rt = cfg.TEKCO_RecordTypeDeveloperName__c;
-            if (!objectsByRt.containsKey(rt)) {
-                objectsByRt.put(rt, new Set<String>());
+        List<String> sortedRts = new List<String>();
+        for (TEKCO_AnonymizationFieldConfig__mdt cfg : [
+            SELECT TEKCO_RecordTypeDeveloperName__c
+            FROM TEKCO_AnonymizationFieldConfig__mdt
+            WHERE TEKCO_IsActive__c = true
+              AND TEKCO_ObjectApiName__c = :objectApiName
+              AND TEKCO_RecordTypeDeveloperName__c != null
+        ]) {
+            if (!sortedRts.contains(cfg.TEKCO_RecordTypeDeveloperName__c)) {
+                sortedRts.add(cfg.TEKCO_RecordTypeDeveloperName__c);
             }
-            objectsByRt.get(rt).add(cfg.TEKCO_ObjectApiName__c);
         }
-
-        Boolean singleObjectScope = String.isNotBlank(objectApiName);
-        List<String> sortedRts = new List<String>(objectsByRt.keySet());
         sortedRts.sort();
 
-        // FIX ME remove no need only show record type if object is filled
         List<Map<String, String>> options = new List<Map<String, String>>();
         for (String rt : sortedRts) {
-            String label;
-            if (singleObjectScope) {
-                label = rt;
-            } else {
-                List<String> objects = new List<String>(objectsByRt.get(rt));
-                objects.sort();
-                label = rt + ' (' + String.join(objects, ', ') + ')';
-            }
-            options.add(new Map<String, String>{ 'label' => label, 'value' => rt });
+            options.add(new Map<String, String>{ 'label' => rt, 'value' => rt });
         }
         return options;
     }
