@@ -228,7 +228,7 @@ public with sharing class TEKCO_AnonymizationController {
             if (selectedBrands != null && !selectedBrands.isEmpty() && hasBrandField(objectApiName)) {
                 conditions.add('TEKCO_Brand__c IN :selectedBrands');
             }
-            if (String.isNotBlank(selectedRecordType)) {
+            if (String.isNotBlank(selectedRecordType) && hasRecordTypeField(objectApiName)) {
                 conditions.add(
                     'RecordType.DeveloperName = \''
                     + String.escapeSingleQuotes(selectedRecordType) + '\''
@@ -247,6 +247,12 @@ public with sharing class TEKCO_AnonymizationController {
         Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
         return sot != null
             && sot.getDescribe().fields.getMap().containsKey('tekco_brand__c');
+    }
+
+    private static Boolean hasRecordTypeField(String objectApiName) {
+        Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
+        return sot != null
+            && sot.getDescribe().fields.getMap().containsKey('recordtypeid');
     }
 
     /**
