@@ -6,7 +6,7 @@ import getBrands          from '@salesforce/apex/TEKCO_AnonymizationController.g
 import getObjects         from '@salesforce/apex/TEKCO_AnonymizationController.getObjects';
 import getRecordTypes     from '@salesforce/apex/TEKCO_AnonymizationController.getRecordTypes';
 import getFieldConfigs    from '@salesforce/apex/TEKCO_AnonymizationController.getFieldConfigs';
-import getRecordCount     from '@salesforce/apex/TEKCO_AnonymizationController.getRecordCount';
+import getRecordCounts    from '@salesforce/apex/TEKCO_AnonymizationController.getRecordCounts';
 import getAuditLogs       from '@salesforce/apex/TEKCO_AnonymizationController.getAuditLogs';
 import startAnonymization from '@salesforce/apex/TEKCO_AnonymizationController.startAnonymization';
 
@@ -130,22 +130,32 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             ? null
             : 'Aucun objet sélectionné — tous les objets configurés sont inclus.';
 
-        const countPromises = objectsToCount.map(objectApiName =>
-            getRecordCount({ objectApiName, selectedBrands: this.selectedBrands })
-                .then(count => ({ objectApiName, count, isContentDocOnly: contentDocOnly.has(objectApiName) }))
-                .catch(() => ({ objectApiName, count: -1, isContentDocOnly: contentDocOnly.has(objectApiName) }))
-        );
+        const selectedRecordType = this.selectedRecordTypes.length === 1
+            ? this.selectedRecordTypes[0]
+            : null;
 
-        Promise.all(countPromises).then(results => {
-            this.previewByObject = results.map(result => ({
-                objectApiName:    result.objectApiName,
-                isContentDocOnly: result.isContentDocOnly,
-                countLabel: result.count === -1
-                    ? 'Could not count'
-                    : result.isContentDocOnly
-                        ? `${result.count} enreg. (ContentDocumentLinks à supprimer)`
-                        : `${result.count} record(s)`
-            }));
+        getRecordCounts({
+            objectApiNames:     objectsToCount,
+            selectedBrands:     this.selectedBrands,
+            selectedRecordType: selectedRecordType
+        })
+        .then(countsMap => {
+            this.previewByObject = objectsToCount.map(objectApiName => {
+                const count           = countsMap[objectApiName] ?? -1;
+                const isContentDocOnly = contentDocOnly.has(objectApiName);
+                return {
+                    objectApiName,
+                    isContentDocOnly,
+                    countLabel: count === -1
+                        ? 'Could not count'
+                        : isContentDocOnly
+                            ? `${count} enreg. (ContentDocumentLinks à supprimer)`
+                            : `${count} record(s)`
+                };
+            });
+            this.isLoadingPreview = false;
+        })
+        .catch(() => {
             this.isLoadingPreview = false;
         });
     }

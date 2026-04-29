@@ -213,6 +213,44 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     /**
+     * @description Returns record counts for multiple objects in a single transaction.
+     *              Replaces repeated getRecordCount calls from the LWC preview.
+     * @return Map of objectApiName → count (-1 if count failed for that object)
+     */
+    @AuraEnabled(cacheable=false)
+    public static Map<String, Integer> getRecordCounts(
+        List<String> objectApiNames,
+        List<String> selectedBrands,
+        String selectedRecordType
+    ) {
+        Map<String, Integer> result = new Map<String, Integer>();
+        if (objectApiNames == null || objectApiNames.isEmpty()) return result;
+        for (String objectApiName : objectApiNames) {
+            try {
+                List<String> conditions = new List<String>();
+                if (selectedBrands != null && !selectedBrands.isEmpty()) {
+                    conditions.add('TEKCO_Brand__c IN :selectedBrands');
+                }
+                if (String.isNotBlank(selectedRecordType)) {
+                    conditions.add(
+                        'RecordType.DeveloperName = \''
+                        + String.escapeSingleQuotes(selectedRecordType) + '\''
+                    );
+                }
+                String soqlQuery = 'SELECT COUNT(Id) cnt FROM ' + objectApiName;
+                if (!conditions.isEmpty()) {
+                    soqlQuery += ' WHERE ' + String.join(conditions, ' AND ');
+                }
+                List<AggregateResult> rows = Database.query(soqlQuery);
+                result.put(objectApiName, Integer.valueOf(rows[0].get('cnt')));
+            } catch (Exception e) {
+                result.put(objectApiName, -1);
+            }
+        }
+        return result;
+    }
+
+    /**
      * @description Returns an approximate record count for a given object, brand, and record type filter
      * @return Record count, or -1 if the count could not be retrieved
      */
