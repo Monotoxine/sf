@@ -225,7 +225,7 @@ public with sharing class TEKCO_AnonymizationController {
         if (String.isBlank(objectApiName)) return 0;
         try {
             List<String> conditions = new List<String>();
-            if (selectedBrands != null && !selectedBrands.isEmpty()) {
+            if (selectedBrands != null && !selectedBrands.isEmpty() && hasBrandField(objectApiName)) {
                 conditions.add('TEKCO_Brand__c IN :selectedBrands');
             }
             if (String.isNotBlank(selectedRecordType)) {
@@ -241,6 +241,12 @@ public with sharing class TEKCO_AnonymizationController {
         } catch (Exception e) {
             return -1;
         }
+    }
+
+    private static Boolean hasBrandField(String objectApiName) {
+        Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
+        return sot != null
+            && sot.getDescribe().fields.getMap().containsKey('tekco_brand__c');
     }
 
     /**
