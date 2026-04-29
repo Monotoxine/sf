@@ -21,7 +21,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
     private Map<String, List<String>>                     parentFiltersByObject;
     private Map<String, String>                           additionalFiltersByObject;
 
-    private Set<Id>                                       relevantChildIds;
+    private Set<Id>                                       parentIds;
 
     private Integer recordsDeleted = 0;
     private Integer recordsFailed  = 0;
@@ -85,7 +85,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
             if (!parentConditions.isEmpty()) {
                 parentQuery += ' WHERE ' + String.join(parentConditions, ' AND ');
             }
-            Set<Id> parentIds = new Map<Id, SObject>(Database.query(parentQuery)).keySet();
+            this.parentIds = new Map<Id, SObject>(Database.query(parentQuery)).keySet();
             List<String> childConditions = new List<String>{
                 parentLookupField + ' IN :parentIds'
             };
@@ -96,10 +96,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
             if (String.isNotBlank(additionalFilter)) {
                 childConditions.add(additionalFilter);
             }
-            String childQuery = 'SELECT Id FROM ' + objectApiName
-                + ' WHERE ' + String.join(childConditions, ' AND ');
-            this.relevantChildIds = new Map<Id, SObject>(Database.query(childQuery)).keySet();
-            innerFilter = ' WHERE Id IN :relevantChildIds';
+            innerFilter = ' WHERE ' + String.join(childConditions, ' AND ');
         } else {
             List<String> conditions = new List<String>();
             if (!selectedBrands.isEmpty() && hasBrandField(objectApiName)) {

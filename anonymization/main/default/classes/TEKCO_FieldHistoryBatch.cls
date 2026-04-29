@@ -18,7 +18,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     private Map<String, List<String>>                     parentFiltersByObject;
     private Map<String, String>                           additionalFiltersByObject;
 
-    private Set<Id>                                       relevantChildIds;
+    private Set<Id>                                       parentIds;
 
     private Integer recordsDeleted = 0;
     private Integer recordsFailed  = 0;
@@ -104,15 +104,14 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
             if (!parentConditions.isEmpty()) {
                 parentQuery += ' WHERE ' + String.join(parentConditions, ' AND ');
             }
-            Set<Id> parentIds = new Map<Id, SObject>(Database.query(parentQuery)).keySet();
-            String childQuery = 'SELECT Id FROM ' + objectApiName
-                + ' WHERE ' + parentLookupField + ' IN :parentIds';
+            this.parentIds = new Map<Id, SObject>(Database.query(parentQuery)).keySet();
+            List<String> childConditions = new List<String>{ parentLookupField + ' IN :parentIds' };
             if (String.isNotBlank(additionalFilter)) {
-                childQuery += ' AND ' + additionalFilter;
+                childConditions.add(additionalFilter);
             }
-            this.relevantChildIds = new Map<Id, SObject>(Database.query(childQuery)).keySet();
             soqlQuery = 'SELECT Id FROM ' + historyObjectName
-                + fieldPrefix + ' IN :relevantChildIds';
+                + fieldPrefix + ' IN (SELECT Id FROM ' + objectApiName
+                + ' WHERE ' + String.join(childConditions, ' AND ') + ')';
         } else {
             List<String> childConditions = new List<String>();
             if (!selectedBrands.isEmpty() && hasBrandField(objectApiName)) {
