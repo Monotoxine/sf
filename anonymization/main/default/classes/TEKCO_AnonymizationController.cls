@@ -214,7 +214,7 @@ public with sharing class TEKCO_AnonymizationController {
 
     /**
      * @description Returns record counts for multiple objects in a single transaction.
-     *              Replaces repeated getRecordCount calls from the LWC preview.
+     *              Each SObject requires its own COUNT query (no cross-object aggregate in SOQL).
      * @return Map of objectApiName → count (-1 if count failed for that object)
      */
     @AuraEnabled(cacheable=false)
@@ -225,29 +225,36 @@ public with sharing class TEKCO_AnonymizationController {
     ) {
         Map<String, Integer> result = new Map<String, Integer>();
         if (objectApiNames == null || objectApiNames.isEmpty()) return result;
+        List<String> sharedConditions = buildCountConditions(selectedBrands, selectedRecordType);
+        String whereClause = sharedConditions.isEmpty()
+            ? ''
+            : ' WHERE ' + String.join(sharedConditions, ' AND ');
         for (String objectApiName : objectApiNames) {
             try {
-                List<String> conditions = new List<String>();
-                if (selectedBrands != null && !selectedBrands.isEmpty()) {
-                    conditions.add('TEKCO_Brand__c IN :selectedBrands');
-                }
-                if (String.isNotBlank(selectedRecordType)) {
-                    conditions.add(
-                        'RecordType.DeveloperName = \''
-                        + String.escapeSingleQuotes(selectedRecordType) + '\''
-                    );
-                }
-                String soqlQuery = 'SELECT COUNT(Id) cnt FROM ' + objectApiName;
-                if (!conditions.isEmpty()) {
-                    soqlQuery += ' WHERE ' + String.join(conditions, ' AND ');
-                }
-                List<AggregateResult> rows = Database.query(soqlQuery);
-                result.put(objectApiName, Integer.valueOf(rows[0].get('cnt')));
+                result.put(objectApiName,
+                    Database.countQuery('SELECT COUNT() FROM ' + objectApiName + whereClause));
             } catch (Exception e) {
                 result.put(objectApiName, -1);
             }
         }
         return result;
+    }
+
+    private static List<String> buildCountConditions(
+        List<String> selectedBrands,
+        String selectedRecordType
+    ) {
+        List<String> conditions = new List<String>();
+        if (selectedBrands != null && !selectedBrands.isEmpty()) {
+            conditions.add('TEKCO_Brand__c IN :selectedBrands');
+        }
+        if (String.isNotBlank(selectedRecordType)) {
+            conditions.add(
+                'RecordType.DeveloperName = \''
+                + String.escapeSingleQuotes(selectedRecordType) + '\''
+            );
+        }
+        return conditions;
     }
 
     /**
@@ -262,23 +269,11 @@ public with sharing class TEKCO_AnonymizationController {
     ) {
         if (String.isBlank(objectApiName)) return 0;
         try {
-            List<String> conditions = new List<String>();
-            if (selectedBrands != null && !selectedBrands.isEmpty()) {
-                conditions.add('TEKCO_Brand__c IN :selectedBrands');
-            }
-            if (String.isNotBlank(selectedRecordType)) {
-                conditions.add(
-                    'RecordType.DeveloperName = \''
-                    + String.escapeSingleQuotes(selectedRecordType)
-                    + '\''
-                );
-            }
-            String soqlQuery = 'SELECT COUNT(Id) cnt FROM ' + objectApiName;
-            if (!conditions.isEmpty()) {
-                soqlQuery += ' WHERE ' + String.join(conditions, ' AND ');
-            }
-            List<AggregateResult> queryResults = Database.query(soqlQuery);
-            return Integer.valueOf(queryResults[0].get('cnt'));
+            List<String> conditions = buildCountConditions(selectedBrands, selectedRecordType);
+            String whereClause = conditions.isEmpty()
+                ? ''
+                : ' WHERE ' + String.join(conditions, ' AND ');
+            return Database.countQuery('SELECT COUNT() FROM ' + objectApiName + whereClause);
         } catch (Exception e) {
             return -1;
         }
