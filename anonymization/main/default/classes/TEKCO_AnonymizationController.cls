@@ -213,51 +213,6 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     /**
-     * @description Returns record counts for multiple objects in a single transaction.
-     *              Each SObject requires its own COUNT query (no cross-object aggregate in SOQL).
-     * @return Map of objectApiName → count (-1 if count failed for that object)
-     */
-    @AuraEnabled(cacheable=false)
-    public static Map<String, Integer> getRecordCounts(
-        List<String> objectApiNames,
-        List<String> selectedBrands,
-        String selectedRecordType
-    ) {
-        Map<String, Integer> result = new Map<String, Integer>();
-        if (objectApiNames == null || objectApiNames.isEmpty()) return result;
-        List<String> sharedConditions = buildCountConditions(selectedBrands, selectedRecordType);
-        String whereClause = sharedConditions.isEmpty()
-            ? ''
-            : ' WHERE ' + String.join(sharedConditions, ' AND ');
-        for (String objectApiName : objectApiNames) {
-            try {
-                result.put(objectApiName,
-                    Database.countQuery('SELECT COUNT() FROM ' + objectApiName + whereClause));
-            } catch (Exception e) {
-                result.put(objectApiName, -1);
-            }
-        }
-        return result;
-    }
-
-    private static List<String> buildCountConditions(
-        List<String> selectedBrands,
-        String selectedRecordType
-    ) {
-        List<String> conditions = new List<String>();
-        if (selectedBrands != null && !selectedBrands.isEmpty()) {
-            conditions.add('TEKCO_Brand__c IN :selectedBrands');
-        }
-        if (String.isNotBlank(selectedRecordType)) {
-            conditions.add(
-                'RecordType.DeveloperName = \''
-                + String.escapeSingleQuotes(selectedRecordType) + '\''
-            );
-        }
-        return conditions;
-    }
-
-    /**
      * @description Returns an approximate record count for a given object, brand, and record type filter
      * @return Record count, or -1 if the count could not be retrieved
      */
@@ -269,7 +224,16 @@ public with sharing class TEKCO_AnonymizationController {
     ) {
         if (String.isBlank(objectApiName)) return 0;
         try {
-            List<String> conditions = buildCountConditions(selectedBrands, selectedRecordType);
+            List<String> conditions = new List<String>();
+            if (selectedBrands != null && !selectedBrands.isEmpty()) {
+                conditions.add('TEKCO_Brand__c IN :selectedBrands');
+            }
+            if (String.isNotBlank(selectedRecordType)) {
+                conditions.add(
+                    'RecordType.DeveloperName = \''
+                    + String.escapeSingleQuotes(selectedRecordType) + '\''
+                );
+            }
             String whereClause = conditions.isEmpty()
                 ? ''
                 : ' WHERE ' + String.join(conditions, ' AND ');
