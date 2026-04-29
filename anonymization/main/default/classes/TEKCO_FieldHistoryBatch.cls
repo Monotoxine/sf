@@ -18,8 +18,6 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     private Map<String, List<String>>                     parentFiltersByObject;
     private Map<String, String>                           additionalFiltersByObject;
 
-    private Set<Id>                                       parentIds;
-
     private Integer recordsDeleted = 0;
     private Integer recordsFailed  = 0;
     private List<String> errors    = new List<String>();
@@ -100,12 +98,13 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
                     'RecordType.DeveloperName = \'' + String.escapeSingleQuotes(parentRecordTypeDvName) + '\''
                 );
             }
-            String parentQuery = 'SELECT Id FROM ' + parentObjectApiName;
+            String parentSubquery = 'SELECT Id FROM ' + parentObjectApiName;
             if (!parentConditions.isEmpty()) {
-                parentQuery += ' WHERE ' + String.join(parentConditions, ' AND ');
+                parentSubquery += ' WHERE ' + String.join(parentConditions, ' AND ');
             }
-            this.parentIds = new Map<Id, SObject>(Database.query(parentQuery)).keySet();
-            List<String> childConditions = new List<String>{ parentLookupField + ' IN :parentIds' };
+            List<String> childConditions = new List<String>{
+                parentLookupField + ' IN (' + parentSubquery + ')'
+            };
             if (String.isNotBlank(additionalFilter)) {
                 childConditions.add(additionalFilter);
             }
