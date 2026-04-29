@@ -139,10 +139,13 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 parentSubquery += ' WHERE ' + String.join(parentConditions, ' AND ');
             }
             topConditions.add(parentLookupField + ' IN (' + parentSubquery + ')');
-        } else if (!hasEmailMessageLorem && !selectedBrands.isEmpty() && hasBrandField(objectApiName)) {
-            // EmailMessage has no TEKCO_Brand__c — when EMAIL_MESSAGE_LOREM configs are present
-            // and no parent is configured, select all records without a brand filter.
-            topConditions.add('TEKCO_Brand__c IN :selectedBrands');
+        } else if (!selectedBrands.isEmpty()) {
+            if (hasEmailMessageLorem) {
+                // EmailMessage has no TEKCO_Brand__c; filter via Parent (usually Case)
+                topConditions.add('Parent.TEKCO_Brand__c IN :selectedBrands');
+            } else if (hasBrandField(objectApiName)) {
+                topConditions.add('TEKCO_Brand__c IN :selectedBrands');
+            }
         }
 
         if (String.isNotBlank(additionalFilter)) {
