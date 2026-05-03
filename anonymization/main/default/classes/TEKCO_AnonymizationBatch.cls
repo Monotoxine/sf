@@ -141,7 +141,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
             topConditions.add(parentLookupField + ' IN (' + parentSubquery + ')');
         } else if (!selectedBrands.isEmpty()) {
             if (hasEmailMessageLorem) {
-                // EmailMessage has no TEKCO_Brand__c; filter via Parent (usually Case)
+                // EmailMessage has no TEKCO_Brand__c; filter via Parent
                 topConditions.add('Parent.TEKCO_Brand__c IN :selectedBrands');
             } else if (hasBrandField(objectApiName)) {
                 topConditions.add('TEKCO_Brand__c IN :selectedBrands');
@@ -180,7 +180,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 // EMAIL_MESSAGE_LOREM: Draft → apply lorem, non-Draft → delete the record
                 if (patternType == PATTERN_TYPE_EMAIL_MESSAGE_LOREM) {
                     String emailStatus = (String) record.get('Status');
-                    if (emailStatus == 'Draft') {
+                    if (emailStatus == '5') {
                         String currentValue;
                         try {
                             currentValue = (String) record.get(fieldConfig.TEKCO_FieldApiName__c);

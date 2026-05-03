@@ -58,7 +58,7 @@ public class TEKCO_AnonymizationPatternService {
                 return applyNameFirstLetter(currentValue, record, pattern);
             }
             when 'NAME_FIRST_LETTER_SFID' {
-                return applyNameFirstLetterSfid(currentValue, record);
+                return applyNameFirstLetter(currentValue, record, pattern);
             }
             when 'PHONE_MASK' {
                 return applyPhoneMask(currentValue);
@@ -70,10 +70,10 @@ public class TEKCO_AnonymizationPatternService {
                 return applyEmailPlusExternalId(currentValue, record, pattern, true);
             }
             when 'EMAIL_PLUS_SFID' {
-                return applyEmailPlusSfid(currentValue, record, pattern, false);
+                return applyEmailPlusExternalId(currentValue, record, pattern, false);
             }
             when 'EMAIL_PLUS_SFID_SUBDOMAIN' {
-                return applyEmailPlusSfid(currentValue, record, pattern, true);
+                return applyEmailPlusExternalId(currentValue, record, pattern, true);
             }
             when 'SSN_SEQUENTIAL' {
                 return applySsnSequential(currentValue, pattern);
@@ -83,9 +83,6 @@ public class TEKCO_AnonymizationPatternService {
             }
             when 'ADDRESS_STREET_RANDOM' {
                 return applyAddressStreetRandom(currentValue);
-            }
-            when 'KEEP' {
-                return currentValue;
             }
             when 'DELETE_CONTENT_DOCUMENT' {
                 return null; // handled by TEKCO_ContentDocumentBatch
@@ -215,59 +212,6 @@ public class TEKCO_AnonymizationPatternService {
         Integer streetNumber = Integer.valueOf(numMatcher.group(1));
         Integer randomOffset = Integer.valueOf(Math.random() * ADDRESS_RANDOM_MAX) + 1;
         return currentValue.replaceFirst('\\d+', String.valueOf(streetNumber + randomOffset));
-    }
-
-    /**
-     * @description NAME_FIRST_LETTER_SFID: first letter + Salesforce record Id (no external ID field needed).
-     *              Example: "Jean" + "0035g00000XyZAA" → "J0035g00000XyZAA"
-     */
-    private static String applyNameFirstLetterSfid(String currentValue, SObject record) {
-        if (String.isBlank(currentValue)) return currentValue;
-        String firstLetter = currentValue.substring(0, 1).toUpperCase();
-        String sfId = getSalesforceId(record);
-        return firstLetter + (String.isBlank(sfId) ? PATTERN_ANON_FALLBACK : sfId);
-    }
-
-    /**
-     * @description EMAIL_PLUS_SFID / EMAIL_PLUS_SFID_SUBDOMAIN: same as the ExternalId variants
-     *              but uses the Salesforce record Id as the plus-alias instead of an external Id field.
-     *              Example: "sf_sap@airliquide.com" + "0035g00000XyZAA" → "sf_sap+0035g00000XyZAA@airliquide.com"
-     */
-    private static String applyEmailPlusSfid(
-        String currentValue,
-        SObject record,
-        TEKCO_AnonymizationPattern__mdt pattern,
-        Boolean appendSubdomain
-    ) {
-        String sfId = getSalesforceId(record);
-        if (String.isBlank(sfId)) sfId = PATTERN_ANON_FALLBACK;
-
-        String baseEmail = String.isNotBlank(pattern.TEKCO_BaseEmail__c)
-            ? pattern.TEKCO_BaseEmail__c
-            : currentValue;
-
-        if (String.isBlank(baseEmail)) return currentValue;
-
-        Integer atIndex = baseEmail.indexOf('@');
-        if (atIndex < 0) return currentValue;
-
-        String localPart = baseEmail.substring(0, atIndex);
-        String domain    = baseEmail.substring(atIndex);
-
-        if (appendSubdomain) {
-            return localPart + '+' + sfId + domain + '.' + parseOrgSuffix(orgSubdomain);
-        }
-        return localPart + '+' + sfId + domain;
-    }
-
-    private static String getSalesforceId(SObject record) {
-        if (record == null) return '';
-        try {
-            Object idValue = record.get('Id');
-            return idValue != null ? String.valueOf(idValue) : '';
-        } catch (Exception e) {
-            return '';
-        }
     }
 
     private static String getExternalId(SObject record, TEKCO_AnonymizationPattern__mdt pattern) {
