@@ -213,7 +213,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
             } else if (!legacyAttachmentConfigs.isEmpty()) {
                 TEKCO_AnonymizationFieldConfig__mdt firstLegacyConfig = legacyAttachmentConfigs.remove(0);
                 Database.executeBatch(
-                    new TEKCO_LegacyAttachmentBatch(
+                    new TEKCO_NoteAttachmentBatch(
                         firstLegacyConfig.TEKCO_ObjectApiName__c,
                         false,
                         selectedBrands,

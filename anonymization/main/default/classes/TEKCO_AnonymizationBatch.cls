@@ -340,7 +340,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
             } else if (!legacyAttachmentConfigs.isEmpty()) {
                 TEKCO_AnonymizationFieldConfig__mdt firstLegacyConfig = legacyAttachmentConfigs.remove(0);
                 Database.executeBatch(
-                    new TEKCO_LegacyAttachmentBatch(
+                    new TEKCO_NoteAttachmentBatch(
                         firstLegacyConfig.TEKCO_ObjectApiName__c,
                         false,
                         selectedBrands,

@@ -90,7 +90,7 @@ public class TEKCO_AnonymizationPatternService {
                 return '';
             }
             when 'DELETE_LEGACY_ATTACHMENT' {
-                return null; // handled by TEKCO_LegacyAttachmentBatch
+                return null; // handled by TEKCO_NoteAttachmentBatch
             }
             when 'DELETE_CONTENT_DOCUMENT' {
                 return null; // handled by TEKCO_ContentDocumentBatch

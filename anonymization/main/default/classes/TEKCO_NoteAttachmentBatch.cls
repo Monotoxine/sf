@@ -5,7 +5,7 @@
  *              Triggered by TEKCO_PatternType__c = 'DELETE_LEGACY_ATTACHMENT'.
  *              Processes Note records first, then Attachment records, per object.
  */
-public class TEKCO_LegacyAttachmentBatch implements Database.Batchable<SObject>, Database.Stateful {
+public class TEKCO_NoteAttachmentBatch implements Database.Batchable<SObject>, Database.Stateful {
 
     private static final Integer DEFAULT_BATCH_SIZE  = 1000;
     private static final Integer MAX_CAPTURED_ERRORS = 50;
@@ -23,7 +23,7 @@ public class TEKCO_LegacyAttachmentBatch implements Database.Batchable<SObject>,
     private Integer recordsFailed  = 0;
     private List<String> errors    = new List<String>();
 
-    public TEKCO_LegacyAttachmentBatch(
+    public TEKCO_NoteAttachmentBatch(
         String objectApiName,
         Boolean isAttachmentPhase,
         List<String> selectedBrands,
@@ -130,7 +130,7 @@ public class TEKCO_LegacyAttachmentBatch implements Database.Batchable<SObject>,
             if (!isAttachmentPhase) {
                 // Note pass done — run Attachment pass for the same object
                 Database.executeBatch(
-                    new TEKCO_LegacyAttachmentBatch(
+                    new TEKCO_NoteAttachmentBatch(
                         objectApiName,
                         true,
                         selectedBrands,
@@ -146,7 +146,7 @@ public class TEKCO_LegacyAttachmentBatch implements Database.Batchable<SObject>,
                 // Attachment pass done — move to Note pass for next object
                 TEKCO_AnonymizationFieldConfig__mdt nextConfig = remainingLegacyConfigs.remove(0);
                 Database.executeBatch(
-                    new TEKCO_LegacyAttachmentBatch(
+                    new TEKCO_NoteAttachmentBatch(
                         nextConfig.TEKCO_ObjectApiName__c,
                         false,
                         selectedBrands,
