@@ -117,8 +117,15 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
                 + ' WHERE ' + String.join(childConditions, ' AND ') + ')';
         } else {
             List<String> childConditions = new List<String>();
-            if (!selectedBrands.isEmpty() && hasBrandField(objectApiName)) {
-                childConditions.add('TEKCO_Brand__c IN :selectedBrands');
+            if (!selectedBrands.isEmpty()) {
+                if (hasBrandField(objectApiName)) {
+                    childConditions.add('TEKCO_Brand__c IN :selectedBrands');
+                } else if (hasCountryField(objectApiName)) {
+                    List<String> countryValues = getCountriesForBrands(selectedBrands);
+                    if (!countryValues.isEmpty()) {
+                        childConditions.add('TEKCO_Country__c IN :countryValues');
+                    }
+                }
             }
             if (String.isNotBlank(additionalFilter)) {
                 childConditions.add(additionalFilter);
@@ -207,6 +214,25 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
         return sot != null
             && sot.getDescribe().fields.getMap().containsKey('tekco_brand__c');
+    }
+
+    private static Boolean hasCountryField(String objectApiName) {
+        Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
+        return sot != null
+            && sot.getDescribe().fields.getMap().containsKey('tekco_country__c');
+    }
+
+    private static List<String> getCountriesForBrands(List<String> brands) {
+        List<String> countries = new List<String>();
+        for (TEKCO_CountryBrandSetting__mdt mapping : [
+            SELECT TEKCO_Country__c
+            FROM TEKCO_CountryBrandSetting__mdt
+            WHERE TEKCO_BrandCode__c IN :brands
+              AND TEKCO_Country__c != null
+        ]) {
+            countries.add(mapping.TEKCO_Country__c);
+        }
+        return countries;
     }
 
     /**

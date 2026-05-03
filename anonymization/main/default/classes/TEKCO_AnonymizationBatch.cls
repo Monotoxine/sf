@@ -149,6 +149,11 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 topConditions.add('Parent.TEKCO_Brand__c IN :selectedBrands');
             } else if (hasBrandField(objectApiName)) {
                 topConditions.add('TEKCO_Brand__c IN :selectedBrands');
+            } else if (hasCountryField(objectApiName)) {
+                List<String> countryValues = getCountriesForBrands(selectedBrands);
+                if (!countryValues.isEmpty()) {
+                    topConditions.add('TEKCO_Country__c IN :countryValues');
+                }
             }
         }
 
@@ -370,6 +375,25 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
         return sot != null
             && sot.getDescribe().fields.getMap().containsKey('tekco_brand__c');
+    }
+
+    private static Boolean hasCountryField(String objectApiName) {
+        Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
+        return sot != null
+            && sot.getDescribe().fields.getMap().containsKey('tekco_country__c');
+    }
+
+    private static List<String> getCountriesForBrands(List<String> brands) {
+        List<String> countries = new List<String>();
+        for (TEKCO_CountryBrandSetting__mdt mapping : [
+            SELECT TEKCO_Country__c
+            FROM TEKCO_CountryBrandSetting__mdt
+            WHERE TEKCO_BrandCode__c IN :brands
+              AND TEKCO_Country__c != null
+        ]) {
+            countries.add(mapping.TEKCO_Country__c);
+        }
+        return countries;
     }
 
     private static List<TEKCO_AnonymizationFieldConfig__mdt> loadFieldConfigs(
