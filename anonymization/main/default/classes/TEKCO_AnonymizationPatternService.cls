@@ -4,7 +4,7 @@
  *              Routes to the correct algorithm based on the pattern type.
  *
  * Pattern types:
- *   NAME_FIRST_LETTER               - First letter + ExternalId
+ *   NAME_FIRST_LETTER               - First letter + ExternalId → TEKCO_FunctionalId__c → Salesforce Id
  *   NAME_FIRST_LETTER_SFID          - First letter + Salesforce record Id
  *   PHONE_MASK                      - First 4 chars + zeros
  *   EMAIL_PLUS_EXTERNALID           - base+ExternalId@domain
@@ -97,7 +97,8 @@ public class TEKCO_AnonymizationPatternService {
     }
 
     /**
-     * @description NAME_FIRST_LETTER: first letter of value concatenated with the ExternalId value.
+     * @description NAME_FIRST_LETTER: first letter of value concatenated with a resolved identifier.
+     *              Fallback chain: ExternalId field → TEKCO_FunctionalId__c → Salesforce record Id.
      *              Example: "Jean" + "EXT001" → "JEXT001"
      */
     private static String applyNameFirstLetter(
@@ -107,8 +108,28 @@ public class TEKCO_AnonymizationPatternService {
     ) {
         if (String.isBlank(currentValue)) return currentValue;
         String firstLetter = currentValue.substring(0, 1).toUpperCase();
+        return firstLetter + resolveNameIdentifier(record, pattern);
+    }
+
+    /**
+     * @description Resolves the identifier to append for NAME_FIRST_LETTER.
+     *              1. TEKCO_ExternalIdField__c value (if configured and non-blank)
+     *              2. TEKCO_FunctionalId__c value on the record (if field exists and non-blank)
+     *              3. Salesforce record Id as last resort
+     */
+    private static String resolveNameIdentifier(SObject record, TEKCO_AnonymizationPattern__mdt pattern) {
         String externalId = getExternalId(record, pattern);
-        return firstLetter + (String.isBlank(externalId) ? PATTERN_ANON_FALLBACK : externalId);
+        if (String.isNotBlank(externalId)) return externalId;
+
+        try {
+            Object functionalId = record.get('TEKCO_FunctionalId__c');
+            if (functionalId != null && String.isNotBlank(String.valueOf(functionalId))) {
+                return String.valueOf(functionalId);
+            }
+        } catch (Exception e) {}
+
+        String sfId = getSalesforceId(record);
+        return String.isNotBlank(sfId) ? sfId : PATTERN_ANON_FALLBACK;
     }
 
     /**
