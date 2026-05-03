@@ -4,7 +4,7 @@
  */
 public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Database.Stateful {
 
-    private static final Integer DEFAULT_BATCH_SIZE    = 200;
+    private static final Integer DEFAULT_BATCH_SIZE    = 1000;
     private static final Integer MAX_CAPTURED_ERRORS   = 50;
     private static final String  PATTERN_TYPE_DELETE_CONTENT_DOCUMENT = 'DELETE_CONTENT_DOCUMENT';
     private static final String  PATTERN_TYPE_EMAIL_MESSAGE_LOREM     = 'EMAIL_MESSAGE_LOREM';

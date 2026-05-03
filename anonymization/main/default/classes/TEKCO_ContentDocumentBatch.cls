@@ -7,7 +7,7 @@
  */
 public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, Database.Stateful {
 
-    private static final Integer DEFAULT_BATCH_SIZE  = 200;
+    private static final Integer DEFAULT_BATCH_SIZE  = 1000;
     private static final Integer MAX_CAPTURED_ERRORS = 50;
 
     private String                                        objectApiName;
