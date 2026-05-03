@@ -248,4 +248,14 @@ public class TEKCO_AnonymizationPatternService {
             return '';
         }
     }
+
+    private static String getSalesforceId(SObject record) {
+        if (record == null) return '';
+        try {
+            Object idValue = record.get('Id');
+            return idValue != null ? String.valueOf(idValue) : '';
+        } catch (Exception e) {
+            return '';
+        }
+    }
 }
