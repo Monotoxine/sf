@@ -2,10 +2,11 @@
   "packageDirectories": [
     {
       "path": "force-app",
-      "default": true
+      "default": false
     },
     {
-      "path": "anonymization"
+      "path": "anonymization",
+      "default": true
     }
   ],
   "name": "MYcodex",
