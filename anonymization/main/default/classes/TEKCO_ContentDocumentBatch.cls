@@ -133,10 +133,9 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         }
         if (contentDocumentIds.isEmpty()) return;
 
-        // ServiceReport.ParentId points to the parent record (ServiceAppointment, WorkOrder…)
-        // which is the same as ContentDocumentLink.LinkedEntityId.
-        // Salesforce blocks ContentDocument deletion until referencing ServiceReports are removed.
         if (!linkedEntityIds.isEmpty()) {
+            // ServiceReport.ParentId = ContentDocumentLink.LinkedEntityId.
+            // Must be deleted before ContentDocument to avoid referential integrity error.
             try {
                 List<SObject> serviceReports = Database.query(
                     'SELECT Id FROM ServiceReport WHERE ParentId IN :linkedEntityIds'
@@ -147,6 +146,25 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
             } catch (Exception e) {
                 // ServiceReport not available in this org — skip
             }
+
+            // Legacy Notes and Attachments are linked via ParentId directly (not via ContentDocumentLink).
+            try {
+                List<SObject> notes = Database.query(
+                    'SELECT Id FROM Note WHERE ParentId IN :linkedEntityIds'
+                );
+                if (!notes.isEmpty()) {
+                    Database.delete(notes, false);
+                }
+            } catch (Exception e) {}
+
+            try {
+                List<SObject> attachments = Database.query(
+                    'SELECT Id FROM Attachment WHERE ParentId IN :linkedEntityIds'
+                );
+                if (!attachments.isEmpty()) {
+                    Database.delete(attachments, false);
+                }
+            } catch (Exception e) {}
         }
 
         List<ContentDocument> contentDocumentsToDelete = new List<ContentDocument>();
