@@ -112,7 +112,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
             }
         }
 
-        String soqlQuery = 'SELECT ContentDocumentId FROM ContentDocumentLink'
+        String soqlQuery = 'SELECT ContentDocumentId, LinkedEntityId FROM ContentDocumentLink'
             + ' WHERE LinkedEntityId IN (SELECT Id FROM ' + objectApiName + innerFilter + ')';
 
         return Database.getQueryLocator(soqlQuery);
@@ -124,23 +124,29 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
 
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
         Set<Id> contentDocumentIds = new Set<Id>();
+        Set<Id> linkedEntityIds    = new Set<Id>();
         for (SObject contentDocumentLink : scope) {
             Id contentDocumentId = (Id) contentDocumentLink.get('ContentDocumentId');
+            Id linkedEntityId    = (Id) contentDocumentLink.get('LinkedEntityId');
             if (contentDocumentId != null) contentDocumentIds.add(contentDocumentId);
+            if (linkedEntityId    != null) linkedEntityIds.add(linkedEntityId);
         }
         if (contentDocumentIds.isEmpty()) return;
 
-        // ServiceReport holds a ContentDocumentId FK — Salesforce blocks ContentDocument deletion
-        // until the referencing ServiceReport is removed first.
-        try {
-            List<SObject> serviceReports = Database.query(
-                'SELECT Id FROM ServiceReport WHERE ContentDocumentId IN :contentDocumentIds'
-            );
-            if (!serviceReports.isEmpty()) {
-                Database.delete(serviceReports, false);
+        // ServiceReport.ParentId points to the parent record (ServiceAppointment, WorkOrder…)
+        // which is the same as ContentDocumentLink.LinkedEntityId.
+        // Salesforce blocks ContentDocument deletion until referencing ServiceReports are removed.
+        if (!linkedEntityIds.isEmpty()) {
+            try {
+                List<SObject> serviceReports = Database.query(
+                    'SELECT Id FROM ServiceReport WHERE ParentId IN :linkedEntityIds'
+                );
+                if (!serviceReports.isEmpty()) {
+                    Database.delete(serviceReports, false);
+                }
+            } catch (Exception e) {
+                // ServiceReport not available in this org — skip
             }
-        } catch (Exception e) {
-            // ServiceReport not available in this org — skip
         }
 
         List<ContentDocument> contentDocumentsToDelete = new List<ContentDocument>();
