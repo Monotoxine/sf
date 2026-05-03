@@ -146,25 +146,6 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
             } catch (Exception e) {
                 // ServiceReport not available in this org — skip
             }
-
-            // Legacy Notes and Attachments are linked via ParentId directly (not via ContentDocumentLink).
-            try {
-                List<SObject> notes = Database.query(
-                    'SELECT Id FROM Note WHERE ParentId IN :linkedEntityIds'
-                );
-                if (!notes.isEmpty()) {
-                    Database.delete(notes, false);
-                }
-            } catch (Exception e) {}
-
-            try {
-                List<SObject> attachments = Database.query(
-                    'SELECT Id FROM Attachment WHERE ParentId IN :linkedEntityIds'
-                );
-                if (!attachments.isEmpty()) {
-                    Database.delete(attachments, false);
-                }
-            } catch (Exception e) {}
         }
 
         List<ContentDocument> contentDocumentsToDelete = new List<ContentDocument>();
