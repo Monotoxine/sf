@@ -130,6 +130,19 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         }
         if (contentDocumentIds.isEmpty()) return;
 
+        // ServiceReport holds a ContentDocumentId FK — Salesforce blocks ContentDocument deletion
+        // until the referencing ServiceReport is removed first.
+        try {
+            List<SObject> serviceReports = Database.query(
+                'SELECT Id FROM ServiceReport WHERE ContentDocumentId IN :contentDocumentIds'
+            );
+            if (!serviceReports.isEmpty()) {
+                Database.delete(serviceReports, false);
+            }
+        } catch (Exception e) {
+            // ServiceReport not available in this org — skip
+        }
+
         List<ContentDocument> contentDocumentsToDelete = new List<ContentDocument>();
         for (Id contentDocumentId : contentDocumentIds) {
             contentDocumentsToDelete.add(new ContentDocument(Id = contentDocumentId));
