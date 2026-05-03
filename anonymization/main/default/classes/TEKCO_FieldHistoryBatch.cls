@@ -14,6 +14,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     private List<String>                                  selectedBrands;
     private Id                                            auditLogId;
     private List<TEKCO_AnonymizationFieldConfig__mdt>     remainingHistoryConfigs;
+    private List<TEKCO_AnonymizationFieldConfig__mdt>     legacyAttachmentConfigs;
     private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
     private Map<String, List<String>>                     parentFiltersByObject;
     private Map<String, String>                           additionalFiltersByObject;
@@ -28,6 +29,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         List<String> selectedBrands,
         Id auditLogId,
         List<TEKCO_AnonymizationFieldConfig__mdt> remainingHistoryConfigs,
+        List<TEKCO_AnonymizationFieldConfig__mdt> legacyAttachmentConfigs,
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
         Map<String, List<String>> parentFiltersByObject,
         Map<String, String> additionalFiltersByObject
@@ -40,6 +42,8 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         this.auditLogId              = auditLogId;
         this.remainingHistoryConfigs = remainingHistoryConfigs != null
             ? remainingHistoryConfigs : new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        this.legacyAttachmentConfigs = legacyAttachmentConfigs != null
+            ? legacyAttachmentConfigs : new List<TEKCO_AnonymizationFieldConfig__mdt>();
         this.bypassSnapshot          = bypassSnapshot;
         this.parentFiltersByObject   = parentFiltersByObject != null
             ? parentFiltersByObject : new Map<String, List<String>>();
@@ -164,6 +168,22 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
                         selectedBrands,
                         auditLogId,
                         remainingHistoryConfigs,
+                        legacyAttachmentConfigs,
+                        bypassSnapshot,
+                        parentFiltersByObject,
+                        additionalFiltersByObject
+                    ),
+                    DEFAULT_BATCH_SIZE
+                );
+            } else if (!legacyAttachmentConfigs.isEmpty()) {
+                TEKCO_AnonymizationFieldConfig__mdt firstLegacyConfig = legacyAttachmentConfigs.remove(0);
+                Database.executeBatch(
+                    new TEKCO_NoteAttachmentBatch(
+                        firstLegacyConfig.TEKCO_ObjectApiName__c,
+                        false,
+                        selectedBrands,
+                        auditLogId,
+                        legacyAttachmentConfigs,
                         bypassSnapshot,
                         parentFiltersByObject,
                         additionalFiltersByObject
