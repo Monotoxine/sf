@@ -5,7 +5,6 @@
 public with sharing class TEKCO_AnonymizationController {
 
     private static final String PATTERN_TYPE_DELETE_CONTENT_DOCUMENT  = 'DELETE_CONTENT_DOCUMENT';
-    private static final String PATTERN_TYPE_DELETE_LEGACY_ATTACHMENT = 'DELETE_LEGACY_ATTACHMENT';
     private static final Integer DEFAULT_BATCH_SIZE = 200;
 
     /**
@@ -391,23 +390,12 @@ public with sharing class TEKCO_AnonymizationController {
         List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs =
             new List<TEKCO_AnonymizationFieldConfig__mdt>();
 
-        // Bucket 4: legacy Note and Attachment deletion — full CMT configs
-        List<TEKCO_AnonymizationFieldConfig__mdt> legacyAttachmentConfigs =
-            new List<TEKCO_AnonymizationFieldConfig__mdt>();
-
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : allFieldConfigs) {
             String fieldKey = fieldConfig.TEKCO_ObjectApiName__c + '.' + fieldConfig.TEKCO_FieldApiName__c;
 
             if (fieldConfig.TEKCO_PatternType__c == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
                 if (!excludedFieldKeys.contains(fieldKey)) {
                     contentDocConfigs.add(fieldConfig);
-                }
-                continue;
-            }
-
-            if (fieldConfig.TEKCO_PatternType__c == PATTERN_TYPE_DELETE_LEGACY_ATTACHMENT) {
-                if (!excludedFieldKeys.contains(fieldKey)) {
-                    legacyAttachmentConfigs.add(fieldConfig);
                 }
                 continue;
             }
@@ -492,7 +480,6 @@ public with sharing class TEKCO_AnonymizationController {
                     objectsToProcess,
                     contentDocConfigs,
                     historyConfigs,
-                    legacyAttachmentConfigs,
                     bypassSnapshot,
                     parentFiltersByObject,
                     additionalFiltersByObject
@@ -508,22 +495,6 @@ public with sharing class TEKCO_AnonymizationController {
                     auditLog.Id,
                     contentDocConfigs,
                     historyConfigs,
-                    legacyAttachmentConfigs,
-                    bypassSnapshot,
-                    parentFiltersByObject,
-                    additionalFiltersByObject
-                ),
-                DEFAULT_BATCH_SIZE
-            );
-        } else if (!legacyAttachmentConfigs.isEmpty()) {
-            TEKCO_AnonymizationFieldConfig__mdt firstLegacyConfig = legacyAttachmentConfigs.remove(0);
-            batchJobId = Database.executeBatch(
-                new TEKCO_NoteAttachmentBatch(
-                    firstLegacyConfig.TEKCO_ObjectApiName__c,
-                    false,
-                    selectedBrands,
-                    auditLog.Id,
-                    legacyAttachmentConfigs,
                     bypassSnapshot,
                     parentFiltersByObject,
                     additionalFiltersByObject

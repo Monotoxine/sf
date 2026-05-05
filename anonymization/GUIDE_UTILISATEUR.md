@@ -163,12 +163,11 @@ The **↺** button at the top right of the table allows manual refresh.
 
 ### Processing Sequence
 
-Anonymization runs in four successive automatic phases:
+Anonymization runs in three successive automatic phases:
 
 1. **Phase 1 — Field anonymization**: field values are updated according to configured patterns.
 2. **Phase 2 — File deletion**: ContentDocuments linked to processed records are deleted (if configured).
 3. **Phase 3 — History deletion**: field change history is purged for fields marked with Del. History.
-4. **Phase 4 — Legacy attachment deletion**: classic `Note` and `Attachment` records linked to processed records are deleted (if configured).
 
 Each phase starts automatically when the previous one completes.
 
@@ -198,7 +197,6 @@ A pattern defines **how** a field value will be transformed. Available patterns:
 | `LOREM_IPSUM` | Replaces text content with Lorem Ipsum. |
 | `CLEAR` | Empties the field (sets it to null if not already empty). |
 | `DELETE_CONTENT_DOCUMENT` | Deletes all files (ContentDocuments) linked to the record. Handled in Phase 2. |
-| `DELETE_LEGACY_ATTACHMENT` | Deletes all classic Notes and Attachments linked to the record. Handled in Phase 4. |
 | `KEEP` | No change — keeps the original value as-is. |
 
 #### Pattern configuration fields

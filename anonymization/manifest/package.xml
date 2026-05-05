@@ -9,12 +9,10 @@
         <members>TEKCO_AnonymizationSandboxGuard</members>
         <members>TEKCO_ContentDocumentBatch</members>
         <members>TEKCO_FieldHistoryBatch</members>
-        <members>TEKCO_NoteAttachmentBatch</members>
         <name>ApexClass</name>
     </types>
     <types>
         <members>TEKCO_AnonymizationFieldConfig__mdt.CXFCO_ApiLog_c</members>
-        <members>TEKCO_AnonymizationFieldConfig__mdt.CX_Facade_API_Log_NotesAttachments</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.Case_ContentDocument</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.Case_EmailMessage</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.Contact_Patient_Email</members>
@@ -89,7 +87,6 @@
         <members>TEKCO_AnonymizationPattern__mdt.ADDRESS_STREET_RANDOM</members>
         <members>TEKCO_AnonymizationPattern__mdt.CLEAR</members>
         <members>TEKCO_AnonymizationPattern__mdt.DELETE_CONTENT_DOCUMENT</members>
-        <members>TEKCO_AnonymizationPattern__mdt.DELETE_LEGACY_ATTACHMENT</members>
         <members>TEKCO_AnonymizationPattern__mdt.EMAIL_MESSAGE_LOREM</members>
         <members>TEKCO_AnonymizationPattern__mdt.EMAIL_PLUS_EXTERNALID</members>
         <members>TEKCO_AnonymizationPattern__mdt.EMAIL_PLUS_EXTERNALID_SUBDOMAIN</members>

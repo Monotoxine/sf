@@ -1,5 +1,5 @@
 /**
- * @author 
+ * @author
  * @description Chain order: TEKCO_AnonymizationBatch → TEKCO_ContentDocumentBatch → TEKCO_FieldHistoryBatch
  */
 public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Database.Stateful {
@@ -17,7 +17,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     private List<String>                                  remainingObjects;
     private List<TEKCO_AnonymizationFieldConfig__mdt>     contentDocConfigs;
     private List<TEKCO_AnonymizationFieldConfig__mdt>     historyConfigs;
-    private List<TEKCO_AnonymizationFieldConfig__mdt>     legacyAttachmentConfigs;
     private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
 
     private Map<String, List<String>>                     parentFiltersByObject;
@@ -39,7 +38,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         List<String> remainingObjects,
         List<TEKCO_AnonymizationFieldConfig__mdt> contentDocConfigs,
         List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs,
-        List<TEKCO_AnonymizationFieldConfig__mdt> legacyAttachmentConfigs,
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
         Map<String, List<String>> parentFiltersByObject,
         Map<String, String> additionalFiltersByObject
@@ -53,8 +51,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         this.contentDocConfigs = contentDocConfigs != null ? contentDocConfigs
             : new List<TEKCO_AnonymizationFieldConfig__mdt>();
         this.historyConfigs    = historyConfigs    != null ? historyConfigs
-            : new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        this.legacyAttachmentConfigs = legacyAttachmentConfigs != null ? legacyAttachmentConfigs
             : new List<TEKCO_AnonymizationFieldConfig__mdt>();
         this.bypassSnapshot       = bypassSnapshot;
         this.parentFiltersByObject = parentFiltersByObject != null
@@ -301,7 +297,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         remainingObjects,
                         contentDocConfigs,
                         historyConfigs,
-                        legacyAttachmentConfigs,
                         bypassSnapshot,
                         parentFiltersByObject,
                         additionalFiltersByObject
@@ -317,7 +312,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         auditLogId,
                         contentDocConfigs,
                         historyConfigs,
-                        legacyAttachmentConfigs,
                         bypassSnapshot,
                         parentFiltersByObject,
                         additionalFiltersByObject
@@ -335,22 +329,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         selectedBrands,
                         auditLogId,
                         historyConfigs,
-                        legacyAttachmentConfigs,
-                        bypassSnapshot,
-                        parentFiltersByObject,
-                        additionalFiltersByObject
-                    ),
-                    DEFAULT_BATCH_SIZE
-                );
-            } else if (!legacyAttachmentConfigs.isEmpty()) {
-                TEKCO_AnonymizationFieldConfig__mdt firstLegacyConfig = legacyAttachmentConfigs.remove(0);
-                Database.executeBatch(
-                    new TEKCO_NoteAttachmentBatch(
-                        firstLegacyConfig.TEKCO_ObjectApiName__c,
-                        false,
-                        selectedBrands,
-                        auditLogId,
-                        legacyAttachmentConfigs,
                         bypassSnapshot,
                         parentFiltersByObject,
                         additionalFiltersByObject
