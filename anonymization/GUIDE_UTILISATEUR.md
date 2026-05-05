@@ -1,233 +1,278 @@
-# Guide utilisateur — Anonymisation des données
+# Data Anonymization — User Guide
 
-## Table des matières
+## Table of Contents
 
-1. [Accéder à l'interface](#1-accéder-à-linterface)
-2. [Comprendre les filtres disponibles](#2-comprendre-les-filtres-disponibles)
-3. [Prévisualiser le périmètre](#3-prévisualiser-le-périmètre)
-4. [Vérifier les champs à traiter](#4-vérifier-les-champs-à-traiter)
-5. [Lancer l'anonymisation](#5-lancer-lanonymisation)
-6. [Suivre l'exécution](#6-suivre-lexécution)
-7. [Paramétrer les règles d'anonymisation](#7-paramétrer-les-règles-danonymisation)
-
----
-
-## 1. Accéder à l'interface
-
-L'outil est accessible depuis l'onglet **TEKCO Data Anonymization** dans la barre de navigation Salesforce.
-
-> **Prérequis** : vous devez disposer de la permission personnalisée **TEKCO Anonymize Data**. Si vous voyez un bandeau d'erreur rouge en haut de la page, contactez votre administrateur Salesforce pour obtenir cette permission.
+1. [Business Need](#1-business-need)
+2. [Solution Overview](#2-solution-overview)
+3. [Accessing the Interface](#3-accessing-the-interface)
+4. [Understanding the Filters](#4-understanding-the-filters)
+5. [Previewing the Scope](#5-previewing-the-scope)
+6. [Reviewing the Fields to Process](#6-reviewing-the-fields-to-process)
+7. [Launching Anonymization](#7-launching-anonymization)
+8. [Monitoring Execution](#8-monitoring-execution)
+9. [Configuring Anonymization Rules](#9-configuring-anonymization-rules)
 
 ---
 
-## 2. Comprendre les filtres disponibles
+## 1. Business Need
 
-L'interface propose trois filtres qui permettent de cibler précisément le périmètre de l'anonymisation.
+Organizations that use Salesforce to store personal data — such as patient records, customer contact details, social security numbers, or medical history — are subject to strict data protection regulations (GDPR and equivalent frameworks). These regulations require that personal data held in non-production environments (sandboxes, UAT, training orgs) be anonymized before the environment is made available to users who do not have a legitimate need to access real data.
 
-### Marques (Brands)
+Without a dedicated tool, anonymizing data in Salesforce is a manual, error-prone process that is difficult to audit, hard to repeat consistently across refreshes, and impossible to target by brand or population segment.
 
-Permet de restreindre le traitement aux enregistrements appartenant à certaines marques.
+The specific challenges addressed by this tool are:
 
-- Déplacez une ou plusieurs marques de la colonne **Available** vers la colonne **Selected**.
-- Le bouton **Select All** sélectionne toutes les marques en une seule action.
-- Si aucune marque n'est sélectionnée, **tous les enregistrements** de l'organisation sont inclus, sans restriction de marque.
+- **Volume**: production orgs can contain hundreds of thousands of personal records across multiple objects. Manual anonymization is not feasible at scale.
+- **Repeatability**: every sandbox refresh restores production data. Anonymization must be repeatable and reliable each time.
+- **Traceability**: data protection officers need evidence that anonymization was performed, by whom, and on what scope.
+- **Flexibility**: different teams or brands may need to anonymize different populations. A one-size-fits-all approach creates either over-anonymization (data no longer useful for testing) or under-anonymization (residual risk).
+- **Completeness**: personal data is not limited to standard fields. It may exist in field history, attached files, legacy notes, and custom fields — all of which must be covered.
 
-> Les marques disponibles correspondent aux valeurs de la picklist `TEKCO_Brand__c` présente sur les objets configurés. Pour les objets qui ne disposent pas de ce champ mais d'un champ pays (`TEKCO_Country__c`), le système déduit automatiquement les pays associés aux marques sélectionnées.
+---
 
-### Objets (Objects)
+## 2. Solution Overview
 
-Permet de choisir quels objets Salesforce seront traités.
+The anonymization tool is a fully configurable, metadata-driven solution built natively on Salesforce. It replaces or destroys personal data across multiple objects in a single, controlled operation, without requiring any code changes to add or modify anonymization rules.
 
-- La liste affiche uniquement les objets pour lesquels des règles d'anonymisation ont été définies.
-- Si aucun objet n'est sélectionné, **tous les objets configurés** sont traités.
-- La sélection d'un objet rafraîchit automatiquement la liste des Record Types disponibles.
+**How it works:**
+
+The solution is built on two layers:
+
+- **A configuration layer** — two Custom Metadata types define which fields on which objects should be anonymized, using which algorithm. Administrators configure rules directly in Salesforce Setup with no deployment required.
+- **An execution layer** — a Salesforce batch engine processes records in bulk, applying the configured rules, then automatically chaining four successive cleanup phases: field anonymization, file deletion, field history purge, and legacy attachment deletion.
+
+**Key capabilities:**
+
+| Capability | Description |
+|---|---|
+| Brand-level targeting | Anonymize only records belonging to selected brands, leaving other brands untouched. |
+| Record Type filtering | Apply different anonymization rules per Record Type within the same object. |
+| Per-run field exclusion | Temporarily exclude specific fields from a single run without modifying the configuration. |
+| Scope preview | Count impacted records before launching, to validate the scope. |
+| Full audit trail | Every execution is logged with its scope, status, record count, and triggering user. |
+| No-code configuration | Adding or updating a rule requires only editing a Custom Metadata record in Setup — no Apex deployment. |
+| Chained cleanup | Files, field history, and legacy attachments are automatically cleaned up after field anonymization, in sequence. |
+
+---
+
+## 3. Accessing the Interface
+
+The tool is accessible from the **TEKCO Data Anonymization** tab in the Salesforce navigation bar.
+
+> **Prerequisite**: you must hold the **TEKCO Anonymize Data** custom permission. If you see a red error banner at the top of the page, contact your Salesforce administrator to be granted this permission.
+
+---
+
+## 4. Understanding the Filters
+
+The interface provides three filters to precisely target the scope of an anonymization run.
+
+### Brands
+
+Restricts processing to records belonging to specific brands.
+
+- Move one or more brands from the **Available** column to the **Selected** column.
+- The **Select All** button selects all available brands in one click.
+- If no brand is selected, **all records** in the organization are included with no brand restriction.
+
+> Brands correspond to the values of the `TEKCO_Brand__c` picklist field on configured objects. For objects that do not have this field but have a country field (`TEKCO_Country__c`), the system automatically derives the relevant country values from the selected brands.
+
+### Objects
+
+Selects which Salesforce objects will be processed.
+
+- The list only shows objects for which anonymization rules have been defined.
+- If no object is selected, **all configured objects** are processed.
+- Selecting an object automatically refreshes the available Record Types list.
 
 ### Record Types
 
-Ce filtre apparaît uniquement si les objets sélectionnés possèdent des configurations spécifiques à certains Record Types.
+This filter only appears when the selected objects have configurations specific to certain Record Types.
 
-- Laissez ce filtre vide pour traiter **tous les Record Types** de l'objet.
-- Sélectionnez un ou plusieurs Record Types pour restreindre le traitement à ces populations uniquement.
-
----
-
-## 3. Prévisualiser le périmètre
-
-Avant de lancer l'anonymisation, il est fortement recommandé d'utiliser le bouton **Preview Scope**.
-
-Cette action effectue deux choses simultanément :
-
-1. **Compte les enregistrements** qui seront impactés pour chaque objet sélectionné, en appliquant les filtres de marque et de Record Type choisis.
-2. **Charge la liste des champs** qui seront anonymisés, pour vous permettre de les réviser.
-
-Le résultat s'affiche sous la forme d'un tableau récapitulatif indiquant, par objet, le nombre d'enregistrements concernés.
-
-> Les objets dont la seule action est la suppression de fichiers joints (ContentDocument) sont distingués visuellement par un badge foncé.
+- Leave this filter empty to process **all Record Types** of the object.
+- Select one or more Record Types to restrict processing to those populations only.
 
 ---
 
-## 4. Vérifier les champs à traiter
+## 5. Previewing the Scope
 
-Après la prévisualisation, le tableau **Fields to Anonymize** liste tous les champs qui seront modifiés, regroupés par objet.
+Before launching, it is strongly recommended to click the **Preview Scope** button.
 
-| Colonne | Description |
+This action does two things simultaneously:
+
+1. **Counts the records** that will be impacted for each selected object, applying the brand and Record Type filters.
+2. **Loads the list of fields** that will be anonymized, so you can review them before confirming.
+
+Results appear as a summary table showing, per object, the number of records in scope.
+
+> Objects whose only configured action is file deletion (ContentDocument) are visually distinguished with a dark badge.
+
+---
+
+## 6. Reviewing the Fields to Process
+
+After previewing, the **Fields to Anonymize** table lists all fields that will be modified, grouped by object.
+
+| Column | Description |
 |---|---|
-| **Run** | Case à cocher — décochez un champ pour l'**exclure de cette exécution uniquement** (la règle n'est pas supprimée). |
-| **Field** | Nom API du champ Salesforce qui sera modifié. |
-| **Pattern** | Algorithme d'anonymisation appliqué (voir section 7 pour le détail des patterns). |
-| **Record Type** | Record Type ciblé par cette règle. Vide = toutes les populations. |
-| **Del. History** | Si coché, l'historique des modifications de ce champ sera supprimé après anonymisation. Vous pouvez décocher cette case pour conserver l'historique sur cette exécution. |
-| **Description** | Description fonctionnelle du pattern appliqué. |
+| **Run** | Checkbox — uncheck a field to **exclude it from this run only** (the rule itself is not deleted). |
+| **Field** | API name of the Salesforce field that will be modified. |
+| **Pattern** | Anonymization algorithm applied (see section 9 for the full pattern reference). |
+| **Record Type** | Record Type targeted by this rule. Empty = all populations. |
+| **Del. History** | If checked, the field change history will be deleted after anonymization. You can uncheck this to keep history for this run only. |
+| **Description** | Functional description of the applied pattern. |
 
 ---
 
-## 5. Lancer l'anonymisation
+## 7. Launching Anonymization
 
-Une fois le périmètre vérifié, cliquez sur le bouton rouge **Launch Anonymization**.
+Once the scope has been reviewed, click the red **Launch Anonymization** button.
 
-Une fenêtre de confirmation s'ouvre et récapitule :
+A confirmation dialog opens and summarizes:
 
-- Les **marques** sélectionnées (ou « TOUTES » si aucune sélection)
-- Les **objets** qui seront traités
-- Les **Record Types** concernés
-- Les **champs exclus** de cette exécution (cases décochées à l'étape précédente)
-- Les **champs dont l'historique ne sera pas supprimé** sur cette exécution
+- The **brands** selected (or "ALL" if none selected)
+- The **objects** that will be processed
+- The **Record Types** in scope
+- Any **excluded fields** for this run (rows unchecked at the previous step)
+- Any **fields whose history will not be deleted** for this run
 
-> ⚠️ **Cette opération est irréversible.** Les données seront écrasées définitivement et ne pourront pas être restaurées depuis cet outil.
+> **WARNING: this operation is irreversible.** Data will be permanently overwritten and cannot be restored from this tool.
 
-Cliquez sur **Confirmer le lancement** pour démarrer le traitement, ou **Annuler** pour revenir à l'interface sans rien modifier.
+Click **Confirm Launch** to start processing, or **Cancel** to return to the interface without making any changes.
 
 ---
 
-## 6. Suivre l'exécution
+## 8. Monitoring Execution
 
-Le traitement s'exécute en arrière-plan via des batchs Salesforce. L'interface se met à jour automatiquement toutes les 5 secondes tant qu'une exécution est en cours.
+Processing runs in the background via Salesforce batch jobs. The interface refreshes automatically every 5 seconds as long as a run is in progress.
 
-Le tableau **Recent Runs** affiche l'historique des exécutions avec les informations suivantes :
+The **Recent Runs** table shows execution history with the following information:
 
-| Colonne | Description |
+| Column | Description |
 |---|---|
-| **Log #** | Identifiant unique de l'exécution dans le journal d'audit. |
-| **Object(s)** | Objets traités lors de cette exécution. |
-| **Brands** | Filtre de marque appliqué. |
-| **Status** | État de l'exécution : `Running`, `Success`, `Partial`, `Failed`. |
-| **Processed** | Nombre total d'enregistrements traités. |
-| **Failed** | Nombre d'enregistrements en erreur. |
-| **By** | Utilisateur ayant déclenché l'anonymisation. |
-| **Started** | Date et heure de démarrage. |
+| **Log #** | Unique identifier of the execution in the audit log. |
+| **Object(s)** | Objects processed during this run. |
+| **Brands** | Brand filter applied. |
+| **Status** | Execution status: `Running`, `Success`, `Partial`, `Failed`. |
+| **Processed** | Total number of records processed. |
+| **Failed** | Number of records that encountered an error. |
+| **By** | User who triggered the anonymization. |
+| **Started** | Start date and time. |
 
-Le bouton **↺** en haut à droite du tableau permet de rafraîchir manuellement la liste.
+The **↺** button at the top right of the table allows manual refresh.
 
-### Séquence de traitement
+### Processing Sequence
 
-L'anonymisation se déroule en quatre phases successives et automatiques :
+Anonymization runs in four successive automatic phases:
 
-1. **Phase 1 — Anonymisation des champs** : mise à jour des valeurs selon les patterns configurés.
-2. **Phase 2 — Suppression des fichiers** : suppression des ContentDocuments liés aux enregistrements (si configuré).
-3. **Phase 3 — Suppression de l'historique** : purge de l'historique des champs marqués `Del. History`.
-4. **Phase 4 — Suppression des Notes & Pièces jointes legacy** : suppression des enregistrements `Note` et `Attachment` classiques liés (si configuré).
+1. **Phase 1 — Field anonymization**: field values are updated according to configured patterns.
+2. **Phase 2 — File deletion**: ContentDocuments linked to processed records are deleted (if configured).
+3. **Phase 3 — History deletion**: field change history is purged for fields marked with Del. History.
+4. **Phase 4 — Legacy attachment deletion**: classic `Note` and `Attachment` records linked to processed records are deleted (if configured).
 
----
-
-## 7. Paramétrer les règles d'anonymisation
-
-Le comportement de l'outil est entièrement piloté par deux types de Custom Metadata accessibles depuis **Setup → Custom Metadata Types**.
+Each phase starts automatically when the previous one completes.
 
 ---
 
-### 7.1 Les patterns disponibles — `TEKCO_AnonymizationPattern__mdt`
+## 9. Configuring Anonymization Rules
 
-Un pattern définit **comment** un champ sera transformé. Les patterns disponibles sont :
-
-| Nom (Developer Name) | Comportement |
-|---|---|
-| `NAME_FIRST_LETTER` | Conserve uniquement la première lettre de la valeur, suivie de l'identifiant externe, du champ `TEKCO_FunctionalId__c`, ou de l'Id Salesforce en dernier recours. Ex : `Jean Dupont` → `J0035g00000XyZAA` |
-| `NAME_FIRST_LETTER_SFID` | Conserve la première lettre suivie de l'Id Salesforce (forcé, sans fallback). Ex : `Jean` → `J0035g00000XyZAA` |
-| `EMAIL_PLUS_EXTERNALID` | Génère un email avec alias `+` contenant l'identifiant externe. Ex : `sf_sap+EXT001@airliquide.com` |
-| `EMAIL_PLUS_EXTERNALID_SUBDOMAIN` | Idem avec ajout du sous-domaine de l'org sandbox. Ex : `sf_sap+EXT001@airliquide.com.fr.mmedlej` |
-| `EMAIL_PLUS_SFID` | Génère un email avec alias `+` contenant l'Id Salesforce. Ex : `sf_sap+0035g00000XyZAA@airliquide.com` |
-| `EMAIL_PLUS_SFID_SUBDOMAIN` | Idem avec ajout du sous-domaine de l'org sandbox. |
-| `PHONE_MASK` | Masque le numéro de téléphone en conservant le format mais en remplaçant les chiffres. |
-| `SSN_SEQUENTIAL` | Remplace le numéro de sécurité sociale par un numéro séquentiel unique. |
-| `ADDRESS_STREET_RANDOM` | Remplace l'adresse postale par une adresse générée aléatoirement. |
-| `LOREM_IPSUM` | Remplace le contenu texte par du Lorem Ipsum. |
-| `CLEAR` | Vide le champ (le met à null si non vide). |
-| `DELETE_CONTENT_DOCUMENT` | Supprime tous les fichiers (ContentDocument) liés à l'enregistrement. Traité en Phase 2. |
-| `DELETE_LEGACY_ATTACHMENT` | Supprime toutes les Notes et Pièces jointes classiques liées à l'enregistrement. Traité en Phase 4. |
-| `KEEP` | Aucune modification — conserve la valeur d'origine telle quelle. |
-
-#### Champs de configuration d'un pattern
-
-| Champ | Description |
-|---|---|
-| `TEKCO_Description__c` | Description fonctionnelle affichée dans l'interface. |
-| `TEKCO_IsActive__c` | Activé / désactivé. Un pattern inactif ne peut pas être utilisé. |
-| `TEKCO_BaseEmail__c` | Adresse email de base pour les patterns `EMAIL_PLUS_*`. Ex : `sf_sap@airliquide.com` |
-| `TEKCO_ExternalIdField__c` | Nom API du champ utilisé comme identifiant externe pour les patterns `EMAIL_PLUS_EXTERNALID` et `NAME_FIRST_LETTER`. |
-| `TEKCO_SsnLength__c` | Longueur du numéro séquentiel généré pour le pattern `SSN_SEQUENTIAL`. |
+The tool's behavior is entirely driven by two Custom Metadata types, accessible from **Setup → Custom Metadata Types**.
 
 ---
 
-### 7.2 Les règles de champs — `TEKCO_AnonymizationFieldConfig__mdt`
+### 9.1 Available Patterns — `TEKCO_AnonymizationPattern__mdt`
 
-Une règle de champ définit **quel champ** d'**quel objet** sera anonymisé avec **quel pattern**.
+A pattern defines **how** a field value will be transformed. Available patterns:
 
-#### Champs obligatoires
-
-| Champ | Description |
+| Developer Name | Behavior |
 |---|---|
-| `TEKCO_ObjectApiName__c` | Nom API de l'objet Salesforce cible. Ex : `Account`, `Contact`, `Case` |
-| `TEKCO_FieldApiName__c` | Nom API du champ à anonymiser. Ex : `FirstName`, `PersonEmail`, `ACCCO_Email__c` |
-| `TEKCO_PatternType__c` | Developer Name du pattern à appliquer. Doit correspondre à un enregistrement actif de `TEKCO_AnonymizationPattern__mdt`. |
-| `TEKCO_IsActive__c` | Doit être coché pour que la règle soit prise en compte. |
+| `NAME_FIRST_LETTER` | Keeps only the first letter of the value, followed by the external ID, then `TEKCO_FunctionalId__c`, then the Salesforce Id as a last resort. e.g. `Jean Dupont` → `J0035g00000XyZAA` |
+| `NAME_FIRST_LETTER_SFID` | Keeps the first letter followed by the Salesforce Id (forced — no fallback). e.g. `Jean` → `J0035g00000XyZAA` |
+| `EMAIL_PLUS_EXTERNALID` | Generates an email with a `+` alias containing the external ID. e.g. `sf_sap+EXT001@airliquide.com` |
+| `EMAIL_PLUS_EXTERNALID_SUBDOMAIN` | Same as above with the sandbox org subdomain appended. e.g. `sf_sap+EXT001@airliquide.com.fr.mmedlej` |
+| `EMAIL_PLUS_SFID` | Generates an email with a `+` alias containing the Salesforce Id. e.g. `sf_sap+0035g00000XyZAA@airliquide.com` |
+| `EMAIL_PLUS_SFID_SUBDOMAIN` | Same as above with the sandbox org subdomain appended. |
+| `PHONE_MASK` | Masks the phone number while preserving its format. |
+| `SSN_SEQUENTIAL` | Replaces the social security number with a unique sequential number. |
+| `ADDRESS_STREET_RANDOM` | Replaces the street address with a randomly generated one. |
+| `LOREM_IPSUM` | Replaces text content with Lorem Ipsum. |
+| `CLEAR` | Empties the field (sets it to null if not already empty). |
+| `DELETE_CONTENT_DOCUMENT` | Deletes all files (ContentDocuments) linked to the record. Handled in Phase 2. |
+| `DELETE_LEGACY_ATTACHMENT` | Deletes all classic Notes and Attachments linked to the record. Handled in Phase 4. |
+| `KEEP` | No change — keeps the original value as-is. |
 
-#### Champs de filtrage
+#### Pattern configuration fields
 
-| Champ | Description |
+| Field | Description |
 |---|---|
-| `TEKCO_RecordTypeDeveloperName__c` | Restreint la règle aux enregistrements d'un Record Type spécifique. Laisser vide pour s'appliquer à tous les Record Types. |
-| `TEKCO_AdditionalFilter__c` | Condition SOQL additionnelle ajoutée à la clause WHERE de la requête. Ex : `ACCCO_RelatedAccount__r.RecordType.DeveloperName = 'ACCCO_Patient'` |
-
-#### Champs pour objets enfants
-
-À utiliser lorsque le champ à anonymiser se trouve sur un objet enfant et que le filtrage doit se faire via un objet parent.
-
-| Champ | Description |
-|---|---|
-| `TEKCO_ParentObjectApiName__c` | Nom API de l'objet parent. Ex : `Account` |
-| `TEKCO_ParentLookupFieldApiName__c` | Nom API du champ de lookup sur l'objet enfant pointant vers le parent. |
-| `TEKCO_ParentRecordTypeDeveloperName__c` | Record Type de l'objet parent utilisé comme filtre. |
-
-#### Comportement sur l'historique
-
-| Champ | Description |
-|---|---|
-| `TEKCO_DeleteHistory__c` | Si coché, l'historique des modifications de ce champ (`FieldHistory`) sera supprimé après anonymisation. Par défaut décoché pour les champs sans enjeu de traçabilité. |
+| `TEKCO_Description__c` | Functional description displayed in the interface. |
+| `TEKCO_IsActive__c` | Enabled / disabled. An inactive pattern cannot be used in a field rule. |
+| `TEKCO_BaseEmail__c` | Base email address for `EMAIL_PLUS_*` patterns. e.g. `sf_sap@airliquide.com` |
+| `TEKCO_ExternalIdField__c` | API name of the field used as an external identifier for `EMAIL_PLUS_EXTERNALID` and `NAME_FIRST_LETTER` patterns. |
+| `TEKCO_SsnLength__c` | Length of the sequential number generated by the `SSN_SEQUENTIAL` pattern. |
 
 ---
 
-### 7.3 Ajouter une nouvelle règle — procédure pas à pas
+### 9.2 Field Rules — `TEKCO_AnonymizationFieldConfig__mdt`
 
-1. Aller dans **Setup → Custom Metadata Types → TEKCO Anonymization Field Config → Manage Records**.
-2. Cliquer sur **New**.
-3. Renseigner un **Label** explicite (ex : `Patient PersonEmail`) et un **Developer Name** unique (ex : `Patient_PersonEmail`).
-4. Renseigner les champs obligatoires : objet, champ, pattern, et cocher `TEKCO_IsActive__c`.
-5. Optionnel : renseigner le Record Type si la règle ne s'applique qu'à une population.
-6. Optionnel : cocher `TEKCO_DeleteHistory__c` si l'historique de ce champ doit être purgé.
-7. Sauvegarder.
+A field rule defines **which field** on **which object** will be anonymized using **which pattern**.
 
-La règle est immédiatement prise en compte lors du prochain lancement.
+#### Required fields
 
-> **Aucun déploiement de code n'est nécessaire** pour ajouter ou modifier une règle d'anonymisation. Les Custom Metadata sont modifiables directement en production.
+| Field | Description |
+|---|---|
+| `TEKCO_ObjectApiName__c` | API name of the target Salesforce object. e.g. `Account`, `Contact`, `Case` |
+| `TEKCO_FieldApiName__c` | API name of the field to anonymize. e.g. `FirstName`, `PersonEmail`, `ACCCO_Email__c` |
+| `TEKCO_PatternType__c` | Developer Name of the pattern to apply. Must match an active `TEKCO_AnonymizationPattern__mdt` record. |
+| `TEKCO_IsActive__c` | Must be checked for the rule to be picked up. |
+
+#### Filtering fields
+
+| Field | Description |
+|---|---|
+| `TEKCO_RecordTypeDeveloperName__c` | Restricts the rule to records of a specific Record Type. Leave empty to apply to all Record Types. |
+| `TEKCO_AdditionalFilter__c` | Additional SOQL condition appended to the WHERE clause of the query. e.g. `ACCCO_RelatedAccount__r.RecordType.DeveloperName = 'ACCCO_Patient'` |
+
+#### Child object fields
+
+Use these when the field to anonymize is on a child object and filtering must go through a parent object.
+
+| Field | Description |
+|---|---|
+| `TEKCO_ParentObjectApiName__c` | API name of the parent object. e.g. `Account` |
+| `TEKCO_ParentLookupFieldApiName__c` | API name of the lookup field on the child object pointing to the parent. |
+| `TEKCO_ParentRecordTypeDeveloperName__c` | Record Type of the parent object used as a filter. |
+
+#### History behavior
+
+| Field | Description |
+|---|---|
+| `TEKCO_DeleteHistory__c` | If checked, the field change history (`FieldHistory`) will be deleted after anonymization. Leave unchecked for fields where audit trail is not a concern. |
 
 ---
 
-### 7.4 Désactiver temporairement une règle
+### 9.3 Adding a New Rule — Step by Step
 
-Pour suspendre une règle sans la supprimer, décochez simplement le champ `TEKCO_IsActive__c` sur l'enregistrement concerné. La règle n'apparaîtra plus dans l'interface et ne sera pas traitée.
+1. Go to **Setup → Custom Metadata Types → TEKCO Anonymization Field Config → Manage Records**.
+2. Click **New**.
+3. Enter a meaningful **Label** (e.g. `Patient PersonEmail`) and a unique **Developer Name** (e.g. `Patient_PersonEmail`).
+4. Fill in the required fields: object, field, pattern, and check `TEKCO_IsActive__c`.
+5. Optional: fill in the Record Type if the rule applies to one population only.
+6. Optional: check `TEKCO_DeleteHistory__c` if the field history should be purged.
+7. Save.
+
+The rule is immediately taken into account on the next run.
+
+> **No code deployment is required** to add or modify an anonymization rule. Custom Metadata records can be edited directly in production.
 
 ---
 
-### 7.5 Ordre de traitement des objets
+### 9.4 Temporarily Disabling a Rule
 
-Les objets sont traités dans l'ordre dans lequel ils sont retournés par les règles actives. Au sein d'un même objet, tous les champs configurés sont traités en une seule passe batch (un même enregistrement est mis à jour en une seule opération DML).
+To suspend a rule without deleting it, simply uncheck `TEKCO_IsActive__c` on the record. The rule will no longer appear in the interface and will not be processed.
+
+---
+
+### 9.5 Processing Order
+
+Objects are processed in the order returned by the active rules. Within a single object, all configured fields are processed in a single batch pass — one record is updated in a single DML operation regardless of how many fields are configured for it.
