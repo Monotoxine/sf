@@ -63,6 +63,7 @@ public class TEKCO_NoteAttachmentBatch implements Database.Batchable<SObject>, D
             String parentLookupField      = (parentFilter != null && parentFilter.size() > 1) ? parentFilter.get(1) : null;
             String parentRecordTypeDvName = (parentFilter != null && parentFilter.size() > 2) ? parentFilter.get(2) : null;
             String additionalFilter       = additionalFiltersByObject.get(objectApiName);
+            List<String> countryValues    = new List<String>();
 
             String innerFilter;
             if (String.isNotBlank(parentObjectApiName)) {
@@ -92,7 +93,7 @@ public class TEKCO_NoteAttachmentBatch implements Database.Batchable<SObject>, D
                     if (hasBrandField(objectApiName)) {
                         conditions.add('TEKCO_Brand__c IN :selectedBrands');
                     } else if (hasCountryField(objectApiName)) {
-                        List<String> countryValues = getCountriesForBrands(selectedBrands);
+                        countryValues = getCountriesForBrands(selectedBrands);
                         if (!countryValues.isEmpty()) {
                             conditions.add('TEKCO_Country__c IN :countryValues');
                         }
