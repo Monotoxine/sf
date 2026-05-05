@@ -10,7 +10,8 @@
 6. [Reviewing the Fields to Process](#6-reviewing-the-fields-to-process)
 7. [Launching Anonymization](#7-launching-anonymization)
 8. [Monitoring Execution](#8-monitoring-execution)
-9. [Configuring Anonymization Rules](#9-configuring-anonymization-rules)
+9. [Prerequisites — Enabling Field History Deletion](#9-prerequisites--enabling-field-history-deletion)
+10. [Configuring Anonymization Rules](#10-configuring-anonymization-rules)
 
 ---
 
@@ -173,7 +174,30 @@ Each phase starts automatically when the previous one completes.
 
 ---
 
-## 9. Configuring Anonymization Rules
+## 9. Prerequisites — Enabling Field History Deletion
+
+Phase 3 (field history deletion) requires a Salesforce user permission that is **not enabled by default**. Without it, history records will silently not be deleted even if the **Del. History** checkbox is checked.
+
+### Required one-time setup
+
+**Step 1 — Enable the permission at org level**
+
+1. Go to **Setup → User Interface**.
+2. Check **Enable "Delete Field History" User Permission**.
+3. Save.
+
+**Step 2 — Grant the permission to the anonymization permission set**
+
+1. Go to **Setup → Permission Sets → TEKCO Anonymization Admin**.
+2. Click **System Permissions**.
+3. Find **Delete Field History** and enable it.
+4. Save.
+
+> This setup must be performed once per org (or after each sandbox refresh). Without it, Phase 3 will be skipped silently.
+
+---
+
+## 10. Configuring Anonymization Rules
 
 The tool's behavior is entirely driven by two Custom Metadata types, accessible from **Setup → Custom Metadata Types**.
 
