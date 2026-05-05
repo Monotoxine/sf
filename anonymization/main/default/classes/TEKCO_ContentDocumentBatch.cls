@@ -76,7 +76,14 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         if (String.isNotBlank(parentObjectApiName)) {
             List<String> parentConditions = new List<String>();
             if (!selectedBrands.isEmpty()) {
-                parentConditions.add('TEKCO_Brand__c IN :selectedBrands');
+                if (hasBrandField(parentObjectApiName)) {
+                    parentConditions.add('TEKCO_Brand__c IN :selectedBrands');
+                } else if (hasCountryField(parentObjectApiName)) {
+                    List<String> countryValues = getCountriesForBrands(selectedBrands);
+                    if (!countryValues.isEmpty()) {
+                        parentConditions.add('TEKCO_Country__c IN :countryValues');
+                    }
+                }
             }
             if (String.isNotBlank(parentRecordTypeDvName)) {
                 parentConditions.add(
