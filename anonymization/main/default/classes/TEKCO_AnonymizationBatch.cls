@@ -112,6 +112,10 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                     && objectFieldMap.containsKey(pattern.TEKCO_ExternalIdField__c.toLowerCase())) {
                 fieldApiNames.add(pattern.TEKCO_ExternalIdField__c);
             }
+            if ((patternType == 'NAME_FIRST_LETTER' || patternType == 'NAME_FIRST_LETTER_SFID')
+                    && objectFieldMap.containsKey('tekco_functionalid__c')) {
+                fieldApiNames.add('TEKCO_FunctionalId__c');
+            }
             if (String.isNotBlank(fieldConfig.TEKCO_RecordTypeDeveloperName__c)) {
                 needsRecordTypeId = true;
             }
