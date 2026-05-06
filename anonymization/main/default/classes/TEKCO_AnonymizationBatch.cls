@@ -85,22 +85,38 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
             fieldApiNames.add('Status');
         }
 
+        Map<String, Schema.SObjectField> objectFieldMap =
+            Schema.getGlobalDescribe().get(objectApiName).getDescribe().fields.getMap();
+        List<TEKCO_AnonymizationFieldConfig__mdt> validFieldConfigs =
+            new List<TEKCO_AnonymizationFieldConfig__mdt>();
+
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : fieldConfigs) {
             String patternType = fieldConfig.TEKCO_PatternType__c;
             if (patternType == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
+                validFieldConfigs.add(fieldConfig);
                 continue;
             }
 
-            fieldApiNames.add(fieldConfig.TEKCO_FieldApiName__c);
+            String fieldApiName = fieldConfig.TEKCO_FieldApiName__c;
+            if (String.isNotBlank(fieldApiName)
+                    && !objectFieldMap.containsKey(fieldApiName.toLowerCase())) {
+                errors.add('Field not found on ' + objectApiName + ', skipped: ' + fieldApiName);
+                continue;
+            }
+
+            validFieldConfigs.add(fieldConfig);
+            fieldApiNames.add(fieldApiName);
 
             TEKCO_AnonymizationPattern__mdt pattern = patternsByType.get(patternType);
-            if (pattern != null && String.isNotBlank(pattern.TEKCO_ExternalIdField__c)) {
+            if (pattern != null && String.isNotBlank(pattern.TEKCO_ExternalIdField__c)
+                    && objectFieldMap.containsKey(pattern.TEKCO_ExternalIdField__c.toLowerCase())) {
                 fieldApiNames.add(pattern.TEKCO_ExternalIdField__c);
             }
             if (String.isNotBlank(fieldConfig.TEKCO_RecordTypeDeveloperName__c)) {
                 needsRecordTypeId = true;
             }
         }
+        fieldConfigs = validFieldConfigs;
 
         if (needsRecordTypeId) {
             fieldApiNames.add('RecordTypeId');
