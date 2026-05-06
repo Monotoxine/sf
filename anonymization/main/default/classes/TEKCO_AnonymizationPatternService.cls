@@ -164,6 +164,7 @@ public class TEKCO_AnonymizationPatternService {
         Boolean appendSubdomain
     ) {
         String externalId = getExternalId(record, pattern);
+        if (String.isBlank(externalId)) externalId = getSalesforceId(record);
         if (String.isBlank(externalId)) externalId = PATTERN_ANON_FALLBACK;
 
         String baseEmail = String.isNotBlank(pattern.TEKCO_BaseEmail__c)
