@@ -27,6 +27,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     private Integer recordsProcessed = 0;
     private Integer recordsFailed    = 0;
     private List<String> errors      = new List<String>();
+    private List<String> accumulatedErrors = new List<String>();
 
 
     public TEKCO_AnonymizationBatch(
@@ -39,6 +40,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         List<TEKCO_AnonymizationFieldConfig__mdt> contentDocConfigs,
         List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs,
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
+        List<String> accumulatedErrors,
         Map<String, List<String>> parentFiltersByObject,
         Map<String, String> additionalFiltersByObject
     ) {
@@ -53,6 +55,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         this.historyConfigs    = historyConfigs    != null ? historyConfigs
             : new List<TEKCO_AnonymizationFieldConfig__mdt>();
         this.bypassSnapshot       = bypassSnapshot;
+        this.accumulatedErrors    = accumulatedErrors != null ? accumulatedErrors : new List<String>();
         this.parentFiltersByObject = parentFiltersByObject != null
             ? parentFiltersByObject : new Map<String, List<String>>();
         this.additionalFiltersByObject = additionalFiltersByObject != null
@@ -302,6 +305,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     }
 
     public void finish(Database.BatchableContext bc) {
+        accumulatedErrors.addAll(errors);
         try {
             if (!remainingObjects.isEmpty()) {
                 String nextObjectApiName = remainingObjects.remove(0);
@@ -318,6 +322,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         contentDocConfigs,
                         historyConfigs,
                         bypassSnapshot,
+                        accumulatedErrors,
                         parentFiltersByObject,
                         additionalFiltersByObject
                     ),
@@ -333,6 +338,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         contentDocConfigs,
                         historyConfigs,
                         bypassSnapshot,
+                        accumulatedErrors,
                         parentFiltersByObject,
                         additionalFiltersByObject
                     ),
@@ -350,6 +356,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         auditLogId,
                         historyConfigs,
                         bypassSnapshot,
+                        accumulatedErrors,
                         parentFiltersByObject,
                         additionalFiltersByObject
                     ),
@@ -357,15 +364,15 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 );
             } else {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-                TEKCO_AnonymizationAuditService.finalize(auditLogId, recordsProcessed, recordsFailed, errors);
+                TEKCO_AnonymizationAuditService.finalize(auditLogId, recordsProcessed, recordsFailed, accumulatedErrors);
                 return;
             }
-            TEKCO_AnonymizationAuditService.markRunning(auditLogId, recordsProcessed, recordsFailed, errors);
+            TEKCO_AnonymizationAuditService.markRunning(auditLogId, recordsProcessed, recordsFailed, accumulatedErrors);
         } catch (Exception e) {
             try {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
             } catch (Exception restoreEx) {  }
-            TEKCO_AnonymizationAuditService.closeFailed(auditLogId, recordsProcessed, recordsFailed, errors, e.getMessage());
+            TEKCO_AnonymizationAuditService.closeFailed(auditLogId, recordsProcessed, recordsFailed, accumulatedErrors, e.getMessage());
         }
     }
 

@@ -21,6 +21,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     private Integer recordsDeleted = 0;
     private Integer recordsFailed  = 0;
     private List<String> errors    = new List<String>();
+    private List<String> accumulatedErrors = new List<String>();
 
     public TEKCO_FieldHistoryBatch(
         String objectApiName,
@@ -29,6 +30,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         Id auditLogId,
         List<TEKCO_AnonymizationFieldConfig__mdt> remainingHistoryConfigs,
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
+        List<String> accumulatedErrors,
         Map<String, List<String>> parentFiltersByObject,
         Map<String, String> additionalFiltersByObject
     ) {
@@ -41,6 +43,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         this.remainingHistoryConfigs = remainingHistoryConfigs != null
             ? remainingHistoryConfigs : new List<TEKCO_AnonymizationFieldConfig__mdt>();
         this.bypassSnapshot          = bypassSnapshot;
+        this.accumulatedErrors       = accumulatedErrors != null ? accumulatedErrors : new List<String>();
         this.parentFiltersByObject   = parentFiltersByObject != null
             ? parentFiltersByObject : new Map<String, List<String>>();
         this.additionalFiltersByObject = additionalFiltersByObject != null
@@ -159,6 +162,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     }
 
     public void finish(Database.BatchableContext bc) {
+        accumulatedErrors.addAll(errors);
         try {
             if (!remainingHistoryConfigs.isEmpty()) {
                 String nextObjectApiName = remainingHistoryConfigs[0].TEKCO_ObjectApiName__c;
@@ -172,6 +176,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
                         auditLogId,
                         remainingHistoryConfigs,
                         bypassSnapshot,
+                        accumulatedErrors,
                         parentFiltersByObject,
                         additionalFiltersByObject
                     ),
@@ -179,13 +184,13 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
                 );
             } else {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-                TEKCO_AnonymizationAuditService.finalize(auditLogId, recordsFailed, errors);
+                TEKCO_AnonymizationAuditService.finalize(auditLogId, recordsFailed, accumulatedErrors);
             }
         } catch (Exception e) {
             try {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
             } catch (Exception restoreEx) { }
-            TEKCO_AnonymizationAuditService.closeFailed(auditLogId, recordsFailed, errors, e.getMessage());
+            TEKCO_AnonymizationAuditService.closeFailed(auditLogId, recordsFailed, accumulatedErrors, e.getMessage());
         }
     }
 
