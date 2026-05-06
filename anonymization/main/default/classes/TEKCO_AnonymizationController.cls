@@ -221,7 +221,7 @@ public with sharing class TEKCO_AnonymizationController {
 
         // Countries resolved once to avoid N SOQL calls inside the loop
         List<String> countryValues = (selectedBrands != null && !selectedBrands.isEmpty())
-            ? getCountriesForBrands(selectedBrands)
+            ? TEKCO_AnonymizationPatternService.getCountriesForBrands(selectedBrands)
             : new List<String>();
 
         List<TEKCO_AnonymizationFieldConfig__mdt> allConfigs = [
@@ -314,18 +314,6 @@ public with sharing class TEKCO_AnonymizationController {
         return results;
     }
 
-    private static List<String> getCountriesForBrands(List<String> brands) {
-        List<String> countries = new List<String>();
-        for (TEKCO_CountryBrandSetting__mdt mapping : [
-            SELECT TEKCO_Country__c
-            FROM TEKCO_CountryBrandSetting__mdt
-            WHERE TEKCO_BrandCode__c IN :brands
-              AND TEKCO_Country__c != null
-        ]) {
-            countries.add(mapping.TEKCO_Country__c);
-        }
-        return countries;
-    }
 
     /**
      * @description Returns the last 20 audit log records ordered by start time descending

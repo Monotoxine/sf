@@ -263,4 +263,18 @@ public class TEKCO_AnonymizationPatternService {
         Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
         return sot != null && sot.getDescribe().fields.getMap().containsKey(fieldApiName.toLowerCase());
     }
+
+    public static List<String> getCountriesForBrands(List<String> brands) {
+        List<String> countries = new List<String>();
+        if (brands == null || brands.isEmpty()) return countries;
+        for (TEKCO_CountryBrandSetting__mdt mapping : [
+            SELECT TEKCO_Country__c
+            FROM TEKCO_CountryBrandSetting__mdt
+            WHERE TEKCO_Brand__c IN :brands
+              AND TEKCO_Country__c != null
+        ]) {
+            countries.add(mapping.TEKCO_Country__c);
+        }
+        return countries;
+    }
 }
