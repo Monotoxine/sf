@@ -128,7 +128,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
         this.previewNote = hasFilter
             ? null
-            : 'Aucun objet sélectionné — tous les objets configurés sont inclus.';
+            : 'No object selected — all configured objects will be included.';
 
         const selectedRecordType = this.selectedRecordTypes.length === 1
             ? this.selectedRecordTypes[0]
@@ -147,7 +147,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
                 countLabel: count === -1
                     ? 'Could not count'
                     : isContentDocOnly
-                        ? `${count} enreg. (ContentDocumentLinks à supprimer)`
+                        ? `${count} record(s) (ContentDocumentLinks to delete)`
                         : `${count} record(s)`
             }));
             this.isLoadingPreview = false;
@@ -247,33 +247,33 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         this.confirmSummaryLines = [
             {
                 key:   'brands',
-                label: 'Marques',
+                label: 'Brands',
                 value: this.selectedBrands.length
-                    ? this.selectedBrands.join(', ') : 'TOUTES'
+                    ? this.selectedBrands.join(', ') : 'ALL'
             },
             {
                 key:   'objects',
-                label: 'Objets',
+                label: 'Objects',
                 value: this.selectedObjects.length
-                    ? this.selectedObjects.join(', ') : 'Tous les objets configurés'
+                    ? this.selectedObjects.join(', ') : 'All configured objects'
             },
             {
                 key:   'recordTypes',
                 label: 'Record Types',
                 value: this.selectedRecordTypes.length
-                    ? this.selectedRecordTypes.join(', ') : 'Tous'
+                    ? this.selectedRecordTypes.join(', ') : 'All'
             },
             {
                 key:   'excluded',
-                label: 'Champs exclus',
+                label: 'Excluded Fields',
                 value: this._pendingExcludedFields.length
-                    ? this._pendingExcludedFields.join(', ') : 'aucun'
+                    ? this._pendingExcludedFields.join(', ') : 'none'
             },
             {
                 key:   'history',
-                label: 'Historique désactivé',
+                label: 'History Disabled',
                 value: this._pendingDisabledHistoryFields.length
-                    ? this._pendingDisabledHistoryFields.join(', ') : 'aucun'
+                    ? this._pendingDisabledHistoryFields.join(', ') : 'none'
             }
         ];
 
@@ -298,15 +298,33 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         })
         .then(auditLogId => {
             this.isRunning = false;
-            this.showToast('Anonymisation lancée', `Journal d\'audit : ${auditLogId}`, 'success');
+            this.showToast('Anonymization Started', `Audit log: ${auditLogId}`, 'success');
             this.startAuditPoll();
         })
         .catch(err => {
             this.isRunning    = false;
             const errorMessage = err?.body?.message ?? err?.message ?? 'Unknown error';
             this.errorMessage = errorMessage;
-            this.showToast('Erreur', errorMessage, 'error');
+            this.showToast('Error', errorMessage, 'error');
         });
+    }
+
+    handleSelectAllRun() {
+        this.fieldConfigs = this.fieldConfigs.map(cfg => ({ ...cfg, enabled: true }));
+    }
+
+    handleDeselectAllRun() {
+        this.fieldConfigs = this.fieldConfigs.map(cfg => ({ ...cfg, enabled: false }));
+    }
+
+    handleSelectAllHistory() {
+        this.fieldConfigs = this.fieldConfigs.map(cfg =>
+            cfg.originalDeleteHistory ? { ...cfg, deleteHistory: true } : cfg
+        );
+    }
+
+    handleDeselectAllHistory() {
+        this.fieldConfigs = this.fieldConfigs.map(cfg => ({ ...cfg, deleteHistory: false }));
     }
 
     handleRefreshLogs() {

@@ -145,12 +145,28 @@
 
             <template if:true={hasFieldConfigs}>
                 <div class="slds-m-bottom_medium">
-                    <h3 class="slds-text-heading_small slds-m-bottom_small">
-                        Fields to Anonymize
-                        <span class="slds-text-body_small slds-text-color_weak slds-m-left_x-small">
-                            (uncheck to bypass a field for this run)
-                        </span>
-                    </h3>
+                    <div class="slds-grid slds-grid_align-spread slds-m-bottom_small">
+                        <h3 class="slds-text-heading_small">
+                            Fields to Anonymize
+                            <span class="slds-text-body_small slds-text-color_weak slds-m-left_x-small">
+                                (uncheck to bypass a field for this run)
+                            </span>
+                        </h3>
+                        <div class="slds-text-body_small">
+                            <span class="slds-m-right_medium">
+                                Run:
+                                <lightning-button label="Select All" variant="base" onclick={handleSelectAllRun}></lightning-button>
+                                /
+                                <lightning-button label="Deselect All" variant="base" onclick={handleDeselectAllRun}></lightning-button>
+                            </span>
+                            <span>
+                                Del. History:
+                                <lightning-button label="Select All" variant="base" onclick={handleSelectAllHistory}></lightning-button>
+                                /
+                                <lightning-button label="Deselect All" variant="base" onclick={handleDeselectAllHistory}></lightning-button>
+                            </span>
+                        </div>
+                    </div>
                     <template for:each={fieldConfigsByObject} for:item="group">
                         <div key={group.objectApiName} class="slds-m-bottom_small">
                             <p class="slds-text-title_caps slds-m-bottom_xx-small">{group.objectApiName}</p>
@@ -302,13 +318,13 @@
                         class="slds-m-right_x-small">
                     </lightning-icon>
                     <h2 id="confirm-modal-heading" class="slds-text-heading_medium">
-                        Confirmer l'anonymisation
+                        Confirm Anonymization
                     </h2>
                 </header>
 
                 <div class="slds-modal__content slds-p-around_medium">
                     <p class="slds-text-color_error slds-m-bottom_medium">
-                        <strong>ATTENTION : cette opération est IRRÉVERSIBLE. Les données seront écrasées définitivement.</strong>
+                        <strong>WARNING: this operation is IRREVERSIBLE. Data will be permanently overwritten.</strong>
                     </p>
                     <table class="slds-table slds-table_cell-buffer slds-table_bordered">
                         <tbody>
@@ -324,12 +340,12 @@
 
                 <footer class="slds-modal__footer">
                     <lightning-button
-                        label="Annuler"
+                        label="Cancel"
                         variant="neutral"
                         onclick={handleCancelLaunch}>
                     </lightning-button>
                     <lightning-button
-                        label="Confirmer le lancement"
+                        label="Confirm Launch"
                         variant="destructive"
                         class="slds-m-left_x-small"
                         onclick={handleConfirmLaunch}>
