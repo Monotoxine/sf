@@ -80,9 +80,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
     loadFieldConfigs() {
         this.isLoading = true;
-        const objectApiName = this.selectedObjects.length === 1 ? this.selectedObjects[0] : null;
-        const selectedRecordTypes = this.selectedRecordTypes.length > 0 ? this.selectedRecordTypes : null;
-        getFieldConfigs({ objectApiName, selectedRecordTypes })
+        getFieldConfigs({ selectedObjects: this.selectedObjects.length > 0 ? this.selectedObjects : null })
             .then(configs => {
                 // Enrich each config with a unique key and enabled=true by default
                 this.fieldConfigs = configs.map(cfg => ({

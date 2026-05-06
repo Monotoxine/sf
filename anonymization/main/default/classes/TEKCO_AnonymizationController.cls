@@ -130,16 +130,15 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     /**
-     * @description Returns field configs for a given object (or all objects if blank) filtered by Record Type  with pattern description
+     * @description Returns all active field configs for the given objects (or all configured
+     *              objects when selectedObjects is empty). Record type and brand are not used
+     *              as filters here — the RT column is informational only.
      * @return List of FieldConfigDTO with pattern description
      */
     @AuraEnabled(cacheable=true)
-    public static List<FieldConfigDTO> getFieldConfigs(
-        String objectApiName,
-        List<String> selectedRecordTypes
-    ) {
+    public static List<FieldConfigDTO> getFieldConfigs(List<String> selectedObjects) {
         List<TEKCO_AnonymizationFieldConfig__mdt> fieldConfigRecords;
-        if (String.isBlank(objectApiName)) {
+        if (selectedObjects == null || selectedObjects.isEmpty()) {
             fieldConfigRecords = [
                 SELECT
                     TEKCO_ObjectApiName__c,
@@ -171,26 +170,16 @@ public with sharing class TEKCO_AnonymizationController {
                     TEKCO_AdditionalFilter__c
                 FROM TEKCO_AnonymizationFieldConfig__mdt
                 WHERE TEKCO_IsActive__c = true
-                    AND TEKCO_ObjectApiName__c = :objectApiName
-                ORDER BY TEKCO_FieldApiName__c
+                  AND TEKCO_ObjectApiName__c IN :selectedObjects
+                ORDER BY TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c
             ];
         }
-
-        Set<String> rtFilter = (selectedRecordTypes != null && !selectedRecordTypes.isEmpty())
-            ? new Set<String>(selectedRecordTypes)
-            : null;
 
         Map<String, TEKCO_AnonymizationPattern__mdt> patternsByType = buildPatternMap();
         List<FieldConfigDTO> fieldConfigDtos = new List<FieldConfigDTO>();
 
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : fieldConfigRecords) {
-            if (rtFilter != null
-                    && String.isNotBlank(fieldConfig.TEKCO_RecordTypeDeveloperName__c)
-                    && !rtFilter.contains(fieldConfig.TEKCO_RecordTypeDeveloperName__c)) {
-                continue;
-            }
-
-            FieldConfigDTO fieldConfigDto          = new FieldConfigDTO();
+            FieldConfigDTO fieldConfigDto                 = new FieldConfigDTO();
             fieldConfigDto.objectApiName                  = fieldConfig.TEKCO_ObjectApiName__c;
             fieldConfigDto.fieldApiName                   = fieldConfig.TEKCO_FieldApiName__c;
             fieldConfigDto.patternType                    = fieldConfig.TEKCO_PatternType__c;
