@@ -257,4 +257,10 @@ public class TEKCO_AnonymizationPatternService {
             return '';
         }
     }
+
+    public static Boolean hasField(String objectApiName, String fieldApiName) {
+        if (String.isBlank(objectApiName) || String.isBlank(fieldApiName)) return false;
+        Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
+        return sot != null && sot.getDescribe().fields.getMap().containsKey(fieldApiName.toLowerCase());
+    }
 }

@@ -100,9 +100,9 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         } else {
             List<String> conditions = new List<String>();
             if (!selectedBrands.isEmpty()) {
-                if (hasBrandField(objectApiName)) {
+                if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_brand__c')) {
                     conditions.add('TEKCO_Brand__c IN :selectedBrands');
-                } else if (hasCountryField(objectApiName)) {
+                } else if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_country__c')) {
                     List<String> countryValues = getCountriesForBrands(selectedBrands);
                     if (!countryValues.isEmpty()) {
                         conditions.add('TEKCO_Country__c IN :countryValues');
@@ -229,18 +229,6 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         }
     }
 
-
-    private static Boolean hasBrandField(String objectApiName) {
-        Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
-        return sot != null
-            && sot.getDescribe().fields.getMap().containsKey('tekco_brand__c');
-    }
-
-    private static Boolean hasCountryField(String objectApiName) {
-        Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
-        return sot != null
-            && sot.getDescribe().fields.getMap().containsKey('tekco_country__c');
-    }
 
     private static List<String> getCountriesForBrands(List<String> brands) {
         List<String> countries = new List<String>();

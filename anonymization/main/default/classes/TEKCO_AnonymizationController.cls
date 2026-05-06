@@ -260,18 +260,14 @@ public with sharing class TEKCO_AnonymizationController {
         }
 
         // Pre-compute Schema field checks for all objects at once — avoids repeated
-        // getGlobalDescribe() calls inside the count loop (Schema describe is expensive).
+        // Schema describe calls inside the count loop.
         Map<String, Boolean> hasBrand      = new Map<String, Boolean>();
         Map<String, Boolean> hasCountry    = new Map<String, Boolean>();
         Map<String, Boolean> hasRecordType = new Map<String, Boolean>();
         for (String obj : objectsToCount) {
-            Schema.SObjectType sot = Schema.getGlobalDescribe().get(obj);
-            Map<String, Schema.SObjectField> fields = sot != null
-                ? sot.getDescribe().fields.getMap()
-                : new Map<String, Schema.SObjectField>();
-            hasBrand.put(obj,      fields.containsKey('tekco_brand__c'));
-            hasCountry.put(obj,    fields.containsKey('tekco_country__c'));
-            hasRecordType.put(obj, fields.containsKey('recordtypeid'));
+            hasBrand.put(obj,      TEKCO_AnonymizationPatternService.hasField(obj, 'tekco_brand__c'));
+            hasCountry.put(obj,    TEKCO_AnonymizationPatternService.hasField(obj, 'tekco_country__c'));
+            hasRecordType.put(obj, TEKCO_AnonymizationPatternService.hasField(obj, 'recordtypeid'));
         }
 
         // Guard: each object consumes one COUNT query — abort early if the budget is too tight.
@@ -316,24 +312,6 @@ public with sharing class TEKCO_AnonymizationController {
             results.add(dto);
         }
         return results;
-    }
-
-    private static Boolean hasBrandField(String objectApiName) {
-        Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
-        return sot != null
-            && sot.getDescribe().fields.getMap().containsKey('tekco_brand__c');
-    }
-
-    private static Boolean hasCountryField(String objectApiName) {
-        Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
-        return sot != null
-            && sot.getDescribe().fields.getMap().containsKey('tekco_country__c');
-    }
-
-    private static Boolean hasRecordTypeField(String objectApiName) {
-        Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
-        return sot != null
-            && sot.getDescribe().fields.getMap().containsKey('recordtypeid');
     }
 
     private static List<String> getCountriesForBrands(List<String> brands) {
