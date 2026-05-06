@@ -270,6 +270,21 @@ public with sharing class TEKCO_AnonymizationController {
             }
         }
 
+        // Pre-compute Schema field checks for all objects at once — avoids repeated
+        // getGlobalDescribe() calls inside the count loop (Schema describe is expensive).
+        Map<String, Boolean> hasBrand      = new Map<String, Boolean>();
+        Map<String, Boolean> hasCountry    = new Map<String, Boolean>();
+        Map<String, Boolean> hasRecordType = new Map<String, Boolean>();
+        for (String obj : objectsToCount) {
+            Schema.SObjectType sot = Schema.getGlobalDescribe().get(obj);
+            Map<String, Schema.SObjectField> fields = sot != null
+                ? sot.getDescribe().fields.getMap()
+                : new Map<String, Schema.SObjectField>();
+            hasBrand.put(obj,      fields.containsKey('tekco_brand__c'));
+            hasCountry.put(obj,    fields.containsKey('tekco_country__c'));
+            hasRecordType.put(obj, fields.containsKey('recordtypeid'));
+        }
+
         List<PreviewCountDTO> results = new List<PreviewCountDTO>();
         for (String objectApiName : objectsToCount) {
             PreviewCountDTO dto    = new PreviewCountDTO();
@@ -281,14 +296,14 @@ public with sharing class TEKCO_AnonymizationController {
             try {
                 List<String> conditions = new List<String>();
                 if (selectedBrands != null && !selectedBrands.isEmpty()) {
-                    if (hasBrandField(objectApiName)) {
+                    if (hasBrand.get(objectApiName) == true) {
                         conditions.add('TEKCO_Brand__c IN :selectedBrands');
-                    } else if (hasCountryField(objectApiName) && !countryValues.isEmpty()) {
+                    } else if (hasCountry.get(objectApiName) == true && !countryValues.isEmpty()) {
                         conditions.add('TEKCO_Country__c IN :countryValues');
                     }
                 }
                 String applicableRt = rtFilterByObject.get(objectApiName);
-                if (String.isNotBlank(applicableRt) && hasRecordTypeField(objectApiName)) {
+                if (String.isNotBlank(applicableRt) && hasRecordType.get(objectApiName) == true) {
                     conditions.add(
                         'RecordType.DeveloperName = \''
                         + String.escapeSingleQuotes(applicableRt) + '\''
