@@ -213,41 +213,96 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     /**
-     * @description Returns an approximate record count for a given object, brand, and record type filter
-     * @return Record count, or -1 if the count could not be retrieved
+     * @description Returns a record count per object for the preview panel.
+     *              Each record type filter is applied only to the object it belongs to
+     *              (resolved via TEKCO_AnonymizationFieldConfig__mdt), preventing false
+     *              zero-counts when a RT is scoped to a single object among many.
+     *              isContentDocOnly is computed server-side to avoid a client-side race
+     *              condition between loadFieldConfigs and loadPreview.
      */
     @AuraEnabled(cacheable=false)
-    public static Integer getRecordCount(
-        String objectApiName,
+    public static List<PreviewCountDTO> getPreviewCounts(
         List<String> selectedBrands,
-        String selectedRecordType
+        List<String> selectedObjects,
+        List<String> selectedRecordTypes
     ) {
-        if (String.isBlank(objectApiName)) return 0;
-        try {
-            List<String> conditions = new List<String>();
-            if (selectedBrands != null && !selectedBrands.isEmpty()) {
-                if (hasBrandField(objectApiName)) {
-                    conditions.add('TEKCO_Brand__c IN :selectedBrands');
-                } else if (hasCountryField(objectApiName)) {
-                    List<String> countryValues = getCountriesForBrands(selectedBrands);
-                    if (!countryValues.isEmpty()) {
+        List<String> objectsToCount = (selectedObjects != null && !selectedObjects.isEmpty())
+            ? selectedObjects
+            : getObjectApiNames();
+
+        // Countries resolved once to avoid N SOQL calls inside the loop
+        List<String> countryValues = (selectedBrands != null && !selectedBrands.isEmpty())
+            ? getCountriesForBrands(selectedBrands)
+            : new List<String>();
+
+        List<TEKCO_AnonymizationFieldConfig__mdt> allConfigs = [
+            SELECT TEKCO_ObjectApiName__c, TEKCO_PatternType__c, TEKCO_RecordTypeDeveloperName__c
+            FROM TEKCO_AnonymizationFieldConfig__mdt
+            WHERE TEKCO_IsActive__c = true
+              AND TEKCO_ObjectApiName__c IN :objectsToCount
+        ];
+
+        Map<String, Integer> totalByObject      = new Map<String, Integer>();
+        Map<String, Integer> contentDocByObject = new Map<String, Integer>();
+        // RT developer name → object API name (first match wins; RT dev names are unique per object in practice)
+        Map<String, String> objectByRt = new Map<String, String>();
+
+        for (TEKCO_AnonymizationFieldConfig__mdt fc : allConfigs) {
+            String obj = fc.TEKCO_ObjectApiName__c;
+            totalByObject.put(obj, (totalByObject.get(obj) != null ? totalByObject.get(obj) : 0) + 1);
+            if (fc.TEKCO_PatternType__c == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
+                contentDocByObject.put(obj, (contentDocByObject.get(obj) != null ? contentDocByObject.get(obj) : 0) + 1);
+            }
+            if (String.isNotBlank(fc.TEKCO_RecordTypeDeveloperName__c)
+                    && !objectByRt.containsKey(fc.TEKCO_RecordTypeDeveloperName__c)) {
+                objectByRt.put(fc.TEKCO_RecordTypeDeveloperName__c, obj);
+            }
+        }
+
+        // Map each object to the RT filter that applies to it (at most one per object)
+        Map<String, String> rtFilterByObject = new Map<String, String>();
+        if (selectedRecordTypes != null && !selectedRecordTypes.isEmpty()) {
+            for (String rt : selectedRecordTypes) {
+                String obj = objectByRt.get(rt);
+                if (obj != null && !rtFilterByObject.containsKey(obj)) {
+                    rtFilterByObject.put(obj, rt);
+                }
+            }
+        }
+
+        List<PreviewCountDTO> results = new List<PreviewCountDTO>();
+        for (String objectApiName : objectsToCount) {
+            PreviewCountDTO dto    = new PreviewCountDTO();
+            dto.objectApiName      = objectApiName;
+            Integer total          = totalByObject.get(objectApiName) != null ? totalByObject.get(objectApiName) : 0;
+            Integer contentDoc     = contentDocByObject.get(objectApiName) != null ? contentDocByObject.get(objectApiName) : 0;
+            dto.isContentDocOnly   = total > 0 && total == contentDoc;
+
+            try {
+                List<String> conditions = new List<String>();
+                if (selectedBrands != null && !selectedBrands.isEmpty()) {
+                    if (hasBrandField(objectApiName)) {
+                        conditions.add('TEKCO_Brand__c IN :selectedBrands');
+                    } else if (hasCountryField(objectApiName) && !countryValues.isEmpty()) {
                         conditions.add('TEKCO_Country__c IN :countryValues');
                     }
                 }
+                String applicableRt = rtFilterByObject.get(objectApiName);
+                if (String.isNotBlank(applicableRt) && hasRecordTypeField(objectApiName)) {
+                    conditions.add(
+                        'RecordType.DeveloperName = \''
+                        + String.escapeSingleQuotes(applicableRt) + '\''
+                    );
+                }
+                String whereClause = conditions.isEmpty()
+                    ? '' : ' WHERE ' + String.join(conditions, ' AND ');
+                dto.count = Database.countQuery('SELECT COUNT() FROM ' + objectApiName + whereClause);
+            } catch (Exception e) {
+                dto.count = -1;
             }
-            if (String.isNotBlank(selectedRecordType) && hasRecordTypeField(objectApiName)) {
-                conditions.add(
-                    'RecordType.DeveloperName = \''
-                    + String.escapeSingleQuotes(selectedRecordType) + '\''
-                );
-            }
-            String whereClause = conditions.isEmpty()
-                ? ''
-                : ' WHERE ' + String.join(conditions, ' AND ');
-            return Database.countQuery('SELECT COUNT() FROM ' + objectApiName + whereClause);
-        } catch (Exception e) {
-            return -1;
+            results.add(dto);
         }
+        return results;
     }
 
     private static Boolean hasBrandField(String objectApiName) {
@@ -537,6 +592,15 @@ public with sharing class TEKCO_AnonymizationController {
             patternsByType.put(patternRecord.DeveloperName, patternRecord);
         }
         return patternsByType;
+    }
+
+    /**
+     * @description Data transfer object for the preview scope panel.
+     */
+    public class PreviewCountDTO {
+        @AuraEnabled public String  objectApiName;
+        @AuraEnabled public Integer count;
+        @AuraEnabled public Boolean isContentDocOnly;
     }
 
     /**
