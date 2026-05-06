@@ -25,7 +25,6 @@ public class TEKCO_AnonymizationPatternService {
         'Lorem ipsum dolor sit amet, consectetur adipiscing elit. ' +
         'Morbi diam diam, vestibulum non aliquam in, dictum quis eros.';
 
-    private static final String PATTERN_ANON_FALLBACK = 'ANON';
     private static final Integer PHONE_MASK_KEEP_CHARS = 4;
     private static final Integer ADDRESS_RANDOM_MAX    = 20;
     private static final Integer SSN_DEFAULT_LENGTH    = 15;
@@ -133,7 +132,7 @@ public class TEKCO_AnonymizationPatternService {
         } catch (Exception e) {}
 
         String sfId = getSalesforceId(record);
-        return String.isNotBlank(sfId) ? sfId : PATTERN_ANON_FALLBACK;
+        return sfId;
     }
 
     /**
@@ -165,7 +164,6 @@ public class TEKCO_AnonymizationPatternService {
     ) {
         String externalId = getExternalId(record, pattern);
         if (String.isBlank(externalId)) externalId = getSalesforceId(record);
-        if (String.isBlank(externalId)) externalId = PATTERN_ANON_FALLBACK;
 
         String baseEmail = String.isNotBlank(pattern.TEKCO_BaseEmail__c)
             ? pattern.TEKCO_BaseEmail__c
