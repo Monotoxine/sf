@@ -285,6 +285,15 @@ public with sharing class TEKCO_AnonymizationController {
             hasRecordType.put(obj, fields.containsKey('recordtypeid'));
         }
 
+        // Guard: each object consumes one COUNT query — abort early if the budget is too tight.
+        Integer queriesRemaining = Limits.getLimitQueries() - Limits.getQueries();
+        if (objectsToCount.size() > queriesRemaining) {
+            throw new AuraHandledException(
+                'Preview requires ' + objectsToCount.size() + ' queries but only '
+                + queriesRemaining + ' remain in this transaction. Select fewer objects.'
+            );
+        }
+
         List<PreviewCountDTO> results = new List<PreviewCountDTO>();
         for (String objectApiName : objectsToCount) {
             PreviewCountDTO dto    = new PreviewCountDTO();
