@@ -516,6 +516,7 @@ public with sharing class TEKCO_AnonymizationController {
                     historyConfigs,
                     bypassSnapshot,
                     new List<String>(),
+                    0,
                     parentFiltersByObject,
                     additionalFiltersByObject
                 ),
@@ -532,6 +533,7 @@ public with sharing class TEKCO_AnonymizationController {
                     historyConfigs,
                     bypassSnapshot,
                     new List<String>(),
+                    0,
                     parentFiltersByObject,
                     additionalFiltersByObject
                 ),

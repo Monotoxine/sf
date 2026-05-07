@@ -24,10 +24,11 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     private Map<Id, String>                               recordTypeDevNameById =
         new Map<Id, String>();
 
-    private Integer recordsProcessed = 0;
-    private Integer recordsFailed    = 0;
-    private List<String> errors      = new List<String>();
-    private List<String> accumulatedErrors = new List<String>();
+    private Integer recordsProcessed        = 0;
+    private Integer recordsFailed           = 0;
+    private Integer accumulatedRecordsProcessed = 0;
+    private List<String> errors             = new List<String>();
+    private List<String> accumulatedErrors  = new List<String>();
 
 
     public TEKCO_AnonymizationBatch(
@@ -41,6 +42,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs,
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
         List<String> accumulatedErrors,
+        Integer accumulatedRecordsProcessed,
         Map<String, List<String>> parentFiltersByObject,
         Map<String, String> additionalFiltersByObject
     ) {
@@ -54,8 +56,9 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
             : new List<TEKCO_AnonymizationFieldConfig__mdt>();
         this.historyConfigs    = historyConfigs    != null ? historyConfigs
             : new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        this.bypassSnapshot       = bypassSnapshot;
-        this.accumulatedErrors    = accumulatedErrors != null ? accumulatedErrors : new List<String>();
+        this.bypassSnapshot             = bypassSnapshot;
+        this.accumulatedErrors          = accumulatedErrors != null ? accumulatedErrors : new List<String>();
+        this.accumulatedRecordsProcessed = accumulatedRecordsProcessed != null ? accumulatedRecordsProcessed : 0;
         this.parentFiltersByObject = parentFiltersByObject != null
             ? parentFiltersByObject : new Map<String, List<String>>();
         this.additionalFiltersByObject = additionalFiltersByObject != null
@@ -306,6 +309,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
 
     public void finish(Database.BatchableContext bc) {
         accumulatedErrors.addAll(errors);
+        Integer totalProcessed = accumulatedRecordsProcessed + recordsProcessed;
         try {
             if (!remainingObjects.isEmpty()) {
                 String nextObjectApiName = remainingObjects.remove(0);
@@ -323,6 +327,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         historyConfigs,
                         bypassSnapshot,
                         accumulatedErrors,
+                        totalProcessed,
                         parentFiltersByObject,
                         additionalFiltersByObject
                     ),
@@ -339,6 +344,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         historyConfigs,
                         bypassSnapshot,
                         accumulatedErrors,
+                        totalProcessed,
                         parentFiltersByObject,
                         additionalFiltersByObject
                     ),
@@ -357,6 +363,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         historyConfigs,
                         bypassSnapshot,
                         accumulatedErrors,
+                        totalProcessed,
                         parentFiltersByObject,
                         additionalFiltersByObject
                     ),
@@ -364,15 +371,15 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 );
             } else {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-                TEKCO_AnonymizationAuditService.finalize(auditLogId, recordsProcessed, recordsFailed, accumulatedErrors);
+                TEKCO_AnonymizationAuditService.finalize(auditLogId, totalProcessed, recordsFailed, accumulatedErrors);
                 return;
             }
-            TEKCO_AnonymizationAuditService.markRunning(auditLogId, recordsProcessed, recordsFailed, accumulatedErrors);
+            TEKCO_AnonymizationAuditService.markRunning(auditLogId, totalProcessed, recordsFailed, accumulatedErrors);
         } catch (Exception e) {
             try {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
             } catch (Exception restoreEx) {  }
-            TEKCO_AnonymizationAuditService.closeFailed(auditLogId, recordsProcessed, recordsFailed, accumulatedErrors, e.getMessage());
+            TEKCO_AnonymizationAuditService.closeFailed(auditLogId, totalProcessed, recordsFailed, accumulatedErrors, e.getMessage());
         }
     }
 
