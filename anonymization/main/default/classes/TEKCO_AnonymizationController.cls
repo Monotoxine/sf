@@ -5,7 +5,6 @@
 public with sharing class TEKCO_AnonymizationController {
 
     private static final String PATTERN_TYPE_DELETE_CONTENT_DOCUMENT  = 'DELETE_CONTENT_DOCUMENT';
-    private static final Integer DEFAULT_BATCH_SIZE = 200;
 
     @AuraEnabled(cacheable=true)
     public static List<Map<String, String>> getBrands() {
@@ -62,17 +61,10 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     private static List<String> getObjectApiNames() {
-        Set<String> objectApiNameSet = new Set<String>();
-        for (TEKCO_AnonymizationFieldConfig__mdt fc : [
-            SELECT TEKCO_ObjectApiName__c
-            FROM TEKCO_AnonymizationFieldConfig__mdt
-            WHERE TEKCO_IsActive__c = true
-              AND TEKCO_ObjectApiName__c != null
-        ]) {
-            objectApiNameSet.add(fc.TEKCO_ObjectApiName__c);
+        List<String> result = new List<String>();
+        for (Map<String, String> opt : getObjects()) {
+            result.add(opt.get('value'));
         }
-        List<String> result = new List<String>(objectApiNameSet);
-        result.sort();
         return result;
     }
 
@@ -365,72 +357,49 @@ public with sharing class TEKCO_AnonymizationController {
             allFieldConfigs = filteredConfigs;
         }
 
-        // Bucket 1: regular field anonymization grouped by object (respecting exclusions)
         Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>> configsByObject =
             new Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>>();
-
-        // Bucket 2: ContentDocument deletion — full CMT configs
         List<TEKCO_AnonymizationFieldConfig__mdt> contentDocConfigs =
             new List<TEKCO_AnonymizationFieldConfig__mdt>();
-
-        // Bucket 3: field history deletion configs
         List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs =
             new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        Map<String, List<String>> parentFiltersByObject  = new Map<String, List<String>>();
+        Map<String, String>       additionalFiltersByObject = new Map<String, String>();
 
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : allFieldConfigs) {
-            String fieldKey = fieldConfig.TEKCO_ObjectApiName__c + '.' + fieldConfig.TEKCO_FieldApiName__c;
+            String obj      = fieldConfig.TEKCO_ObjectApiName__c;
+            String fieldKey = obj + '.' + fieldConfig.TEKCO_FieldApiName__c;
+
+            if (!parentFiltersByObject.containsKey(obj)
+                    && String.isNotBlank(fieldConfig.TEKCO_ParentObjectApiName__c)
+                    && String.isNotBlank(fieldConfig.TEKCO_ParentLookupFieldApiName__c)) {
+                parentFiltersByObject.put(obj, new List<String>{
+                    fieldConfig.TEKCO_ParentObjectApiName__c,
+                    fieldConfig.TEKCO_ParentLookupFieldApiName__c,
+                    fieldConfig.TEKCO_ParentRecordTypeDeveloperName__c != null
+                        ? fieldConfig.TEKCO_ParentRecordTypeDeveloperName__c : ''
+                });
+            }
+            if (!additionalFiltersByObject.containsKey(obj)
+                    && String.isNotBlank(fieldConfig.TEKCO_AdditionalFilter__c)) {
+                additionalFiltersByObject.put(obj, fieldConfig.TEKCO_AdditionalFilter__c);
+            }
 
             if (fieldConfig.TEKCO_PatternType__c == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
-                if (!excludedFieldKeys.contains(fieldKey)) {
-                    contentDocConfigs.add(fieldConfig);
-                }
+                if (!excludedFieldKeys.contains(fieldKey)) contentDocConfigs.add(fieldConfig);
                 continue;
             }
 
             if (excludedFieldKeys.contains(fieldKey)) continue;
 
-            if (!configsByObject.containsKey(fieldConfig.TEKCO_ObjectApiName__c)) {
-                configsByObject.put(
-                    fieldConfig.TEKCO_ObjectApiName__c,
-                    new List<TEKCO_AnonymizationFieldConfig__mdt>()
-                );
+            if (!configsByObject.containsKey(obj)) {
+                configsByObject.put(obj, new List<TEKCO_AnonymizationFieldConfig__mdt>());
             }
-            configsByObject.get(fieldConfig.TEKCO_ObjectApiName__c).add(fieldConfig);
+            configsByObject.get(obj).add(fieldConfig);
 
-            if (fieldConfig.TEKCO_DeleteHistory__c) {
-                String historyKey = fieldConfig.TEKCO_ObjectApiName__c + '.' + fieldConfig.TEKCO_FieldApiName__c;
-                if (!disabledHistoryFieldKeys.contains(historyKey)) {
-                    historyConfigs.add(fieldConfig);
-                }
-            }
-        }
-
-        List<String> objectsToProcess = new List<String>();
-        for (String objectApiName : selectedObjects) {
-            if (configsByObject.containsKey(objectApiName)) objectsToProcess.add(objectApiName);
-        }
-
-        Map<String, List<String>> parentFiltersByObject = new Map<String, List<String>>();
-        for (TEKCO_AnonymizationFieldConfig__mdt fc : allFieldConfigs) {
-            String obj = fc.TEKCO_ObjectApiName__c;
-            if (!parentFiltersByObject.containsKey(obj)
-                    && String.isNotBlank(fc.TEKCO_ParentObjectApiName__c)
-                    && String.isNotBlank(fc.TEKCO_ParentLookupFieldApiName__c)) {
-                parentFiltersByObject.put(obj, new List<String>{
-                    fc.TEKCO_ParentObjectApiName__c,
-                    fc.TEKCO_ParentLookupFieldApiName__c,
-                    fc.TEKCO_ParentRecordTypeDeveloperName__c != null
-                        ? fc.TEKCO_ParentRecordTypeDeveloperName__c : ''
-                });
-            }
-        }
-
-        Map<String, String> additionalFiltersByObject = new Map<String, String>();
-        for (TEKCO_AnonymizationFieldConfig__mdt fc : allFieldConfigs) {
-            String obj = fc.TEKCO_ObjectApiName__c;
-            if (!additionalFiltersByObject.containsKey(obj)
-                    && String.isNotBlank(fc.TEKCO_AdditionalFilter__c)) {
-                additionalFiltersByObject.put(obj, fc.TEKCO_AdditionalFilter__c);
+            if (fieldConfig.TEKCO_DeleteHistory__c
+                    && !disabledHistoryFieldKeys.contains(fieldKey)) {
+                historyConfigs.add(fieldConfig);
             }
         }
 
@@ -470,7 +439,7 @@ public with sharing class TEKCO_AnonymizationController {
                     parentFiltersByObject,
                     additionalFiltersByObject
                 ),
-                DEFAULT_BATCH_SIZE
+                TEKCO_AnonymizationBatch.DEFAULT_BATCH_SIZE
             );
         } else if (!contentDocConfigs.isEmpty()) {
             TEKCO_AnonymizationFieldConfig__mdt firstContentDocConfig = contentDocConfigs.remove(0);
@@ -487,7 +456,7 @@ public with sharing class TEKCO_AnonymizationController {
                     parentFiltersByObject,
                     additionalFiltersByObject
                 ),
-                DEFAULT_BATCH_SIZE
+                TEKCO_ContentDocumentBatch.DEFAULT_BATCH_SIZE
             );
         } else {
             TEKCO_AnonymizationBypassService.restore(bypassSnapshot);

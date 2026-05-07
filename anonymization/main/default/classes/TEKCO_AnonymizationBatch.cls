@@ -4,7 +4,7 @@
  */
 public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Database.Stateful {
 
-    private static final Integer DEFAULT_BATCH_SIZE    = 2000;
+    public static final Integer DEFAULT_BATCH_SIZE    = 2000;
     private static final Integer MAX_CAPTURED_ERRORS   = 50;
     private static final String  PATTERN_TYPE_DELETE_CONTENT_DOCUMENT = 'DELETE_CONTENT_DOCUMENT';
     private static final String  PATTERN_TYPE_EMAIL_MESSAGE_LOREM     = 'EMAIL_MESSAGE_LOREM';
@@ -70,7 +70,8 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
 
         Boolean hasEmailMessageLorem = false;
 
-        if (Schema.getGlobalDescribe().get(objectApiName) == null) {
+        Schema.SObjectType sObjectType = Schema.getGlobalDescribe().get(objectApiName);
+        if (sObjectType == null) {
             errors.add('Object not found in org, skipped: ' + objectApiName);
             return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
         }
@@ -92,7 +93,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         }
 
         Map<String, Schema.SObjectField> objectFieldMap =
-            Schema.getGlobalDescribe().get(objectApiName).getDescribe().fields.getMap();
+            sObjectType.getDescribe().fields.getMap();
         List<TEKCO_AnonymizationFieldConfig__mdt> validFieldConfigs =
             new List<TEKCO_AnonymizationFieldConfig__mdt>();
 
@@ -346,7 +347,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         parentFiltersByObject,
                         additionalFiltersByObject
                     ),
-                    DEFAULT_BATCH_SIZE
+                    TEKCO_ContentDocumentBatch.DEFAULT_BATCH_SIZE
                 );
             } else if (!historyConfigs.isEmpty()) {
                 String firstHistoryObject = historyConfigs[0].TEKCO_ObjectApiName__c;
@@ -365,7 +366,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         parentFiltersByObject,
                         additionalFiltersByObject
                     ),
-                    DEFAULT_BATCH_SIZE
+                    TEKCO_FieldHistoryBatch.DEFAULT_BATCH_SIZE
                 );
             } else {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);

@@ -7,7 +7,7 @@
  */
 public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, Database.Stateful {
 
-    private static final Integer DEFAULT_BATCH_SIZE  = 500;
+    public static final Integer DEFAULT_BATCH_SIZE  = 500;
     private static final Integer MAX_CAPTURED_ERRORS = 50;
 
     private String                                        objectApiName;
@@ -241,7 +241,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                         parentFiltersByObject,
                         additionalFiltersByObject
                     ),
-                    DEFAULT_BATCH_SIZE
+                    TEKCO_FieldHistoryBatch.DEFAULT_BATCH_SIZE
                 );
             } else {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
