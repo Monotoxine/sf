@@ -10,8 +10,9 @@
 6. [Reviewing the Fields to Process](#6-reviewing-the-fields-to-process)
 7. [Launching Anonymization](#7-launching-anonymization)
 8. [Monitoring Execution](#8-monitoring-execution)
-9. [Prerequisites — Enabling Field History Deletion](#9-prerequisites--enabling-field-history-deletion)
-10. [Configuring Anonymization Rules](#10-configuring-anonymization-rules)
+9. [Deployment](#9-deployment)
+10. [Prerequisites — Enabling Field History Deletion](#10-prerequisites--enabling-field-history-deletion)
+11. [Configuring Anonymization Rules](#11-configuring-anonymization-rules)
 
 ---
 
@@ -118,7 +119,7 @@ After previewing, the **Fields to Anonymize** table lists all fields that will b
 |---|---|
 | **Run** | Checkbox — uncheck a field to **exclude it from this run only** (the rule itself is not deleted). |
 | **Field** | API name of the Salesforce field that will be modified. |
-| **Pattern** | Anonymization algorithm applied (see section 9 for the full pattern reference). |
+| **Pattern** | Anonymization algorithm applied (see section 11 for the full pattern reference). |
 | **Record Type** | Record Type targeted by this rule. Empty = all populations. |
 | **Del. History** | If checked, the field change history will be deleted after anonymization. You can uncheck this to keep history for this run only. |
 | **Description** | Functional description of the applied pattern. |
@@ -174,7 +175,122 @@ Each phase starts automatically when the previous one completes.
 
 ---
 
-## 9. Prerequisites — Enabling Field History Deletion
+## 9. Deployment
+
+This section describes how to deploy the anonymization tool to a new Salesforce org (sandbox or production). Deployment is performed using the **Salesforce CLI** (`sf`) against the `anonymization` source directory.
+
+> **Important**: the tool includes a sandbox guard that prevents it from running in production. Deploying the Apex classes to production is safe — the batch cannot be triggered outside a sandbox environment.
+
+---
+
+### 9.1 Components Deployed
+
+The following metadata types are included in the deployment package:
+
+| Type | Components |
+|---|---|
+| **Apex Classes** | `TEKCO_AnonymizationBatch`, `TEKCO_AnonymizationController`, `TEKCO_AnonymizationPatternService`, `TEKCO_AnonymizationAuditService`, `TEKCO_AnonymizationBypassService`, `TEKCO_AnonymizationSandboxGuard`, `TEKCO_ContentDocumentBatch`, `TEKCO_FieldHistoryBatch` |
+| **Lightning Web Component** | `tekcoDataAnonymizationAdmin` |
+| **Custom Metadata Types** | `TEKCO_AnonymizationPattern__mdt`, `TEKCO_AnonymizationFieldConfig__mdt`, `TEKCO_CountryBrandSetting__mdt` |
+| **Custom Metadata Records** | All configured pattern and field rules |
+| **Custom Object** | `TEKCO_AnonymizationAuditLog__c` (audit log) |
+| **Custom Permission** | `TEKCO_AnonymizeData` |
+| **Permission Set** | `TEKCO Anonymization Admin` |
+| **Tab** | `TEKCO Data Anonymization` |
+
+---
+
+### 9.2 Deploying with Salesforce CLI
+
+#### Full deployment
+
+From the root of the repository, run:
+
+```bash
+sf project deploy start --source-dir anonymization/main/default --target-org <org-alias>
+```
+
+#### Selective deployment (individual components)
+
+Deploy only the Apex classes:
+
+```bash
+sf project deploy start --source-dir anonymization/main/default/classes --target-org <org-alias>
+```
+
+Deploy only the LWC:
+
+```bash
+sf project deploy start --source-dir anonymization/main/default/lwc --target-org <org-alias>
+```
+
+Deploy only the custom metadata records (rules):
+
+```bash
+sf project deploy start --source-dir anonymization/main/default/customMetadata --target-org <org-alias>
+```
+
+---
+
+### 9.3 Post-Deployment Steps
+
+After the deployment completes, the following steps must be performed manually in the target org.
+
+#### Step 1 — Assign the permission set
+
+Grant the **TEKCO Anonymization Admin** permission set to every user who needs access to the tool.
+
+1. Go to **Setup → Users**.
+2. Open the target user.
+3. In the **Permission Set Assignments** section, click **Edit Assignments**.
+4. Add **TEKCO Anonymization Admin** and save.
+
+#### Step 2 — Add the tab to the navigation app
+
+1. Go to **Setup → App Manager**.
+2. Edit the Lightning app where the tool should appear.
+3. Under **Navigation Items**, add the **TEKCO Data Anonymization** tab.
+4. Save.
+
+#### Step 3 — Enable field history deletion *(if Phase 3 is used)*
+
+See [Section 10](#10-prerequisites--enabling-field-history-deletion) for the required org-level setting and permission set configuration.
+
+#### Step 4 — Configure anonymization rules *(new org)*
+
+If deploying to an org that does not yet have any rules configured:
+
+1. Deploy or create `TEKCO_AnonymizationPattern__mdt` records (the algorithms).
+2. Create `TEKCO_AnonymizationFieldConfig__mdt` records to define which fields on which objects to anonymize.
+
+See [Section 11](#11-configuring-anonymization-rules) for the full configuration reference.
+
+---
+
+### 9.4 Verifying the Deployment
+
+After completing the steps above:
+
+1. Open the **TEKCO Data Anonymization** tab in the org.
+2. Confirm the interface loads without errors.
+3. Click **Preview Scope** — the system should return record counts without errors.
+4. If the **"You need the TEKCO Anonymize Data custom permission"** banner appears, verify that the permission set is correctly assigned.
+
+---
+
+### 9.5 Sandbox Refresh Checklist
+
+After each sandbox refresh, repeat the following steps:
+
+- [ ] Redeploy the package (refresh restores the org from production, erasing previous deployments).
+- [ ] Reassign the **TEKCO Anonymization Admin** permission set to relevant users.
+- [ ] Re-enable the **Delete Field History** permission (Setup → User Interface, then Permission Set).
+- [ ] Verify that the tab appears in the navigation app.
+- [ ] Run a preview to confirm rules and record counts are as expected.
+
+---
+
+## 10. Prerequisites — Enabling Field History Deletion
 
 Phase 3 (field history deletion) requires a Salesforce user permission that is **not enabled by default**. Without it, history records will silently not be deleted even if the **Del. History** checkbox is checked.
 
@@ -197,7 +313,7 @@ Phase 3 (field history deletion) requires a Salesforce user permission that is *
 
 ---
 
-## 10. Configuring Anonymization Rules
+## 11. Configuring Anonymization Rules
 
 The tool's behavior is entirely driven by two Custom Metadata types, accessible from **Setup → Custom Metadata Types**.
 
