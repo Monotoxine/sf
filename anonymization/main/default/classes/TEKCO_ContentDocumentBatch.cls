@@ -59,7 +59,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
 
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
-        TEKCO_AnonymizationSandboxGuard.assertIsSandbox();
+        TEKCO_AnonymizationPatternService.assertIsSandbox();
 
         List<String> parentFilter = parentFiltersByObject.get(objectApiName);
 

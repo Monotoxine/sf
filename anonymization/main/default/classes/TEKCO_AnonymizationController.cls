@@ -313,7 +313,7 @@ public with sharing class TEKCO_AnonymizationController {
             );
         }
 
-        TEKCO_AnonymizationSandboxGuard.assertIsSandbox();
+        TEKCO_AnonymizationPatternService.assertIsSandbox();
 
         if (selectedObjects == null || selectedObjects.isEmpty()) {
             selectedObjects = getObjectApiNames();

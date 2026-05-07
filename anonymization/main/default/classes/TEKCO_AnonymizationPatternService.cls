@@ -258,6 +258,18 @@ public class TEKCO_AnonymizationPatternService {
         }
     }
 
+    public class ProductionOrgException extends Exception {}
+
+    public static void assertIsSandbox() {
+        Organization org = [SELECT IsSandbox FROM Organization LIMIT 1];
+        if (!org.IsSandbox) {
+            throw new ProductionOrgException(
+                'ABORT: Data anonymization is not allowed on Production orgs. ' +
+                'This operation has been blocked. No data was modified.'
+            );
+        }
+    }
+
     public static Boolean hasField(String objectApiName, String fieldApiName) {
         if (String.isBlank(objectApiName) || String.isBlank(fieldApiName)) return false;
         Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);

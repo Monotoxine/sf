@@ -66,7 +66,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     }
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
-        TEKCO_AnonymizationSandboxGuard.assertIsSandbox();
+        TEKCO_AnonymizationPatternService.assertIsSandbox();
 
         Boolean hasEmailMessageLorem = false;
 

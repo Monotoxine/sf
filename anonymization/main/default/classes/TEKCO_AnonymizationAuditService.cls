@@ -1,6 +1,5 @@
 public class TEKCO_AnonymizationAuditService {
 
-    // Called by AnonymizationBatch on final object (updates processed + failed counts)
     public static void finalize(
         Id auditLogId, Integer recordsProcessed, Integer recordsFailed, List<String> errors
     ) {
@@ -8,30 +7,17 @@ public class TEKCO_AnonymizationAuditService {
                 recordsFailed > 0 ? 'Partial' : 'Success', Datetime.now(), errors);
     }
 
-    // Called by ContentDocumentBatch and FieldHistoryBatch (no count fields)
-    public static void finalize(Id auditLogId, Integer recordsFailed, List<String> errors) {
-        persist(auditLogId, null, null,
-                recordsFailed > 0 ? 'Partial' : 'Success', Datetime.now(), errors);
-    }
-
-    // Called by AnonymizationBatch between objects — intermediate running state
     public static void markRunning(
         Id auditLogId, Integer recordsProcessed, Integer recordsFailed, List<String> errors
     ) {
         persist(auditLogId, recordsProcessed, recordsFailed, 'Running', null, errors);
     }
 
-    // Called by AnonymizationBatch on chain failure (updates processed + failed counts)
     public static void closeFailed(
         Id auditLogId, Integer recordsProcessed, Integer recordsFailed, List<String> errors, String chainError
     ) {
         persist(auditLogId, recordsProcessed, recordsFailed,
                 'Failed', Datetime.now(), combined(errors, chainError));
-    }
-
-    // Called by ContentDocumentBatch and FieldHistoryBatch on chain failure (no count fields)
-    public static void closeFailed(Id auditLogId, Integer recordsFailed, List<String> errors, String chainError) {
-        persist(auditLogId, null, null, 'Failed', Datetime.now(), combined(errors, chainError));
     }
 
     private static List<String> combined(List<String> errors, String chainError) {
