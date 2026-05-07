@@ -208,7 +208,6 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
 
     public void finish(Database.BatchableContext bc) {
         accumulatedErrors.addAll(errors);
-        Integer totalProcessed = accumulatedRecordsProcessed + recordsDeleted;
         try {
             if (!remainingContentDocConfigs.isEmpty()) {
                 TEKCO_AnonymizationFieldConfig__mdt nextConfig = remainingContentDocConfigs.remove(0);
@@ -221,7 +220,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                         historyConfigs,
                         bypassSnapshot,
                         accumulatedErrors,
-                        totalProcessed,
+                        accumulatedRecordsProcessed,
                         parentFiltersByObject,
                         additionalFiltersByObject
                     ),
@@ -240,7 +239,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                         historyConfigs,
                         bypassSnapshot,
                         accumulatedErrors,
-                        totalProcessed,
+                        accumulatedRecordsProcessed,
                         parentFiltersByObject,
                         additionalFiltersByObject
                     ),
@@ -248,13 +247,13 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                 );
             } else {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-                TEKCO_AnonymizationAuditService.finalize(auditLogId, totalProcessed, recordsFailed, accumulatedErrors);
+                TEKCO_AnonymizationAuditService.finalize(auditLogId, accumulatedRecordsProcessed, recordsFailed, accumulatedErrors);
             }
         } catch (Exception e) {
             try {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
             } catch (Exception restoreEx) {}
-            TEKCO_AnonymizationAuditService.closeFailed(auditLogId, totalProcessed, recordsFailed, accumulatedErrors, e.getMessage());
+            TEKCO_AnonymizationAuditService.closeFailed(auditLogId, accumulatedRecordsProcessed, recordsFailed, accumulatedErrors, e.getMessage());
         }
     }
 
