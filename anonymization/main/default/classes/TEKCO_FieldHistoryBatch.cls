@@ -199,10 +199,6 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     }
 
 
-
-    /**
-     * @description Returns the history SObject API name for a given object
-     */
     @TestVisible
     private static String computeHistoryObjectName(String objectApiName) {
         if (objectApiName.endsWith(CUSTOM_OBJECT_SUFFIX)) {
@@ -211,9 +207,6 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         return objectApiName + 'History';
     }
 
-    /**
-     * @description Returns the parent ID field name on the history object
-     */
     @TestVisible
     private static String computeParentIdFieldName(String objectApiName) {
         if (objectApiName.endsWith(CUSTOM_OBJECT_SUFFIX)) {

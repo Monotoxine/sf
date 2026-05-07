@@ -91,7 +91,7 @@ public class TEKCO_AnonymizationPatternService {
                 return null; // handled by TEKCO_ContentDocumentBatch
             }
             when 'EMAIL_MESSAGE_LOREM' {
-                return null; // handled directly in TEKCO_AnonymizationBatch (Draft→update, else→delete)
+                return null; // handled by TEKCO_AnonymizationBatch 
             }
             when else {
                 return currentValue;

@@ -6,19 +6,11 @@
  */
 public class TEKCO_AnonymizationBypassService {
 
-    /**
-     * @description Snapshot of the User-level TEKCO_BypassSettings__c state before activation.
-     *              Serializable as a Database.Stateful field (Map<String, Boolean> + Boolean).
-     */
     public class BypassSnapshot {
         public Boolean              hasPreExistingRecord;
         public Map<String, Boolean> preExistingFieldValues;
     }
 
-    /**
-     * @description Sets all updateable boolean fields on TEKCO_BypassSettings__c to true
-     *              at the User level for the running user.
-     */
     public static BypassSnapshot activate() {
         Id userId = UserInfo.getUserId();
         BypassSnapshot snapshot = new BypassSnapshot();
@@ -54,11 +46,6 @@ public class TEKCO_AnonymizationBypassService {
         return snapshot;
     }
 
-    /**
-     * @description Restores TEKCO_BypassSettings__c to the state before activate() was called.
-     *              If no User-level record existed: deletes the one created by activate().
-     *              If one existed: upserts it with the original boolean values.
-     */
     public static void restore(BypassSnapshot snapshot) {
         if (snapshot == null) return;
 

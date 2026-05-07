@@ -3,9 +3,7 @@
  * @description Phase 2 of the anonymization chain: deletes ContentDocument records and
  *              Attachment records linked to records of the target object, filtered by brand
  *              and/or Record Type as configured in TEKCO_AnonymizationFieldConfig__mdt
- *              (TEKCO_PatternType__c = 'DELETE_CONTENT_DOCUMENT').
- *              The QueryLocator targets parent records directly so that records that only
- *              have Attachments (no ContentDocumentLinks) are also covered.
+ *              (TEKCO_PatternType__c = 'DELETE_CONTENT_DOCUMENT')
  */
 public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, Database.Stateful {
 
@@ -143,7 +141,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         }
         if (parentIds.isEmpty()) return;
 
-        // ── ServiceReports (must be deleted before ContentDocument) ──────────
+        // ServiceReports (must be deleted before ContentDocument) ──────────
         try {
             List<SObject> serviceReports = Database.query(
                 'SELECT Id FROM ServiceReport WHERE ParentId IN :parentIds'
@@ -155,7 +153,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
             // ServiceReport not available in this org — skip
         }
 
-        // ── ContentDocuments ─────────────────────────────────────────────────
+        // ContentDocuments ─────────────────────────────────────────────────
         List<ContentDocumentLink> cdLinks = [
             SELECT ContentDocumentId
             FROM ContentDocumentLink
@@ -185,7 +183,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
             }
         }
 
-        // ── Attachments (legacy files created via integration API) ───────────
+        // Attachments ───────────
         List<Attachment> attachments = [
             SELECT Id FROM Attachment WHERE ParentId IN :parentIds
         ];

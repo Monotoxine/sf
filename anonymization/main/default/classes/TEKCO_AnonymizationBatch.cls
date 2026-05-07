@@ -208,7 +208,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                     continue;
                 }
 
-                // EMAIL_MESSAGE_LOREM: Draft → apply lorem, non-Draft → delete the record
                 if (patternType == PATTERN_TYPE_EMAIL_MESSAGE_LOREM) {
                     String emailStatus = (String) record.get('Status');
                     if (emailStatus == '5') {
@@ -261,7 +260,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 }
             }
 
-            // A non-Draft EmailMessage is deleted — do not also attempt to update it
             if (shouldDelete) {
                 recordsToDelete.add(record);
             } else if (isModified) {

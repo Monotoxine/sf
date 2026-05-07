@@ -7,10 +7,6 @@ public with sharing class TEKCO_AnonymizationController {
     private static final String PATTERN_TYPE_DELETE_CONTENT_DOCUMENT  = 'DELETE_CONTENT_DOCUMENT';
     private static final Integer DEFAULT_BATCH_SIZE = 200;
 
-    /**
-     * @description Returns all active values from Account.TEKCO_Brand__c
-     * @return Sorted list of {label, value} maps
-     */
     @AuraEnabled(cacheable=true)
     public static List<Map<String, String>> getBrands() {
         List<Map<String, String>> brandOptions = new List<Map<String, String>>();
@@ -36,10 +32,6 @@ public with sharing class TEKCO_AnonymizationController {
         return brandOptions;
     }
 
-    /**
-     * @description Returns object options for the LWC picker from configured values in TEKCO_AnonymizationFieldConfig__mdt
-     * @return Sorted list of {label, value} maps
-     */
     @AuraEnabled(cacheable=true)
     public static List<Map<String, String>> getObjects() {
         Map<String, String> parentByObject = new Map<String, String>();
@@ -69,10 +61,6 @@ public with sharing class TEKCO_AnonymizationController {
         return options;
     }
 
-    /**
-     * @description Returns the distinct object API names (values only) for internal use
-     * @return Sorted list of object API names
-     */
     private static List<String> getObjectApiNames() {
         Set<String> objectApiNameSet = new Set<String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fc : [
@@ -88,11 +76,6 @@ public with sharing class TEKCO_AnonymizationController {
         return result;
     }
 
-    /**
-     * @description Returns Record Type options for the given objects
-     *              Returns an empty list if no objects are selected
-     * @return List of {label, value} maps ordered by object then RT developer name
-     */
     @AuraEnabled(cacheable=true)
     public static List<Map<String, String>> getRecordTypes(List<String> selectedObjects) {
         if (selectedObjects == null || selectedObjects.isEmpty()) return new List<Map<String, String>>();
@@ -129,12 +112,6 @@ public with sharing class TEKCO_AnonymizationController {
         return options;
     }
 
-    /**
-     * @description Returns all active field configs for the given objects (or all configured
-     *              objects when selectedObjects is empty). Record type and brand are not used
-     *              as filters here — the RT column is informational only.
-     * @return List of FieldConfigDTO with pattern description
-     */
     @AuraEnabled(cacheable=true)
     public static List<FieldConfigDTO> getFieldConfigs(List<String> selectedObjects) {
         List<TEKCO_AnonymizationFieldConfig__mdt> fieldConfigRecords;
@@ -201,14 +178,6 @@ public with sharing class TEKCO_AnonymizationController {
         return fieldConfigDtos;
     }
 
-    /**
-     * @description Returns a record count per object for the preview panel.
-     *              Each record type filter is applied only to the object it belongs to
-     *              (resolved via TEKCO_AnonymizationFieldConfig__mdt), preventing false
-     *              zero-counts when a RT is scoped to a single object among many.
-     *              isContentDocOnly is computed server-side to avoid a client-side race
-     *              condition between loadFieldConfigs and loadPreview.
-     */
     @AuraEnabled(cacheable=false)
     public static List<PreviewCountDTO> getPreviewCounts(
         List<String> selectedBrands,
@@ -219,7 +188,6 @@ public with sharing class TEKCO_AnonymizationController {
             ? selectedObjects
             : getObjectApiNames();
 
-        // Countries resolved once to avoid N SOQL calls inside the loop
         List<String> countryValues = (selectedBrands != null && !selectedBrands.isEmpty())
             ? TEKCO_AnonymizationPatternService.getCountriesForBrands(selectedBrands)
             : new List<String>();
@@ -233,7 +201,6 @@ public with sharing class TEKCO_AnonymizationController {
 
         Map<String, Integer> totalByObject      = new Map<String, Integer>();
         Map<String, Integer> contentDocByObject = new Map<String, Integer>();
-        // RT developer name → object API name (first match wins; RT dev names are unique per object in practice)
         Map<String, String> objectByRt = new Map<String, String>();
 
         for (TEKCO_AnonymizationFieldConfig__mdt fc : allConfigs) {
@@ -248,7 +215,6 @@ public with sharing class TEKCO_AnonymizationController {
             }
         }
 
-        // Map each object to the RT filter that applies to it (at most one per object)
         Map<String, String> rtFilterByObject = new Map<String, String>();
         if (selectedRecordTypes != null && !selectedRecordTypes.isEmpty()) {
             for (String rt : selectedRecordTypes) {
@@ -259,8 +225,6 @@ public with sharing class TEKCO_AnonymizationController {
             }
         }
 
-        // Pre-compute Schema field checks for all objects at once — avoids repeated
-        // Schema describe calls inside the count loop.
         Map<String, Boolean> hasBrand      = new Map<String, Boolean>();
         Map<String, Boolean> hasCountry    = new Map<String, Boolean>();
         Map<String, Boolean> hasRecordType = new Map<String, Boolean>();
@@ -270,7 +234,6 @@ public with sharing class TEKCO_AnonymizationController {
             hasRecordType.put(obj, TEKCO_AnonymizationPatternService.hasField(obj, 'recordtypeid'));
         }
 
-        // Guard: each object consumes one COUNT query — abort early if the budget is too tight.
         Integer queriesRemaining = Limits.getLimitQueries() - Limits.getQueries();
         if (objectsToCount.size() > queriesRemaining) {
             throw new AuraHandledException(
@@ -315,10 +278,6 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
 
-    /**
-     * @description Returns the last 20 audit log records ordered by start time descending
-     * @return List of TEKCO_AnonymizationAuditLog__c records
-     */
     @AuraEnabled(cacheable=false)
     public static List<TEKCO_AnonymizationAuditLog__c> getAuditLogs() {
         return [
@@ -340,12 +299,6 @@ public with sharing class TEKCO_AnonymizationController {
         ];
     }
 
-    /**
-     * @description Launches the anonymization batch chain
-     *              Requires TEKCO_AnonymizeData custom permission and a sandbox org
-     *              Activates bypass settings before the chain starts and restores them at the end
-     * @return                     Id of the created TEKCO_AnonymizationAuditLog__c record
-     */
     @AuraEnabled
     public static Id startAnonymization(
         List<String> selectedBrands,
@@ -452,13 +405,11 @@ public with sharing class TEKCO_AnonymizationController {
             }
         }
 
-        // Ordered list of objects to anonymize (respects selectedObjects order)
         List<String> objectsToProcess = new List<String>();
         for (String objectApiName : selectedObjects) {
             if (configsByObject.containsKey(objectApiName)) objectsToProcess.add(objectApiName);
         }
 
-        // Build parent filter map: childObjectApiName → [parentObject, parentLookup, parentRT]
         Map<String, List<String>> parentFiltersByObject = new Map<String, List<String>>();
         for (TEKCO_AnonymizationFieldConfig__mdt fc : allFieldConfigs) {
             String obj = fc.TEKCO_ObjectApiName__c;
@@ -474,7 +425,6 @@ public with sharing class TEKCO_AnonymizationController {
             }
         }
 
-        // Build additional filter map: objectApiName → raw WHERE fragment
         Map<String, String> additionalFiltersByObject = new Map<String, String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fc : allFieldConfigs) {
             String obj = fc.TEKCO_ObjectApiName__c;
@@ -575,19 +525,13 @@ public with sharing class TEKCO_AnonymizationController {
         return patternsByType;
     }
 
-    /**
-     * @description Data transfer object for the preview scope panel.
-     */
-    public class PreviewCountDTO {
+      public class PreviewCountDTO {
         @AuraEnabled public String  objectApiName;
         @AuraEnabled public Integer count;
         @AuraEnabled public Boolean isContentDocOnly;
     }
-
-    /**
-     * @description Data transfer object for field configuration display in the LWC.
-     */
-    public class FieldConfigDTO {
+    
+        public class FieldConfigDTO {
         @AuraEnabled public String  objectApiName;
         @AuraEnabled public String  fieldApiName;
         @AuraEnabled public String  patternType;
