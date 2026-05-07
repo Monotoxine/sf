@@ -1,9 +1,11 @@
 /**
  * @author
- * @description Phase 2 of the anonymization chain: deletes ContentDocument records
- *              linked to records of the target object, filtered by brand and/or Record Type
- *              as configured in TEKCO_AnonymizationFieldConfig__mdt
- *              (TEKCO_PatternType__c = 'DELETE_CONTENT_DOCUMENT')
+ * @description Phase 2 of the anonymization chain: deletes ContentDocument records and
+ *              Attachment records linked to records of the target object, filtered by brand
+ *              and/or Record Type as configured in TEKCO_AnonymizationFieldConfig__mdt
+ *              (TEKCO_PatternType__c = 'DELETE_CONTENT_DOCUMENT').
+ *              The QueryLocator targets parent records directly so that records that only
+ *              have Attachments (no ContentDocumentLinks) are also covered.
  */
 public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, Database.Stateful {
 
@@ -122,8 +124,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
             }
         }
 
-        String soqlQuery = 'SELECT ContentDocumentId, LinkedEntityId FROM ContentDocumentLink'
-            + ' WHERE LinkedEntityId IN (SELECT Id FROM ' + objectApiName + innerFilter + ')';
+        String soqlQuery = 'SELECT Id FROM ' + objectApiName + innerFilter;
 
         return Database.getQueryLocator(soqlQuery);
         } catch (Exception e) {
@@ -133,48 +134,70 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
     }
 
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
-        Set<Id> contentDocumentIds = new Set<Id>();
-        Set<Id> linkedEntityIds    = new Set<Id>();
-        for (SObject contentDocumentLink : scope) {
-            Id contentDocumentId = (Id) contentDocumentLink.get('ContentDocumentId');
-            Id linkedEntityId    = (Id) contentDocumentLink.get('LinkedEntityId');
-            if (contentDocumentId != null) contentDocumentIds.add(contentDocumentId);
-            if (linkedEntityId    != null) linkedEntityIds.add(linkedEntityId);
+        Set<Id> parentIds = new Set<Id>();
+        for (SObject record : scope) {
+            parentIds.add(record.Id);
         }
-        if (contentDocumentIds.isEmpty()) return;
+        if (parentIds.isEmpty()) return;
 
-        if (!linkedEntityIds.isEmpty()) {
-            // ServiceReport.ParentId = ContentDocumentLink.LinkedEntityId.
-            // Must be deleted before ContentDocument to avoid referential integrity error.
-            try {
-                List<SObject> serviceReports = Database.query(
-                    'SELECT Id FROM ServiceReport WHERE ParentId IN :linkedEntityIds'
-                );
-                if (!serviceReports.isEmpty()) {
-                    Database.delete(serviceReports, false);
+        // ── ServiceReports (must be deleted before ContentDocument) ──────────
+        try {
+            List<SObject> serviceReports = Database.query(
+                'SELECT Id FROM ServiceReport WHERE ParentId IN :parentIds'
+            );
+            if (!serviceReports.isEmpty()) {
+                Database.delete(serviceReports, false);
+            }
+        } catch (Exception e) {
+            // ServiceReport not available in this org — skip
+        }
+
+        // ── ContentDocuments ─────────────────────────────────────────────────
+        List<ContentDocumentLink> cdLinks = [
+            SELECT ContentDocumentId
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId IN :parentIds
+        ];
+        if (!cdLinks.isEmpty()) {
+            Set<Id> contentDocumentIds = new Set<Id>();
+            for (ContentDocumentLink cdl : cdLinks) {
+                contentDocumentIds.add(cdl.ContentDocumentId);
+            }
+            List<ContentDocument> toDelete = new List<ContentDocument>();
+            for (Id cdId : contentDocumentIds) {
+                toDelete.add(new ContentDocument(Id = cdId));
+            }
+            Database.DeleteResult[] deleteResults = Database.delete(toDelete, false);
+            for (Database.DeleteResult dr : deleteResults) {
+                if (dr.isSuccess()) {
+                    recordsDeleted++;
+                } else {
+                    recordsFailed++;
+                    if (errors.size() < MAX_CAPTURED_ERRORS) {
+                        List<String> msgs = new List<String>();
+                        for (Database.Error e : dr.getErrors()) msgs.add(e.getMessage());
+                        errors.add(String.join(msgs, '; '));
+                    }
                 }
-            } catch (Exception e) {
-                // ServiceReport not available in this org — skip
             }
         }
 
-        List<ContentDocument> contentDocumentsToDelete = new List<ContentDocument>();
-        for (Id contentDocumentId : contentDocumentIds) {
-            contentDocumentsToDelete.add(new ContentDocument(Id = contentDocumentId));
-        }
-
-        Database.DeleteResult[] deleteResults = Database.delete(contentDocumentsToDelete, false);
-        for (Database.DeleteResult deleteResult : deleteResults) {
-            if (deleteResult.isSuccess()) {
-                recordsDeleted++;
-            } else {
-                recordsFailed++;
-                if (errors.size() < MAX_CAPTURED_ERRORS) {
-                    List<String> errorMessages = new List<String>();
-                    for (Database.Error dmlError : deleteResult.getErrors()) {
-                        errorMessages.add(dmlError.getMessage());
+        // ── Attachments (legacy files created via integration API) ───────────
+        List<Attachment> attachments = [
+            SELECT Id FROM Attachment WHERE ParentId IN :parentIds
+        ];
+        if (!attachments.isEmpty()) {
+            Database.DeleteResult[] deleteResults = Database.delete(attachments, false);
+            for (Database.DeleteResult dr : deleteResults) {
+                if (dr.isSuccess()) {
+                    recordsDeleted++;
+                } else {
+                    recordsFailed++;
+                    if (errors.size() < MAX_CAPTURED_ERRORS) {
+                        List<String> msgs = new List<String>();
+                        for (Database.Error e : dr.getErrors()) msgs.add(e.getMessage());
+                        errors.add(String.join(msgs, '; '));
                     }
-                    errors.add(String.join(errorMessages, '; '));
                 }
             }
         }
