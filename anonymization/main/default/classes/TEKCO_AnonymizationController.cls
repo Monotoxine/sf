@@ -403,6 +403,11 @@ public with sharing class TEKCO_AnonymizationController {
             }
         }
 
+        List<String> objectsToProcess = new List<String>();
+        for (String objectApiName : selectedObjects) {
+            if (configsByObject.containsKey(objectApiName)) objectsToProcess.add(objectApiName);
+        }
+
         String brandLabel = (selectedBrands == null || selectedBrands.isEmpty())
             ? 'ALL'
             : String.join(selectedBrands, ', ');
