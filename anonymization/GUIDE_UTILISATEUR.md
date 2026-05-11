@@ -20,6 +20,7 @@
    - 3.8 [Reviewing the Fields to Process](#38-reviewing-the-fields-to-process)
    - 3.9 [Launching Anonymization](#39-launching-anonymization)
    - 3.10 [Monitoring Execution](#310-monitoring-execution)
+   - 3.11 [Configuring Anonymization Rules](#311-configuring-anonymization-rules)
 4. [Testing](#4-testing)
    - 4.1 [Testing Strategy](#41-testing-strategy)
    - 4.2 [Recommended Test Protocol](#42-recommended-test-protocol)
@@ -237,23 +238,6 @@ Field rules are defined in `TEKCO_AnonymizationFieldConfig__mdt`. Each record ma
 
 The following must be in place before deploying or using the tool.
 
-#### Salesforce CLI
-
-Install the Salesforce CLI (`sf`) on the machine performing the deployment:
-
-```bash
-npm install --global @salesforce/cli
-sf version
-```
-
-#### Org authentication
-
-Authenticate against the target org:
-
-```bash
-sf org login web --alias <org-alias>
-```
-
 #### Enable Field History Deletion *(required for Phase 3)*
 
 Phase 3 (field history deletion) requires a Salesforce permission that is **not enabled by default**. Without it, history records are silently not deleted even if `TEKCO_DeleteHistory__c` is checked.
@@ -277,32 +261,29 @@ Phase 3 (field history deletion) requires a Salesforce permission that is **not 
 
 ### 3.2 Deploying the Package
 
-All deployment commands are run from the root of the repository against the `anonymization` source directory.
+Deployment is performed using the Salesforce CLI (`sf`) with the `package.xml` manifest located at `anonymization/manifest/package.xml`.
 
-#### Full deployment
+#### What the package contains
 
-```bash
-sf project deploy start --source-dir anonymization/main/default --target-org <org-alias>
-```
+The manifest groups all components required by the tool into a single deployable unit:
 
-#### Selective deployment
+| Metadata type | Components included |
+|---|---|
+| **ApexClass** | `TEKCO_AnonymizationBatch`, `TEKCO_AnonymizationController`, `TEKCO_AnonymizationPatternService`, `TEKCO_AnonymizationAuditService`, `TEKCO_AnonymizationBypassService`, `TEKCO_ContentDocumentBatch`, `TEKCO_FieldHistoryBatch` |
+| **LightningComponentBundle** | `tekcoDataAnonymizationAdmin` |
+| **CustomObject** | `TEKCO_AnonymizationAuditLog__c`, `TEKCO_AnonymizationFieldConfig__mdt`, `TEKCO_AnonymizationPattern__mdt` |
+| **CustomMetadata** | All configured pattern records and field rules |
+| **CustomPermission** | `TEKCO_AnonymizeData` |
+| **PermissionSet** | `TEKCO_AnonymizationAdmin` |
+| **CustomTab** | `TEKCO_Data_Anonymization` |
+| **Layout** | `TEKCO_AnonymizationAuditLog__c` audit log layout |
 
-Deploy only Apex classes:
+#### Deploy command
 
-```bash
-sf project deploy start --source-dir anonymization/main/default/classes --target-org <org-alias>
-```
-
-Deploy only the LWC:
-
-```bash
-sf project deploy start --source-dir anonymization/main/default/lwc --target-org <org-alias>
-```
-
-Deploy only custom metadata records (rules):
+From the root of the repository, run:
 
 ```bash
-sf project deploy start --source-dir anonymization/main/default/customMetadata --target-org <org-alias>
+sf project deploy start --manifest anonymization/manifest/package.xml --target-org <org-alias>
 ```
 
 > **Note:** the tool includes a built-in sandbox guard (`TEKCO_AnonymizationPatternService.assertIsSandbox()`) that blocks execution in production orgs. Deploying to production is safe — the batch cannot be triggered there.
@@ -329,25 +310,14 @@ Grant the **TEKCO Anonymization Admin** permission set to every user who needs a
 3. Under **Navigation Items**, add the **TEKCO Data Anonymization** tab.
 4. Save.
 
-#### Step 3 — Enable Field History Deletion
-
-See [Section 3.1 — Prerequisites](#31-prerequisites) for the required setup.
-
-#### Step 4 — Configure anonymization rules *(new org only)*
+#### Step 3 — Configure anonymization rules *(new org only)*
 
 If deploying to an org that does not yet have any rules configured:
 
-1. Deploy or create `TEKCO_AnonymizationPattern__mdt` records.
-2. Create `TEKCO_AnonymizationFieldConfig__mdt` records to map fields to patterns.
+1. Deploy or create `TEKCO_AnonymizationPattern__mdt` records (the algorithms).
+2. Create `TEKCO_AnonymizationFieldConfig__mdt` records to define which fields on which objects to anonymize.
 
-See [Section 2.5](#25-configuring-anonymization-rules) for the full configuration reference.
-
-#### Step 5 — Verify the deployment
-
-1. Open the **TEKCO Data Anonymization** tab.
-2. Confirm the interface loads without errors.
-3. Click **Preview Scope** — the system should return record counts without errors.
-4. If the **"You need the TEKCO Anonymize Data custom permission"** banner appears, verify that the permission set is correctly assigned.
+See [Section 3.11 — Configuring Anonymization Rules](#311-configuring-anonymization-rules) for the full reference.
 
 ---
 
@@ -355,7 +325,7 @@ See [Section 2.5](#25-configuring-anonymization-rules) for the full configuratio
 
 After each sandbox refresh, the org reverts to production state. Repeat the following:
 
-- [ ] Redeploy the full package (`sf project deploy start --source-dir anonymization/main/default --target-org <org-alias>`).
+- [ ] Redeploy the package: `sf project deploy start --manifest anonymization/manifest/package.xml --target-org <org-alias>`
 - [ ] Reassign the **TEKCO Anonymization Admin** permission set to relevant users.
 - [ ] Re-enable **Delete Field History** at org level (Setup → User Interface) and on the permission set.
 - [ ] Verify the tab appears in the navigation app.
@@ -477,6 +447,103 @@ The **↺** button at the top right allows manual refresh.
 | `Success` | All records processed without errors. |
 | `Partial` | Processing completed but some records failed. Check the error column. |
 | `Failed` | A chain-level error stopped execution before completion. |
+
+---
+
+### 3.11 Configuring Anonymization Rules
+
+The tool's behavior is entirely driven by two Custom Metadata types, accessible from **Setup → Custom Metadata Types**.
+
+#### Available Patterns — `TEKCO_AnonymizationPattern__mdt`
+
+A pattern defines **how** a field value will be transformed.
+
+| Developer Name | Behavior |
+|---|---|
+| `NAME_FIRST_LETTER` | Keeps only the first letter of the value, followed by the external ID, then `TEKCO_FunctionalId__c`, then the Salesforce Id as a last resort. e.g. `Jean Dupont` → `J0035g00000XyZAA` |
+| `NAME_FIRST_LETTER_SFID` | Keeps the first letter followed by the Salesforce Id (forced — no fallback). e.g. `Jean` → `J0035g00000XyZAA` |
+| `EMAIL_PLUS_EXTERNALID` | Generates an email with a `+` alias containing the external ID. e.g. `sf_sap+EXT001@airliquide.com` |
+| `EMAIL_PLUS_EXTERNALID_SUBDOMAIN` | Same as above with the sandbox org subdomain appended. e.g. `sf_sap+EXT001@airliquide.com.fr.mmedlej` |
+| `EMAIL_PLUS_SFID` | Generates an email with a `+` alias containing the Salesforce Id. e.g. `sf_sap+0035g00000XyZAA@airliquide.com` |
+| `EMAIL_PLUS_SFID_SUBDOMAIN` | Same as above with the sandbox org subdomain appended. |
+| `PHONE_MASK` | Masks the phone number while preserving its format. e.g. `+33123456789` → `+33100000000` |
+| `SSN_SEQUENTIAL` | Replaces the social security number with a unique sequential number of the same length. |
+| `ADDRESS_STREET_RANDOM` | Finds the first number in the address and adds a random offset (1–20). |
+| `LOREM_IPSUM` | Replaces text content with Lorem Ipsum. |
+| `CLEAR` | Empties the field (sets it to null if not already empty). |
+| `DELETE_CONTENT_DOCUMENT` | Deletes all files (ContentDocuments and Attachments) linked to the record. Handled in Phase 2. |
+| `EMAIL_MESSAGE_LOREM` | For EmailMessage: Draft records have body replaced by Lorem Ipsum; non-Draft records are deleted entirely. |
+| `KEEP` | No change — keeps the original value as-is. |
+
+**Pattern configuration fields:**
+
+| Field | Description |
+|---|---|
+| `TEKCO_Description__c` | Functional description displayed in the interface. |
+| `TEKCO_IsActive__c` | Enabled / disabled. An inactive pattern cannot be used in a field rule. |
+| `TEKCO_BaseEmail__c` | Base email address for `EMAIL_PLUS_*` patterns. e.g. `sf_sap@airliquide.com` |
+| `TEKCO_ExternalIdField__c` | API name of the field used as external identifier for `EMAIL_PLUS_EXTERNALID` and `NAME_FIRST_LETTER` patterns. |
+| `TEKCO_SsnLength__c` | Target length for `SSN_SEQUENTIAL` (used as fallback if the original value is blank). |
+
+---
+
+#### Field Rules — `TEKCO_AnonymizationFieldConfig__mdt`
+
+A field rule defines **which field** on **which object** will be anonymized using **which pattern**.
+
+**Required fields:**
+
+| Field | Description |
+|---|---|
+| `TEKCO_ObjectApiName__c` | API name of the target Salesforce object. e.g. `Account`, `Contact`, `Case` |
+| `TEKCO_FieldApiName__c` | API name of the field to anonymize. e.g. `FirstName`, `PersonEmail`, `ACCCO_Email__c` |
+| `TEKCO_PatternType__c` | Developer Name of the pattern to apply. Must match an active `TEKCO_AnonymizationPattern__mdt` record. |
+| `TEKCO_IsActive__c` | Must be checked for the rule to be picked up. |
+
+**Filtering fields:**
+
+| Field | Description |
+|---|---|
+| `TEKCO_RecordTypeDeveloperName__c` | Restricts the rule to records of a specific Record Type. Leave empty to apply to all Record Types. |
+| `TEKCO_AdditionalFilter__c` | Additional SOQL condition appended to the WHERE clause. e.g. `ACCCO_RelatedAccount__r.RecordType.DeveloperName = 'ACCCO_Patient'` |
+
+**Child object fields** *(use when filtering must go through a parent object)*:
+
+| Field | Description |
+|---|---|
+| `TEKCO_ParentObjectApiName__c` | API name of the parent object. e.g. `Account` |
+| `TEKCO_ParentLookupFieldApiName__c` | API name of the lookup field on the child object pointing to the parent. |
+| `TEKCO_ParentRecordTypeDeveloperName__c` | Record Type of the parent object used as a filter. |
+
+**History behavior:**
+
+| Field | Description |
+|---|---|
+| `TEKCO_DeleteHistory__c` | If checked, the field change history (`FieldHistory`) will be deleted after anonymization. Leave unchecked for fields where audit trail is not a concern. |
+
+---
+
+#### Adding a New Rule — Step by Step
+
+1. Go to **Setup → Custom Metadata Types → TEKCO Anonymization Field Config → Manage Records**.
+2. Click **New**.
+3. Enter a meaningful **Label** (e.g. `Patient PersonEmail`) and a unique **Developer Name** (e.g. `Patient_PersonEmail`).
+4. Fill in the required fields: object, field, pattern, and check `TEKCO_IsActive__c`.
+5. Optional: fill in the Record Type if the rule applies to one population only.
+6. Optional: check `TEKCO_DeleteHistory__c` if the field history should be purged.
+7. Save.
+
+The rule is immediately taken into account on the next run.
+
+> **No code deployment is required** to add or modify an anonymization rule. Custom Metadata records can be edited directly in production.
+
+#### Temporarily Disabling a Rule
+
+To suspend a rule without deleting it, simply uncheck `TEKCO_IsActive__c` on the record. The rule will no longer appear in the interface and will not be processed.
+
+#### Processing Order
+
+Objects are processed in the order they appear in the selected objects list. Within a single object, all configured fields are processed in a single batch pass — one record is updated in a single DML operation regardless of how many fields are configured for it.
 
 ---
 

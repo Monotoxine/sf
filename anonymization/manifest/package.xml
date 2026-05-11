@@ -6,7 +6,6 @@
         <members>TEKCO_AnonymizationBypassService</members>
         <members>TEKCO_AnonymizationController</members>
         <members>TEKCO_AnonymizationPatternService</members>
-        <members>TEKCO_AnonymizationSandboxGuard</members>
         <members>TEKCO_ContentDocumentBatch</members>
         <members>TEKCO_FieldHistoryBatch</members>
         <name>ApexClass</name>
