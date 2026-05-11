@@ -23,7 +23,7 @@
         <members>TEKCO_AnonymizationFieldConfig__mdt.IndividualP_ACCCO_SocialSecurityNumber</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.IndividualP_ACCES_SecondEmail</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.IndividualP_ACCMG_RecallEmail</members>
-        <members>TEKCO_AnonymizationFieldConfig__mdt.IndividualP_Address</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.Address</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.IndividualP_BillingCity</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.IndividualP_BillingStreet</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.IndividualP_Description</members>
@@ -50,7 +50,6 @@
         <members>TEKCO_AnonymizationFieldConfig__mdt.Patient_ACCCO_SocialSecurityNumber</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.Patient_ACCES_SecondEmail</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.Patient_ACCMG_RecallEmail</members>
-        <members>TEKCO_AnonymizationFieldConfig__mdt.Patient_Address</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.Patient_BillingCity</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.Patient_BillingStreet</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.Patient_Description</members>
