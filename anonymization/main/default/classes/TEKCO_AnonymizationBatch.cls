@@ -68,8 +68,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     public Database.QueryLocator start(Database.BatchableContext bc) {
         TEKCO_AnonymizationPatternService.assertIsSandbox();
 
-        Boolean hasEmailMessageLorem = false;
-
         Schema.SObjectType sObjectType = Schema.getGlobalDescribe().get(objectApiName);
         if (sObjectType == null) {
             errors.add('Object not found in org, skipped: ' + objectApiName);
@@ -77,118 +75,107 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         }
 
         try {
-        for (TEKCO_AnonymizationFieldConfig__mdt fc : fieldConfigs) {
-            if (fc.TEKCO_PatternType__c == PATTERN_TYPE_EMAIL_MESSAGE_LOREM) {
-                hasEmailMessageLorem = true;
-                break;
-            }
-        }
+            Set<String> fieldApiNames    = new Set<String>{ 'Id' };
+            Boolean needsRecordTypeId    = false;
+            Boolean hasEmailMessageLorem = false;
 
-        Set<String> fieldApiNames = new Set<String>{ 'Id' };
-        Boolean needsRecordTypeId = false;
+            Map<String, Schema.SObjectField> objectFieldMap =
+                sObjectType.getDescribe().fields.getMap();
+            List<TEKCO_AnonymizationFieldConfig__mdt> validFieldConfigs =
+                new List<TEKCO_AnonymizationFieldConfig__mdt>();
 
-        // Status required to decide update-vs-delete for EMAIL_MESSAGE_LOREM records
-        if (hasEmailMessageLorem) {
-            fieldApiNames.add('Status');
-        }
+            for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : fieldConfigs) {
+                String patternType  = fieldConfig.TEKCO_PatternType__c;
+                String fieldApiName = fieldConfig.TEKCO_FieldApiName__c;
 
-        Map<String, Schema.SObjectField> objectFieldMap =
-            sObjectType.getDescribe().fields.getMap();
-        List<TEKCO_AnonymizationFieldConfig__mdt> validFieldConfigs =
-            new List<TEKCO_AnonymizationFieldConfig__mdt>();
+                if (String.isNotBlank(fieldApiName)
+                        && !objectFieldMap.containsKey(fieldApiName.toLowerCase())) {
+                    errors.add('Field not found on ' + objectApiName + ', skipped: ' + fieldApiName);
+                    continue;
+                }
 
-        for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : fieldConfigs) {
-            String patternType = fieldConfig.TEKCO_PatternType__c;
-            if (patternType == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
                 validFieldConfigs.add(fieldConfig);
-                continue;
-            }
+                fieldApiNames.add(fieldApiName);
 
-            String fieldApiName = fieldConfig.TEKCO_FieldApiName__c;
-            if (String.isNotBlank(fieldApiName)
-                    && !objectFieldMap.containsKey(fieldApiName.toLowerCase())) {
-                errors.add('Field not found on ' + objectApiName + ', skipped: ' + fieldApiName);
-                continue;
-            }
+                if (patternType == PATTERN_TYPE_EMAIL_MESSAGE_LOREM) {
+                    hasEmailMessageLorem = true;
+                    fieldApiNames.add('Status');
+                }
 
-            validFieldConfigs.add(fieldConfig);
-            fieldApiNames.add(fieldApiName);
-
-            TEKCO_AnonymizationPattern__mdt pattern = patternsByType.get(patternType);
-            if (pattern != null && String.isNotBlank(pattern.TEKCO_ExternalIdField__c)
-                    && objectFieldMap.containsKey(pattern.TEKCO_ExternalIdField__c.toLowerCase())) {
-                fieldApiNames.add(pattern.TEKCO_ExternalIdField__c);
-            }
-            if ((patternType == 'NAME_FIRST_LETTER' || patternType == 'NAME_FIRST_LETTER_SFID')
-                    && objectFieldMap.containsKey('tekco_functionalid__c')) {
-                fieldApiNames.add('TEKCO_FunctionalId__c');
-            }
-            if (String.isNotBlank(fieldConfig.TEKCO_RecordTypeDeveloperName__c)) {
-                needsRecordTypeId = true;
-            }
-        }
-        fieldConfigs = validFieldConfigs;
-
-        if (needsRecordTypeId) {
-            fieldApiNames.add('RecordTypeId');
-            for (RecordType recordType : [
-                SELECT Id, DeveloperName
-                FROM RecordType
-                WHERE SobjectType = :objectApiName
-            ]) {
-                recordTypeDevNameById.put(recordType.Id, recordType.DeveloperName);
-            }
-        }
-
-        String soqlQuery = 'SELECT ' + String.join(new List<String>(fieldApiNames), ', ')
-            + ' FROM ' + objectApiName;
-
-        List<String> parentFilter = parentFiltersByObject.get(objectApiName);
-        String parentObjectApiName    = (parentFilter != null && parentFilter.size() > 0) ? parentFilter.get(0) : null;
-        String parentLookupField      = (parentFilter != null && parentFilter.size() > 1) ? parentFilter.get(1) : null;
-        String parentRecordTypeDvName = (parentFilter != null && parentFilter.size() > 2) ? parentFilter.get(2) : null;
-        String additionalFilter       = additionalFiltersByObject.get(objectApiName);
-
-        List<String> topConditions = new List<String>();
-
-        if (String.isNotBlank(parentObjectApiName)) {
-            List<String> parentConditions = new List<String>();
-            if (!selectedBrands.isEmpty()) {
-                parentConditions.add('TEKCO_Brand__c IN :selectedBrands');
-            }
-            if (String.isNotBlank(parentRecordTypeDvName)) {
-                parentConditions.add(
-                    'RecordType.DeveloperName = \'' + String.escapeSingleQuotes(parentRecordTypeDvName) + '\''
-                );
-            }
-            String parentSubquery = 'SELECT Id FROM ' + parentObjectApiName;
-            if (!parentConditions.isEmpty()) {
-                parentSubquery += ' WHERE ' + String.join(parentConditions, ' AND ');
-            }
-            topConditions.add(parentLookupField + ' IN (' + parentSubquery + ')');
-        } else if (!selectedBrands.isEmpty()) {
-            if (hasEmailMessageLorem) {
-                // EmailMessage has no TEKCO_Brand__c; filter via Parent
-                topConditions.add('Parent.TEKCO_Brand__c IN :selectedBrands');
-            } else if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_brand__c')) {
-                topConditions.add('TEKCO_Brand__c IN :selectedBrands');
-            } else if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_country__c')) {
-                List<String> countryValues = TEKCO_AnonymizationPatternService.getCountriesForBrands(selectedBrands);
-                if (!countryValues.isEmpty()) {
-                    topConditions.add('TEKCO_Country__c IN :countryValues');
+                TEKCO_AnonymizationPattern__mdt pattern = patternsByType.get(patternType);
+                if (pattern != null && String.isNotBlank(pattern.TEKCO_ExternalIdField__c)
+                        && objectFieldMap.containsKey(pattern.TEKCO_ExternalIdField__c.toLowerCase())) {
+                    fieldApiNames.add(pattern.TEKCO_ExternalIdField__c);
+                }
+                if ((patternType == 'NAME_FIRST_LETTER' || patternType == 'NAME_FIRST_LETTER_SFID')
+                        && objectFieldMap.containsKey('tekco_functionalid__c')) {
+                    fieldApiNames.add('TEKCO_FunctionalId__c');
+                }
+                if (String.isNotBlank(fieldConfig.TEKCO_RecordTypeDeveloperName__c)) {
+                    needsRecordTypeId = true;
                 }
             }
-        }
+            fieldConfigs = validFieldConfigs;
 
-        if (String.isNotBlank(additionalFilter)) {
-            topConditions.add(additionalFilter);
-        }
+            if (needsRecordTypeId) {
+                fieldApiNames.add('RecordTypeId');
+                for (RecordType recordType : [
+                    SELECT Id, DeveloperName
+                    FROM RecordType
+                    WHERE SobjectType = :objectApiName
+                ]) {
+                    recordTypeDevNameById.put(recordType.Id, recordType.DeveloperName);
+                }
+            }
 
-        if (!topConditions.isEmpty()) {
-            soqlQuery += ' WHERE ' + String.join(topConditions, ' AND ');
-        }
+            String soqlQuery = 'SELECT ' + String.join(new List<String>(fieldApiNames), ', ')
+                + ' FROM ' + objectApiName;
 
-        return Database.getQueryLocator(soqlQuery);
+            List<String> parentFilter         = parentFiltersByObject.get(objectApiName);
+            String parentObjectApiName    = (parentFilter != null && parentFilter.size() > 0) ? parentFilter.get(0) : null;
+            String parentLookupField      = (parentFilter != null && parentFilter.size() > 1) ? parentFilter.get(1) : null;
+            String parentRecordTypeDvName = (parentFilter != null && parentFilter.size() > 2) ? parentFilter.get(2) : null;
+            String additionalFilter       = additionalFiltersByObject.get(objectApiName);
+
+            List<String> topConditions = new List<String>();
+
+            if (String.isNotBlank(parentObjectApiName)) {
+                List<String> parentConditions = new List<String>();
+                if (!selectedBrands.isEmpty()) {
+                    parentConditions.add('TEKCO_Brand__c IN :selectedBrands');
+                }
+                if (String.isNotBlank(parentRecordTypeDvName)) {
+                    parentConditions.add(
+                        'RecordType.DeveloperName = \'' + String.escapeSingleQuotes(parentRecordTypeDvName) + '\''
+                    );
+                }
+                String parentSubquery = 'SELECT Id FROM ' + parentObjectApiName;
+                if (!parentConditions.isEmpty()) {
+                    parentSubquery += ' WHERE ' + String.join(parentConditions, ' AND ');
+                }
+                topConditions.add(parentLookupField + ' IN (' + parentSubquery + ')');
+            } else if (!selectedBrands.isEmpty()) {
+                if (hasEmailMessageLorem) {
+                    topConditions.add('Parent.TEKCO_Brand__c IN :selectedBrands');
+                } else if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_brand__c')) {
+                    topConditions.add('TEKCO_Brand__c IN :selectedBrands');
+                } else if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_country__c')) {
+                    List<String> countryValues = TEKCO_AnonymizationPatternService.getCountriesForBrands(selectedBrands);
+                    if (!countryValues.isEmpty()) {
+                        topConditions.add('TEKCO_Country__c IN :countryValues');
+                    }
+                }
+            }
+
+            if (String.isNotBlank(additionalFilter)) {
+                topConditions.add(additionalFilter);
+            }
+
+            if (!topConditions.isEmpty()) {
+                soqlQuery += ' WHERE ' + String.join(topConditions, ' AND ');
+            }
+
+            return Database.getQueryLocator(soqlQuery);
         } catch (Exception e) {
             errors.add('Failed to build query for ' + objectApiName + ': ' + e.getMessage());
             return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
@@ -205,9 +192,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
 
             for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : fieldConfigs) {
                 String patternType = fieldConfig.TEKCO_PatternType__c;
-                if (patternType == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
-                    continue;
-                }
 
                 if (patternType == PATTERN_TYPE_EMAIL_MESSAGE_LOREM) {
                     String emailStatus = (String) record.get('Status');
