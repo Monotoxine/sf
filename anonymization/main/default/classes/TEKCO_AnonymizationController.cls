@@ -403,22 +403,6 @@ public with sharing class TEKCO_AnonymizationController {
             }
         }
 
-        Map<String, String> seenFilters = new Map<String, String>();
-        for (TEKCO_AnonymizationFieldConfig__mdt fc : allFieldConfigs) {
-            String obj    = fc.TEKCO_ObjectApiName__c;
-            String filter = String.isNotBlank(fc.TEKCO_AdditionalFilter__c)
-                ? fc.TEKCO_AdditionalFilter__c : '';
-            if (!seenFilters.containsKey(obj)) {
-                seenFilters.put(obj, filter);
-            } else if (seenFilters.get(obj) != filter) {
-                throw new AuraHandledException(
-                    'Configuration conflict: object "' + obj + '" has multiple '
-                    + 'TEKCO_AdditionalFilter__c values. All active configs for the '
-                    + 'same object must share the same filter (or leave it blank).'
-                );
-            }
-        }
-
         List<String> objectsToProcess = new List<String>();
         for (String objectApiName : selectedObjects) {
             if (configsByObject.containsKey(objectApiName)) objectsToProcess.add(objectApiName);
