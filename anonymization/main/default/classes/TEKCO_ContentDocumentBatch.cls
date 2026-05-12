@@ -164,20 +164,9 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
             for (ContentDocumentLink cdl : cdLinks) {
                 contentDocumentIds.add(cdl.ContentDocumentId);
             }
-            Set<Id> assetDocIds = new Set<Id>();
-            for (ContentVersion cv : [
-                SELECT ContentDocumentId
-                FROM ContentVersion
-                WHERE ContentDocumentId IN :contentDocumentIds
-                  AND IsAsset = true
-            ]) {
-                assetDocIds.add(cv.ContentDocumentId);
-            }
             List<ContentDocument> toDelete = new List<ContentDocument>();
             for (Id cdId : contentDocumentIds) {
-                if (!assetDocIds.contains(cdId)) {
-                    toDelete.add(new ContentDocument(Id = cdId));
-                }
+                toDelete.add(new ContentDocument(Id = cdId));
             }
             Database.DeleteResult[] deleteResults = Database.delete(toDelete, false);
             for (Database.DeleteResult dr : deleteResults) {
