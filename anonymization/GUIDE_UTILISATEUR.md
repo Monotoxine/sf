@@ -21,6 +21,7 @@
    - 3.9 [Launching Anonymization](#39-launching-anonymization)
    - 3.10 [Monitoring Execution](#310-monitoring-execution)
    - 3.11 [Configuring Anonymization Rules](#311-configuring-anonymization-rules)
+   - 3.12 [Known Limitations](#312-known-limitations)
 4. [Testing](#4-testing)
    - 4.1 [Testing Strategy](#41-testing-strategy)
    - 4.2 [Recommended Test Protocol](#42-recommended-test-protocol)
@@ -544,6 +545,22 @@ To suspend a rule without deleting it, simply uncheck `TEKCO_IsActive__c` on the
 #### Processing Order
 
 Objects are processed in the order they appear in the selected objects list. Within a single object, all configured fields are processed in a single batch pass — one record is updated in a single DML operation regardless of how many fields are configured for it.
+
+---
+
+### 3.12 Known Limitations
+
+#### Asset Files cannot be deleted (Phase 2)
+
+**Error message**: `We can't delete this file because it's an asset file being referenced by one or more objects. To delete it, first remove all references to it.`
+
+**When it occurs**: During Phase 2 (ContentDocument deletion), when a file linked to a target record is flagged as an **Asset File** by Salesforce. A file becomes an Asset File when it is used as a managed content asset — for example by Experience Cloud, CMS, or other Salesforce platform features. This flag is stored on `ContentVersion.IsAsset`.
+
+**Why it cannot be bypassed**: Salesforce enforces this restriction at the platform level, regardless of user permissions or the `allOrNothing` DML setting. There is no API to delete an Asset File directly.
+
+**Current behavior**: The file is counted as a failed record and the error message is written to the audit log's error column. The rest of the batch continues normally.
+
+**What to do if you encounter it**: Identify the asset file via the error in the audit log, then either remove its asset references manually in Salesforce (Setup → CMS or Experience Cloud assets) before re-running, or accept that these specific files will not be deleted by the anonymization process.
 
 ---
 
