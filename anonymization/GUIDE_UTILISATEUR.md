@@ -419,6 +419,8 @@ A confirmation dialog opens and summarizes:
 
 Click **Confirm Launch** to start processing, or **Cancel** to return without making any changes.
 
+> **Automation bypass**: immediately before the first batch job starts, the tool sets every boolean flag on the `TEKCO_BypassSettings__c` Hierarchy Custom Setting to `true` for the running user. This suppresses all triggers and automation rules (flows, process builder, validation rules wired to bypass flags) for the duration of the entire processing chain. Once the last phase completes — whether successfully or with an error — the original flag values are restored exactly as they were before the run. If the running user had no pre-existing `TEKCO_BypassSettings__c` record, all flags are set back to `false` on completion.
+
 ---
 
 ### 3.10 Monitoring Execution
