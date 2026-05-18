@@ -85,7 +85,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
                 // Enrich each config with a unique key and enabled=true by default
                 this.fieldConfigs = configs.map(cfg => ({
                     ...cfg,
-                    configKey:             `${cfg.objectApiName}.${cfg.fieldApiName}`,
+                    configKey:             `${cfg.objectApiName}.${cfg.fieldApiName}.${cfg.recordTypeDeveloperName || ''}`,
                     enabled:               true,
                     originalDeleteHistory: cfg.deleteHistory,
                     isContentDoc:          cfg.patternType === 'DELETE_CONTENT_DOCUMENT'
