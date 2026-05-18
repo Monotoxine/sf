@@ -31,9 +31,7 @@ public class TEKCO_AnonymizationBypassService {
             Schema.DescribeFieldResult fieldDescriptor = fieldMap.get(fieldName).getDescribe();
 
             if (fieldDescriptor.getType() == Schema.DisplayType.BOOLEAN
-                    && fieldDescriptor.isUpdateable()
-                    && fieldDescriptor.isCreateable()
-                    && !fieldDescriptor.isCalculated()) {
+                    && fieldDescriptor.isUpdateable()) {
                 if (snapshot.hasPreExistingRecord) {
                     snapshot.preExistingFieldValues.put(
                         fieldName,
@@ -69,10 +67,7 @@ public class TEKCO_AnonymizationBypassService {
         if (!snapshot.hasPreExistingRecord) {
             for (String fieldName : fieldMap.keySet()) {
                 Schema.DescribeFieldResult fd = fieldMap.get(fieldName).getDescribe();
-                if (fd.getType() == Schema.DisplayType.BOOLEAN
-                        && fd.isUpdateable()
-                        && fd.isCreateable()
-                        && !fd.isCalculated()) {
+                if (fd.getType() == Schema.DisplayType.BOOLEAN && fd.isUpdateable()) {
                     recordToRestore.put(fieldName, false);
                 }
             }
