@@ -59,29 +59,18 @@ public class TEKCO_AnonymizationBypassService {
             LIMIT 1
         ];
 
-        TEKCO_BypassSettings__c recordToRestore = existingRecords.isEmpty()
-            ? new TEKCO_BypassSettings__c(SetupOwnerId = userId)
-            : existingRecords[0];
-
-        Map<String, Schema.SObjectField> fieldMap =
-            Schema.SObjectType.TEKCO_BypassSettings__c.fields.getMap();
-
         if (!snapshot.hasPreExistingRecord) {
-            for (String fieldName : fieldMap.keySet()) {
-                Schema.DescribeFieldResult fd = fieldMap.get(fieldName).getDescribe();
-                if (fd.getType() == Schema.DisplayType.BOOLEAN
-                        && fd.isUpdateable()
-                        && fd.isCreateable()
-                        && !fd.isCalculated()) {
-                    recordToRestore.put(fieldName, false);
-                }
+            if (!existingRecords.isEmpty()) {
+                delete existingRecords[0];
             }
         } else {
+            TEKCO_BypassSettings__c recordToRestore = existingRecords.isEmpty()
+                ? new TEKCO_BypassSettings__c(SetupOwnerId = userId)
+                : existingRecords[0];
             for (String fieldName : snapshot.preExistingFieldValues.keySet()) {
                 recordToRestore.put(fieldName, snapshot.preExistingFieldValues.get(fieldName));
             }
+            upsert recordToRestore;
         }
-
-        upsert recordToRestore;
     }
 }
