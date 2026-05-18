@@ -442,6 +442,17 @@ The **Recent Runs** table shows execution history:
 
 The **↺** button at the top right allows manual refresh.
 
+**How the Processed count is calculated:**
+
+A record is counted only when **at least one field value was actually changed** by the batch. Specifically, a record is incremented when the DML update succeeds. The following cases are **not counted**, even if the record was in scope:
+
+- The record was already anonymized in a previous run — the pattern produces the same value as what is already stored, so no field changes and no DML occurs.
+- The record's Record Type does not match any configured field rule — all configs are skipped in execution, `isModified` stays false, no update is triggered.
+- All target fields were already blank — the pattern returns null for a null field, no change is detected.
+- File and history deletions (Phases 2 and 3) — these are cascade operations on the same records and are intentionally excluded from the count to avoid inflation.
+
+> If only Phase 2 runs (objects configured with `DELETE_CONTENT_DOCUMENT` only, no field rules), the Processed count will be 0. The `Success` status confirms execution completed correctly.
+
 **Status meanings:**
 
 | Status | Meaning |
