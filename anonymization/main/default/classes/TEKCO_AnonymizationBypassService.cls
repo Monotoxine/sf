@@ -37,7 +37,7 @@ public class TEKCO_AnonymizationBypassService {
                 if (snapshot.hasPreExistingRecord) {
                     snapshot.preExistingFieldValues.put(
                         fieldName,
-                        (Boolean) existingUserRecord.get(fieldName)
+                        existingUserRecord.get(fieldName) == true
                     );
                 }
                 bypassRecord.put(fieldName, true);
