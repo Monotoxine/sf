@@ -10,6 +10,10 @@ import getPreviewCounts   from '@salesforce/apex/TEKCO_AnonymizationController.g
 import getAuditLogs       from '@salesforce/apex/TEKCO_AnonymizationController.getAuditLogs';
 import startAnonymization from '@salesforce/apex/TEKCO_AnonymizationController.startAnonymization';
 
+import resolveIds              from '@salesforce/apex/TEKCO_AnonymizationByIdController.resolveIds';
+import startAnonymizationByIds from '@salesforce/apex/TEKCO_AnonymizationByIdController.startAnonymizationByIds';
+import getAuditLogsByid        from '@salesforce/apex/TEKCO_AnonymizationByIdController.getAuditLogsByid';
+
 const AUDIT_POLL_INTERVAL_MS = 5000;
 
 export default class TekcoDataAnonymizationAdmin extends LightningElement {
@@ -37,19 +41,32 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     @track showConfirmPanel    = false;
     @track confirmSummaryLines = [];
 
+    // ── By ID tab state ───────────────────────────────────────────────────────
+    @track byIdRawInput           = '';
+    @track byIdResolveResult      = null;
+    @track isByIdResolving        = false;
+    @track isByIdRunning          = false;
+    @track showByIdConfirmPanel   = false;
+    @track byIdConfirmSummaryLines = [];
+    @track byIdAuditLogs          = [];
+    @track byIdErrorMessage       = '';
+
     _pendingExcludedFields        = [];
     _pendingDisabledHistoryFields = [];
-    _auditTimer = null;
+    _auditTimer   = null;
+    _byIdAuditTimer = null;
 
     connectedCallback() {
         this.loadBrands();
         this.loadObjects();
         this.loadRecordTypes([]);
         this.loadAuditLogs();
+        this.loadByIdAuditLogs();
     }
 
     disconnectedCallback() {
         this.stopAuditPoll();
+        this.stopByIdAuditPoll();
     }
 
     loadBrands() {
@@ -319,6 +336,134 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             this._auditTimer = null;
         }
     }
+
+    // ── By ID handlers ────────────────────────────────────────────────────────
+
+    handleByIdInputChange(event) {
+        this.byIdRawInput      = event.target.value;
+        this.byIdResolveResult = null;
+        this.byIdErrorMessage  = '';
+    }
+
+    handleByIdResolve() {
+        const ids = this._parseByIdInput();
+        if (!ids.length) return;
+        this.isByIdResolving   = true;
+        this.byIdResolveResult = null;
+        this.byIdErrorMessage  = '';
+        resolveIds({ rawIds: ids })
+            .then(result => {
+                this.byIdResolveResult = result;
+                this.isByIdResolving   = false;
+            })
+            .catch(err => {
+                this.byIdErrorMessage = err?.body?.message ?? err?.message ?? 'Unknown error';
+                this.isByIdResolving  = false;
+            });
+    }
+
+    handleByIdLaunch() {
+        if (!this.hasPermission) {
+            this.showToast('Permission Denied', 'You need the "TEKCO Anonymize Data" custom permission.', 'error');
+            return;
+        }
+        const result = this.byIdResolveResult;
+        const directSummary = result && result.directObjects && result.directObjects.length
+            ? result.directObjects.map(o => `${o.objectApiName} (${o.recordCount})`).join(', ')
+            : '—';
+        const childSummary  = result && result.childObjects && result.childObjects.length
+            ? result.childObjects.map(o => `${o.objectApiName} (${o.recordCount})`).join(', ')
+            : '—';
+        this.byIdConfirmSummaryLines = [
+            { key: 'total',    label: 'Total valid records', value: String(result ? result.totalValid : 0) },
+            { key: 'direct',   label: 'Direct objects',      value: directSummary },
+            { key: 'children', label: 'Resolved children',   value: childSummary }
+        ];
+        this.showByIdConfirmPanel = true;
+    }
+
+    handleByIdCancelLaunch() {
+        this.showByIdConfirmPanel = false;
+    }
+
+    handleByIdConfirmLaunch() {
+        this.showByIdConfirmPanel = false;
+        this.isByIdRunning        = true;
+        this.byIdErrorMessage     = '';
+        const ids = this._parseByIdInput();
+        startAnonymizationByIds({ rawIds: ids })
+            .then(auditLogId => {
+                this.isByIdRunning = false;
+                this.showToast('Anonymization Started', `Audit log: ${auditLogId}`, 'success');
+                this.startByIdAuditPoll();
+            })
+            .catch(err => {
+                this.isByIdRunning    = false;
+                this.byIdErrorMessage = err?.body?.message ?? err?.message ?? 'Unknown error';
+                this.showToast('Error', this.byIdErrorMessage, 'error');
+            });
+    }
+
+    handleByIdRefreshLogs() {
+        this.loadByIdAuditLogs();
+    }
+
+    loadByIdAuditLogs() {
+        getAuditLogsByid()
+            .then(logs => {
+                this.byIdAuditLogs = logs.map(log => ({
+                    ...log,
+                    statusClass:    this.computeStatusBadgeClass(log.TEKCO_Status__c),
+                    startFormatted: log.TEKCO_StartTime__c
+                        ? new Date(log.TEKCO_StartTime__c).toLocaleString() : '—'
+                }));
+            })
+            .catch(() => {});
+    }
+
+    startByIdAuditPoll() {
+        this._byIdAuditTimer = setInterval(() => {
+            this.loadByIdAuditLogs();
+            if (!this.byIdAuditLogs.some(log => log.TEKCO_Status__c === 'Running')) {
+                this.stopByIdAuditPoll();
+            }
+        }, AUDIT_POLL_INTERVAL_MS);
+    }
+
+    stopByIdAuditPoll() {
+        if (this._byIdAuditTimer) {
+            clearInterval(this._byIdAuditTimer);
+            this._byIdAuditTimer = null;
+        }
+    }
+
+    _parseByIdInput() {
+        const raw = this.byIdRawInput || '';
+        const seen = new Set();
+        return raw.split(/[\n,;]+/)
+            .map(s => s.trim())
+            .filter(s => s.length > 0 && !seen.has(s) && seen.add(s));
+    }
+
+    // ── By ID getters ─────────────────────────────────────────────────────────
+
+    get byIdParsedCountLabel() {
+        const count = this._parseByIdInput().length;
+        return count > 0 ? `${count} ID(s) detected` : 'Paste IDs above';
+    }
+
+    get isByIdResolveDisabled() {
+        return this._parseByIdInput().length === 0 || this.isByIdResolving;
+    }
+
+    get hasByIdResolveResult()  { return !!this.byIdResolveResult; }
+    get hasByIdDirectObjects()  { return !!(this.byIdResolveResult && this.byIdResolveResult.directObjects && this.byIdResolveResult.directObjects.length > 0); }
+    get hasByIdChildObjects()   { return !!(this.byIdResolveResult && this.byIdResolveResult.childObjects  && this.byIdResolveResult.childObjects.length  > 0); }
+    get hasByIdInvalidIds()     { return !!(this.byIdResolveResult && this.byIdResolveResult.invalidIds    && this.byIdResolveResult.invalidIds.length    > 0); }
+    get hasByIdAnyValid()       { return !!(this.byIdResolveResult && this.byIdResolveResult.totalValid > 0); }
+    get hasByIdAuditLogs()      { return this.byIdAuditLogs.length > 0; }
+    get isByIdLaunchDisabled()  { return !this.hasPermission || !this.hasByIdAnyValid || this.isByIdRunning; }
+    get byIdLaunchLabel()       { return this.isByIdRunning ? 'Running...' : 'Launch Anonymization'; }
 
     get hasFieldConfigs()      { return this.fieldConfigs.length > 0; }
     get hasPreview()           { return this.previewByObject.length > 0; }

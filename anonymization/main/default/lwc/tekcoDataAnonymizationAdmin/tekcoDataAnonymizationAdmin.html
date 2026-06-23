@@ -1,6 +1,13 @@
 <template>
     <lightning-card title="Data Anonymization Admin" icon-name="utility:shield">
 
+        <lightning-tabset>
+
+        <!-- ════════════════════════════════════════════════════════════════════
+             TAB 1 — By Criteria (existing behaviour, untouched)
+             ════════════════════════════════════════════════════════════════════ -->
+        <lightning-tab label="By Criteria">
+
         <!-- Permission warning -->
         <template if:true={permissionWarning}>
             <div class="slds-notify slds-notify_alert slds-theme_error slds-m-around_medium" role="alert">
@@ -298,63 +305,263 @@
             </div>
 
         </div>
-    </lightning-card>
 
-    <!-- ── Confirmation modal ─────────────────────────────────────────────── -->
-    <template if:true={showConfirmPanel}>
-        <section
-            role="dialog"
-            tabindex="-1"
-            aria-modal="true"
-            aria-labelledby="confirm-modal-heading"
-            class="slds-modal slds-fade-in-open">
-            <div class="slds-modal__container">
+        </lightning-tab>
 
-                <header class="slds-modal__header slds-theme_alert-texture slds-theme_error">
-                    <lightning-icon
-                        icon-name="utility:warning"
-                        size="small"
-                        variant="inverse"
-                        class="slds-m-right_x-small">
-                    </lightning-icon>
-                    <h2 id="confirm-modal-heading" class="slds-text-heading_medium">
-                        Confirm Anonymization
-                    </h2>
-                </header>
+        <!-- ════════════════════════════════════════════════════════════════════
+             TAB 2 — By ID (DataMig)
+             ════════════════════════════════════════════════════════════════════ -->
+        <lightning-tab label="By ID (DataMig)">
+            <div class="slds-p-around_medium">
 
-                <div class="slds-modal__content slds-p-around_medium">
-                    <p class="slds-text-color_error slds-m-bottom_medium">
-                        <strong>WARNING: this operation is IRREVERSIBLE. Data will be permanently overwritten.</strong>
-                    </p>
-                    <table class="slds-table slds-table_cell-buffer slds-table_bordered">
-                        <tbody>
-                            <template for:each={confirmSummaryLines} for:item="line">
-                                <tr key={line.key}>
-                                    <th class="slds-size_1-of-3" style="font-weight:600">{line.label}</th>
-                                    <td>{line.value}</td>
-                                </tr>
-                            </template>
-                        </tbody>
-                    </table>
+                <!-- Permission warning -->
+                <template if:true={permissionWarning}>
+                    <div class="slds-notify slds-notify_alert slds-theme_error slds-m-bottom_medium" role="alert">
+                        <lightning-icon icon-name="utility:error" size="small" class="slds-m-right_x-small"></lightning-icon>
+                        {permissionWarning}
+                    </div>
+                </template>
+
+                <!-- ID input -->
+                <div class="slds-form-element slds-m-bottom_medium">
+                    <label class="slds-form-element__label" for="byid-input">
+                        Salesforce Record IDs
+                        <span class="slds-text-body_small slds-text-color_weak slds-m-left_x-small">
+                            (one per line, or comma / semicolon separated)
+                        </span>
+                    </label>
+                    <div class="slds-form-element__control">
+                        <textarea
+                            id="byid-input"
+                            class="slds-textarea"
+                            rows="8"
+                            placeholder="001XXXXXXXXXXXXXXX&#10;003XXXXXXXXXXXXXXX&#10;..."
+                            value={byIdRawInput}
+                            onchange={handleByIdInputChange}>
+                        </textarea>
+                    </div>
+                    <p class="slds-form-element__help slds-m-top_xx-small">{byIdParsedCountLabel}</p>
                 </div>
 
-                <footer class="slds-modal__footer">
+                <!-- Resolve button -->
+                <div class="slds-m-bottom_medium">
                     <lightning-button
-                        label="Cancel"
-                        variant="neutral"
-                        onclick={handleCancelLaunch}>
+                        label="Resolve IDs"
+                        icon-name="utility:search"
+                        disabled={isByIdResolveDisabled}
+                        onclick={handleByIdResolve}>
                     </lightning-button>
+                    <template if:true={isByIdResolving}>
+                        <lightning-spinner alternative-text="Resolving..." size="small" class="slds-m-left_small"></lightning-spinner>
+                    </template>
+                </div>
+
+                <!-- Resolve result -->
+                <template if:true={hasByIdResolveResult}>
+                    <div class="slds-box slds-theme_shade slds-m-bottom_medium">
+                        <h3 class="slds-text-heading_small slds-m-bottom_small">Resolved scope</h3>
+
+                        <template if:true={hasByIdDirectObjects}>
+                            <p class="slds-text-title_caps slds-m-bottom_xx-small">Direct records</p>
+                            <template for:each={byIdResolveResult.directObjects} for:item="obj">
+                                <div key={obj.objectApiName} class="slds-grid slds-m-bottom_xx-small">
+                                    <div class="slds-col slds-size_1-of-2"><strong>{obj.objectApiName}</strong></div>
+                                    <div class="slds-col"><span class="slds-badge">{obj.recordCount} record(s)</span></div>
+                                </div>
+                            </template>
+                        </template>
+
+                        <template if:true={hasByIdChildObjects}>
+                            <p class="slds-text-title_caps slds-m-top_small slds-m-bottom_xx-small">Resolved children (via CMDT parent relation)</p>
+                            <template for:each={byIdResolveResult.childObjects} for:item="obj">
+                                <div key={obj.objectApiName} class="slds-grid slds-m-bottom_xx-small">
+                                    <div class="slds-col slds-size_1-of-2"><strong>{obj.objectApiName}</strong></div>
+                                    <div class="slds-col">
+                                        <span class="slds-badge">{obj.recordCount} record(s)</span>
+                                        <span class="slds-text-body_small slds-text-color_weak slds-m-left_x-small">{obj.sourceLabel}</span>
+                                    </div>
+                                </div>
+                            </template>
+                        </template>
+
+                        <template if:true={hasByIdInvalidIds}>
+                            <div class="slds-notify slds-notify_alert slds-theme_warning slds-m-top_small" role="alert">
+                                <lightning-icon icon-name="utility:warning" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+                                <strong>{byIdResolveResult.invalidIds.length} ID(s) skipped</strong>
+                                <ul class="slds-list_dotted slds-m-top_xx-small">
+                                    <template for:each={byIdResolveResult.invalidIds} for:item="inv">
+                                        <li key={inv} class="slds-text-body_small">{inv}</li>
+                                    </template>
+                                </ul>
+                            </div>
+                        </template>
+
+                        <template if:false={hasByIdAnyValid}>
+                            <p class="slds-text-color_error">
+                                No valid configured IDs found. Check that the objects are active in TEKCO_AnonymizationFieldConfig__mdt.
+                            </p>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Error -->
+                <template if:true={byIdErrorMessage}>
+                    <div class="slds-notify slds-notify_alert slds-theme_error slds-m-bottom_medium" role="alert">
+                        <lightning-icon icon-name="utility:error" size="small" class="slds-m-right_x-small"></lightning-icon>
+                        {byIdErrorMessage}
+                    </div>
+                </template>
+
+                <!-- Launch button -->
+                <div class="slds-m-bottom_large">
                     <lightning-button
-                        label="Confirm Launch"
+                        label={byIdLaunchLabel}
                         variant="destructive"
-                        class="slds-m-left_x-small"
-                        onclick={handleConfirmLaunch}>
+                        icon-name="utility:shield"
+                        disabled={isByIdLaunchDisabled}
+                        onclick={handleByIdLaunch}>
                     </lightning-button>
-                </footer>
+                    <template if:true={isByIdRunning}>
+                        <lightning-spinner alternative-text="Running..." size="small" class="slds-m-left_small"></lightning-spinner>
+                    </template>
+                </div>
+
+                <!-- Audit log — BY_ID runs only -->
+                <div class="slds-m-top_large">
+                    <div class="slds-grid slds-grid_align-spread slds-m-bottom_small">
+                        <h3 class="slds-text-heading_small">Recent BY_ID Runs</h3>
+                        <lightning-button-icon icon-name="utility:refresh" alternative-text="Refresh" onclick={handleByIdRefreshLogs}></lightning-button-icon>
+                    </div>
+                    <template if:true={hasByIdAuditLogs}>
+                        <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_col-bordered">
+                            <thead>
+                                <tr class="slds-line-height_reset">
+                                    <th><div class="slds-truncate">Log #</div></th>
+                                    <th><div class="slds-truncate">Object(s)</div></th>
+                                    <th><div class="slds-truncate">Scope</div></th>
+                                    <th><div class="slds-truncate">Status</div></th>
+                                    <th><div class="slds-truncate">Processed</div></th>
+                                    <th><div class="slds-truncate">Failed</div></th>
+                                    <th><div class="slds-truncate">By</div></th>
+                                    <th><div class="slds-truncate">Started</div></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template for:each={byIdAuditLogs} for:item="log">
+                                    <tr key={log.Id}>
+                                        <td><div class="slds-truncate">{log.Name}</div></td>
+                                        <td><div class="slds-truncate">{log.TEKCO_ObjectApiName__c}</div></td>
+                                        <td><div class="slds-truncate">{log.TEKCO_BrandFilter__c}</div></td>
+                                        <td><span class={log.statusClass}>{log.TEKCO_Status__c}</span></td>
+                                        <td><div class="slds-truncate">{log.TEKCO_RecordsProcessed__c}</div></td>
+                                        <td><div class="slds-truncate">{log.TEKCO_RecordsFailed__c}</div></td>
+                                        <td><div class="slds-truncate">{log.TEKCO_TriggeredBy__r.Name}</div></td>
+                                        <td><div class="slds-truncate">{log.startFormatted}</div></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </template>
+                    <template if:false={hasByIdAuditLogs}>
+                        <p class="slds-text-color_weak slds-m-top_small">No BY_ID runs yet.</p>
+                    </template>
+                </div>
 
             </div>
-        </section>
-        <div class="slds-backdrop slds-backdrop_open"></div>
-    </template>
+        </lightning-tab>
+
+        </lightning-tabset>
+
+        <!-- ── Confirmation modal — By Criteria (outside tabset so it overlays everything) ── -->
+        <template if:true={showConfirmPanel}>
+            <section
+                role="dialog"
+                tabindex="-1"
+                aria-modal="true"
+                aria-labelledby="confirm-modal-heading"
+                class="slds-modal slds-fade-in-open">
+                <div class="slds-modal__container">
+
+                    <header class="slds-modal__header slds-theme_alert-texture slds-theme_error">
+                        <lightning-icon
+                            icon-name="utility:warning"
+                            size="small"
+                            variant="inverse"
+                            class="slds-m-right_x-small">
+                        </lightning-icon>
+                        <h2 id="confirm-modal-heading" class="slds-text-heading_medium">
+                            Confirm Anonymization
+                        </h2>
+                    </header>
+
+                    <div class="slds-modal__content slds-p-around_medium">
+                        <p class="slds-text-color_error slds-m-bottom_medium">
+                            <strong>WARNING: this operation is IRREVERSIBLE. Data will be permanently overwritten.</strong>
+                        </p>
+                        <table class="slds-table slds-table_cell-buffer slds-table_bordered">
+                            <tbody>
+                                <template for:each={confirmSummaryLines} for:item="line">
+                                    <tr key={line.key}>
+                                        <th class="slds-size_1-of-3" style="font-weight:600">{line.label}</th>
+                                        <td>{line.value}</td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <footer class="slds-modal__footer">
+                        <lightning-button
+                            label="Cancel"
+                            variant="neutral"
+                            onclick={handleCancelLaunch}>
+                        </lightning-button>
+                        <lightning-button
+                            label="Confirm Launch"
+                            variant="destructive"
+                            class="slds-m-left_x-small"
+                            onclick={handleConfirmLaunch}>
+                        </lightning-button>
+                    </footer>
+
+                </div>
+            </section>
+            <div class="slds-backdrop slds-backdrop_open"></div>
+        </template>
+
+        <!-- ── Confirmation modal — By ID (outside tabset so it overlays everything) ── -->
+        <template if:true={showByIdConfirmPanel}>
+            <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="byid-confirm-heading"
+                class="slds-modal slds-fade-in-open">
+                <div class="slds-modal__container">
+                    <header class="slds-modal__header slds-theme_alert-texture slds-theme_error">
+                        <lightning-icon icon-name="utility:warning" size="small" variant="inverse" class="slds-m-right_x-small"></lightning-icon>
+                        <h2 id="byid-confirm-heading" class="slds-text-heading_medium">Confirm Anonymization by ID</h2>
+                    </header>
+                    <div class="slds-modal__content slds-p-around_medium">
+                        <p class="slds-text-color_error slds-m-bottom_medium">
+                            <strong>WARNING: this operation is IRREVERSIBLE. Data will be permanently overwritten.</strong>
+                        </p>
+                        <table class="slds-table slds-table_cell-buffer slds-table_bordered">
+                            <tbody>
+                                <template for:each={byIdConfirmSummaryLines} for:item="line">
+                                    <tr key={line.key}>
+                                        <th class="slds-size_1-of-3" style="font-weight:600">{line.label}</th>
+                                        <td>{line.value}</td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                    <footer class="slds-modal__footer">
+                        <lightning-button label="Cancel" variant="neutral" onclick={handleByIdCancelLaunch}></lightning-button>
+                        <lightning-button label="Confirm Launch" variant="destructive" class="slds-m-left_x-small" onclick={handleByIdConfirmLaunch}></lightning-button>
+                    </footer>
+                </div>
+            </section>
+            <div class="slds-backdrop slds-backdrop_open"></div>
+        </template>
+
+    </lightning-card>
 
 </template>
