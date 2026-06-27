@@ -381,8 +381,8 @@
                 <!-- Resolve button -->
                 <div class="slds-m-bottom_medium">
                     <lightning-button
-                        label="Resolve IDs"
-                        icon-name="utility:search"
+                        label="Preview Scope"
+                        icon-name="utility:preview"
                         disabled={isByIdResolveDisabled}
                         onclick={handleByIdResolve}>
                     </lightning-button>
@@ -394,7 +394,7 @@
                 <!-- Resolve result -->
                 <template if:true={hasByIdResolveResult}>
                     <div class="slds-box slds-theme_shade slds-m-bottom_medium">
-                        <h3 class="slds-text-heading_small slds-m-bottom_small">Resolved scope</h3>
+                        <h3 class="slds-text-heading_small slds-m-bottom_small">Scope Preview</h3>
 
                         <template if:true={hasByIdDirectObjects}>
                             <p class="slds-text-title_caps slds-m-bottom_xx-small">Direct records</p>
@@ -407,7 +407,7 @@
                         </template>
 
                         <template if:true={hasByIdChildObjects}>
-                            <p class="slds-text-title_caps slds-m-top_small slds-m-bottom_xx-small">Resolved children (via CMDT parent relation)</p>
+                            <p class="slds-text-title_caps slds-m-top_small slds-m-bottom_xx-small">Resolved children</p>
                             <template for:each={byIdResolveResult.childObjects} for:item="obj">
                                 <div key={obj.objectApiName} class="slds-grid slds-m-bottom_xx-small">
                                     <div class="slds-col slds-size_1-of-2"><strong>{obj.objectApiName}</strong></div>
@@ -446,13 +446,22 @@
                             <h3 class="slds-text-heading_small">
                                 Fields to Anonymize
                                 <span class="slds-text-body_small slds-text-color_weak slds-m-left_x-small">
-                                    (uncheck to exclude a field from this run)
+                                    (uncheck to bypass a field for this run)
                                 </span>
                             </h3>
                             <div class="slds-text-body_small">
-                                <lightning-button label="Select All" variant="base" onclick={handleByIdSelectAllFields}></lightning-button>
-                                /
-                                <lightning-button label="Deselect All" variant="base" onclick={handleByIdDeselectAllFields}></lightning-button>
+                                <span class="slds-m-right_medium">
+                                    Run:
+                                    <lightning-button label="Select All" variant="base" onclick={handleByIdSelectAllFields}></lightning-button>
+                                    /
+                                    <lightning-button label="Deselect All" variant="base" onclick={handleByIdDeselectAllFields}></lightning-button>
+                                </span>
+                                <span>
+                                    Del. History:
+                                    <lightning-button label="Select All" variant="base" onclick={handleByIdSelectAllHistory}></lightning-button>
+                                    /
+                                    <lightning-button label="Deselect All" variant="base" onclick={handleByIdDeselectAllHistory}></lightning-button>
+                                </span>
                             </div>
                         </div>
                         <template for:each={byIdFieldConfigsByObject} for:item="group">
@@ -534,7 +543,7 @@
                 <!-- Audit log — BY_ID runs only -->
                 <div class="slds-m-top_large">
                     <div class="slds-grid slds-grid_align-spread slds-m-bottom_small">
-                        <h3 class="slds-text-heading_small">Recent BY_ID Runs</h3>
+                        <h3 class="slds-text-heading_small">Recent Runs</h3>
                         <lightning-button-icon icon-name="utility:refresh" alternative-text="Refresh" onclick={handleByIdRefreshLogs}></lightning-button-icon>
                     </div>
                     <template if:true={hasByIdAuditLogs}>

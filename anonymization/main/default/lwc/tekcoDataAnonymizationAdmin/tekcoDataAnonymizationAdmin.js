@@ -330,10 +330,11 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             .then(configs => {
                 this.byIdFieldConfigs = configs.map(cfg => ({
                     ...cfg,
-                    configKey:    `${cfg.objectApiName}.${cfg.fieldApiName}.${cfg.recordTypeDeveloperName || ''}`,
-                    enabled:      true,
-                    deleteHistory: cfg.deleteHistory !== false,
-                    isContentDoc: cfg.patternType === 'DELETE_CONTENT_DOCUMENT'
+                    configKey:             `${cfg.objectApiName}.${cfg.fieldApiName}.${cfg.recordTypeDeveloperName || ''}`,
+                    enabled:               true,
+                    deleteHistory:         cfg.deleteHistory !== false,
+                    originalDeleteHistory: cfg.deleteHistory !== false,
+                    isContentDoc:          cfg.patternType === 'DELETE_CONTENT_DOCUMENT'
                 }));
             })
             .catch(() => { this.byIdFieldConfigs = []; });
@@ -348,6 +349,8 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
     handleByIdSelectAllFields()   { this.byIdFieldConfigs = this.byIdFieldConfigs.map(cfg => ({ ...cfg, enabled: true })); }
     handleByIdDeselectAllFields() { this.byIdFieldConfigs = this.byIdFieldConfigs.map(cfg => ({ ...cfg, enabled: false })); }
+    handleByIdSelectAllHistory()  { this.byIdFieldConfigs = this.byIdFieldConfigs.map(cfg => cfg.originalDeleteHistory ? { ...cfg, deleteHistory: true } : cfg); }
+    handleByIdDeselectAllHistory(){ this.byIdFieldConfigs = this.byIdFieldConfigs.map(cfg => ({ ...cfg, deleteHistory: false })); }
 
     handleByIdDeleteHistoryToggle(event) {
         const configKey = event.target.dataset.key;
@@ -445,7 +448,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
     get resolveModeOptions()        { return RESOLVE_MODE_OPTIONS; }
     get isExternalIdMode()          { return this.byIdResolveMode === 'EXTERNAL_ID'; }
-    get byIdObjectOptions()         { return this.objectOptions; }
+    get byIdObjectOptions()         { return (this.objectOptions || []).map(o => ({ label: o.value, value: o.value })); }
 
     get byIdParsedCountLabel() {
         const count = this._parseByIdInput().length;
