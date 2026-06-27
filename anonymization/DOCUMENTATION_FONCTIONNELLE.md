@@ -57,6 +57,8 @@ Each record describes how a pattern transforms a value.
 | `TEKCO_BaseEmail__c` | Base email address for email patterns (optional) |
 | `TEKCO_ExternalIdField__c` | Field used as the external identifier (optional) |
 | `TEKCO_SsnLength__c` | Target length for the `SSN_SEQUENTIAL` pattern (optional) |
+| `TEKCO_RegexFind__c` | Regular expression to search for, used by the `REGEX` pattern (optional — if blank, the entire field value is replaced) |
+| `TEKCO_RegexReplace__c` | Replacement string for the `REGEX` pattern; supports capture groups (`$1`, `$2`, …) |
 | `TEKCO_Description__c` | Human-readable description of the pattern |
 
 ---
@@ -90,6 +92,8 @@ Notes on email patterns:
 |---|---|---|
 | `PHONE_MASK` | Keeps the first 4 characters and replaces the rest with zeros | `+33123456789` → `+33100000000` |
 
+> **REGEX equivalent**: `TEKCO_RegexFind__c = (?<=^.{4})\d`, `TEKCO_RegexReplace__c = 0`
+
 ### Address patterns
 
 | Pattern | Algorithm | Example |
@@ -103,6 +107,34 @@ Notes on email patterns:
 | `SSN_SEQUENTIAL` | Generates a cyclic 1–9 digit sequence at the same length as the original value | `123456789` (9 chars) → `123456789` |
 | `LOREM_IPSUM` | Replaces the value with a fixed Lorem Ipsum text | *(fixed text)* |
 | `KEEP` | No-op — field value is left unchanged | *(unchanged)* |
+| `CLEAR` | Sets the field to null (empty) | *(blank)* |
+
+> **REGEX equivalents**:
+> - `SSN_SEQUENTIAL` → `TEKCO_RegexFind__c = \d`, `TEKCO_RegexReplace__c = 0` (replaces every digit with 0)
+> - `LOREM_IPSUM` → `TEKCO_RegexFind__c = [\s\S]*`, `TEKCO_RegexReplace__c = Lorem ipsum dolor sit amet…`
+
+### REGEX pattern (generic, configurable in CMDT)
+
+| Pattern | Algorithm |
+|---|---|
+| `REGEX` | Applies a configurable find/replace regular expression to the field value. No code change required — fully driven by CMDT fields `TEKCO_RegexFind__c` and `TEKCO_RegexReplace__c`. |
+
+**Behaviour:**
+- If `TEKCO_RegexFind__c` is **blank**: the entire field value is replaced by `TEKCO_RegexReplace__c` (fixed replacement).
+- If `TEKCO_RegexFind__c` is set: the regex is compiled and applied via `replaceAll()`. Capture groups are supported (`$1`, `$2`, …).
+- If the regex is **invalid**: the field is left unchanged (no error raised, batch continues).
+- If `TEKCO_RegexReplace__c` is blank: matched portions are replaced with an empty string.
+
+**Configuration examples:**
+
+| Use case | `TEKCO_RegexFind__c` | `TEKCO_RegexReplace__c` | Result |
+|---|---|---|---|
+| Replace all digits with 0 | `\d` | `0` | `AB12CD34` → `AB00CD00` |
+| Fixed value `ANONYMIZED` | *(blank)* | `ANONYMIZED` | any value → `ANONYMIZED` |
+| Mask email — keep domain only | `[^@]+` | `anon` | `user@company.com` → `anon@company.com` |
+| Keep first 2 digits, zero the rest | `(\d{2})\d+` | `${1}0000000000` | `+33123456789` → `+330000000000` |
+| Mask after 4th character | `(?<=^.{4})[\s\S]*` | *(blank)* | `ABCDEFGH` → `ABCD` |
+| 5-char fixed zero string | `[\s\S]*` | `00000` | any value → `00000` |
 
 ### Special patterns (batch-level behaviour)
 
@@ -229,6 +261,18 @@ Centralises updates to the `TEKCO_AnonymizationAuditLog__c` record throughout th
 No code changes are required for standard cases.
 
 ## Adding a New Pattern
+
+### Using the generic REGEX pattern (no code change required)
+
+If the transformation can be expressed as a regular expression find/replace, use the `REGEX` pattern type:
+
+1. Create a `TEKCO_AnonymizationPattern__mdt` record with `TEKCO_PatternType__c = 'REGEX'`.
+2. Set `TEKCO_RegexFind__c` (leave blank for a full fixed replacement) and `TEKCO_RegexReplace__c`.
+3. Activate (`TEKCO_IsActive__c = true`) and deploy. No Apex code change needed.
+
+### Adding a custom algorithm (code change required)
+
+Use this path only if the transformation cannot be expressed as a regex (e.g. it reads related records, uses randomness, or depends on runtime lookup).
 
 1. Create a `TEKCO_AnonymizationPattern__mdt` record with the desired `DeveloperName` and configuration fields.
 2. Add the corresponding `when 'PATTERN_NAME'` case in `TEKCO_AnonymizationPatternService.applyPattern()`.
