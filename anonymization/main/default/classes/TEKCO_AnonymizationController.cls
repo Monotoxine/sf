@@ -207,12 +207,13 @@ public with sharing class TEKCO_AnonymizationController {
             }
         }
 
-        Map<String, String> rtFilterByObject = new Map<String, String>();
+        Map<String, List<String>> rtFilterByObject = new Map<String, List<String>>();
         if (selectedRecordTypes != null && !selectedRecordTypes.isEmpty()) {
             for (String rt : selectedRecordTypes) {
                 String obj = objectByRt.get(rt);
-                if (obj != null && !rtFilterByObject.containsKey(obj)) {
-                    rtFilterByObject.put(obj, rt);
+                if (obj != null) {
+                    if (!rtFilterByObject.containsKey(obj)) rtFilterByObject.put(obj, new List<String>());
+                    rtFilterByObject.get(obj).add(rt);
                 }
             }
         }
@@ -251,12 +252,11 @@ public with sharing class TEKCO_AnonymizationController {
                         conditions.add('TEKCO_Country__c IN :countryValues');
                     }
                 }
-                String applicableRt = rtFilterByObject.get(objectApiName);
-                if (String.isNotBlank(applicableRt) && hasRecordType.get(objectApiName) == true) {
-                    conditions.add(
-                        'RecordType.DeveloperName = \''
-                        + String.escapeSingleQuotes(applicableRt) + '\''
-                    );
+                List<String> applicableRts = rtFilterByObject.get(objectApiName);
+                if (applicableRts != null && !applicableRts.isEmpty() && hasRecordType.get(objectApiName) == true) {
+                    List<String> escaped = new List<String>();
+                    for (String rt : applicableRts) escaped.add('\'' + String.escapeSingleQuotes(rt) + '\'');
+                    conditions.add('RecordType.DeveloperName IN (' + String.join(escaped, ', ') + ')');
                 }
                 String whereClause = conditions.isEmpty()
                     ? '' : ' WHERE ' + String.join(conditions, ' AND ');
