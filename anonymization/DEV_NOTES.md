@@ -63,6 +63,8 @@ Un record = un algorithme de transformation.
 | `TEKCO_BaseEmail__c` | Email de base pour les patterns EMAIL_* |
 | `TEKCO_ExternalIdField__c` | Champ ExternalId à lire sur l'enregistrement |
 | `TEKCO_SsnLength__c` | Longueur cible pour SSN_SEQUENTIAL |
+| `TEKCO_RegexFind__c` | Expression régulière (pattern `REGEX`) — vide = remplacement total |
+| `TEKCO_RegexReplace__c` | Remplacement pour `REGEX` — supporte les groupes `$1`, `$2` |
 | `TEKCO_Description__c` | Texte affiché dans le LWC |
 
 ---
@@ -80,11 +82,27 @@ Tout le code est dans `TEKCO_AnonymizationPatternService.cls` — méthode `appl
 | `SSN_SEQUENTIAL` | `"1234567890"` | `"1234567891"` (séquentiel 1-9, même longueur) | ~182 |
 | `LOREM_IPSUM` | n'importe quoi | texte lorem fixe | ~81 |
 | `ADDRESS_STREET_RANDOM` | `"123 Rue de la Paix"` | `"137 Rue de la Paix"` (num + offset 1-20) | ~204 |
+| `REGEX` | valeur quelconque | résultat du find/replace configurable en CMDT | ~240 |
 | `DELETE_CONTENT_DOCUMENT` | — | null → géré par ContentDocumentBatch | ~86 |
 | `EMAIL_MESSAGE_LOREM` | — | null → géré dans AnonymizationBatch directement | ~89 |
 
 > **Note EMAIL_MESSAGE_LOREM** : pas dans le service. La logique est dans `AnonymizationBatch.execute()` lignes ~194-209.
 > Draft → remplace le texte par lorem. Non-Draft → supprime le record entier.
+
+### Pattern REGEX — exemples de configuration CMDT
+
+| Besoin | `TEKCO_RegexFind__c` | `TEKCO_RegexReplace__c` |
+|---|---|---|
+| Remplacer tous les chiffres par 0 | `\d` | `0` |
+| Valeur fixe `ANONYMIZED` | *(vide)* | `ANONYMIZED` |
+| Masquer email, garder domaine | `[^@]+` | `anon` |
+| Garder 2 premiers chiffres, zéros | `(\d{2})\d+` | `${1}0000000000` |
+| Tronquer après 4 caractères | `(?<=^.{4})[\s\S]*` | *(vide)* |
+| Chaîne de 5 zéros | `[\s\S]*` | `00000` |
+
+> **Implémentation** : `System.Pattern.compile(find).matcher(value).replaceAll(replacement)`.
+> `System.Pattern` est obligatoire — le paramètre `pattern` (CMDT) masquerait la classe `Pattern` sinon.
+> Regex invalide → valeur inchangée, le batch continue sans erreur.
 
 ---
 
