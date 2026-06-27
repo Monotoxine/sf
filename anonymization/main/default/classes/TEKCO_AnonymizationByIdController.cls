@@ -326,6 +326,27 @@ public with sharing class TEKCO_AnonymizationByIdController {
      * a given object, used to populate the External ID field selector in the LWC.
      */
     @AuraEnabled(cacheable=true)
+    public static List<Map<String, String>> getDirectObjects() {
+        Set<String> seen = new Set<String>();
+        for (TEKCO_AnonymizationFieldConfig__mdt fc : [
+            SELECT TEKCO_ObjectApiName__c
+            FROM TEKCO_AnonymizationFieldConfig__mdt
+            WHERE TEKCO_IsActive__c = true
+              AND TEKCO_ObjectApiName__c != null
+              AND (TEKCO_ParentObjectApiName__c = null OR TEKCO_ParentObjectApiName__c = '')
+        ]) {
+            seen.add(fc.TEKCO_ObjectApiName__c);
+        }
+        List<String> sorted = new List<String>(seen);
+        sorted.sort();
+        List<Map<String, String>> options = new List<Map<String, String>>();
+        for (String obj : sorted) {
+            options.add(new Map<String, String>{ 'label' => obj, 'value' => obj });
+        }
+        return options;
+    }
+
+    @AuraEnabled(cacheable=true)
     public static List<String> getExternalIdFieldsForObject(String objectApiName) {
         if (String.isBlank(objectApiName)) return new List<String>();
 

@@ -14,6 +14,7 @@ import resolveIds                  from '@salesforce/apex/TEKCO_AnonymizationByI
 import startAnonymizationByIds     from '@salesforce/apex/TEKCO_AnonymizationByIdController.startAnonymizationByIds';
 import getAuditLogsByid            from '@salesforce/apex/TEKCO_AnonymizationByIdController.getAuditLogsByid';
 import getExternalIdFieldsForObject from '@salesforce/apex/TEKCO_AnonymizationByIdController.getExternalIdFieldsForObject';
+import getDirectObjects              from '@salesforce/apex/TEKCO_AnonymizationByIdController.getDirectObjects';
 
 const AUDIT_POLL_INTERVAL_MS = 5000;
 
@@ -58,6 +59,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     @track byIdTargetObject          = '';
     @track byIdExternalIdField       = '';
     @track byIdExternalIdFieldOptions = [];
+    @track byIdDirectObjectOptions   = [];
     @track byIdResolveResult         = null;
     @track byIdFieldConfigs          = [];      // Fields to Anonymize for resolved objects
     @track isByIdResolving           = false;
@@ -75,6 +77,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         this.loadRecordTypes([]);
         this.loadAuditLogs();
         this.loadByIdAuditLogs();
+        this.loadDirectObjects();
     }
 
     disconnectedCallback() {
@@ -413,6 +416,12 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
     handleByIdRefreshLogs() { this.loadByIdAuditLogs(); }
 
+    loadDirectObjects() {
+        getDirectObjects()
+            .then(options => { this.byIdDirectObjectOptions = options; })
+            .catch(() => {});
+    }
+
     loadByIdAuditLogs() {
         getAuditLogsByid()
             .then(logs => {
@@ -448,7 +457,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
     get resolveModeOptions()        { return RESOLVE_MODE_OPTIONS; }
     get isExternalIdMode()          { return this.byIdResolveMode === 'EXTERNAL_ID'; }
-    get byIdObjectOptions()         { return (this.objectOptions || []).map(o => ({ label: o.value, value: o.value })); }
+    get byIdObjectOptions()         { return this.byIdDirectObjectOptions; }
 
     get byIdParsedCountLabel() {
         const count = this._parseByIdInput().length;
