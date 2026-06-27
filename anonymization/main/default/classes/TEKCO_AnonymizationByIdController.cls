@@ -2,38 +2,59 @@
  * @description AuraEnabled controller for the "By ID" tab of tekcoDataAnonymizationAdmin LWC.
  *
  *              Key behaviour:
- *              1. resolveIds() — parses raw Salesforce IDs, groups them by SObject type,
- *                 and also resolves child objects whose TEKCO_ParentObjectApiName__c matches
- *                 the provided objects (1 SOQL per child type, bulk-safe).
- *              2. startAnonymizationByIds() — runs the same resolution, then launches
- *                 TEKCO_AnonymizationByIdBatch → TEKCO_ContentDocumentByIdBatch
- *                 → TEKCO_FieldHistoryByIdBatch, reusing all existing services.
+ *              1. resolveIds() — resolves raw values (SF IDs or external IDs) into a scope
+ *                 preview, groups them by SObject type, resolves child objects via CMDT parent
+ *                 relations (1 SOQL per child type, bulk-safe), and returns distinct brands
+ *                 found on the direct records.
+ *              2. startAnonymizationByIds() — runs the same resolution (supporting excluded
+ *                 fields), then launches TEKCO_AnonymizationByIdBatch →
+ *                 TEKCO_ContentDocumentByIdBatch → TEKCO_FieldHistoryByIdBatch.
+ *              3. getExternalIdFieldsForObject() — returns distinct external-ID field names
+ *                 configured in CMDT patterns for a given object (used to populate the
+ *                 External ID field selector in the LWC).
  */
 public with sharing class TEKCO_AnonymizationByIdController {
 
-    private static final String PATTERN_DELETE_CD = 'DELETE_CONTENT_DOCUMENT';
+    private static final String PATTERN_DELETE_CD  = 'DELETE_CONTENT_DOCUMENT';
+    private static final String MODE_EXTERNAL_ID   = 'EXTERNAL_ID';
 
     // ── Public API ────────────────────────────────────────────────────────────
 
     /**
-     * Resolves raw ID strings into a scope preview.
-     * Returns direct objects (IDs provided by the user) and resolved children
-     * (objects that have a CMDT parent relation to one of the provided objects).
+     * Resolves raw values into a scope preview.
+     *
+     * @param rawIds         Raw strings pasted by the user (SF IDs or external ID values).
+     * @param resolveMode    'SF_ID' (default) or 'EXTERNAL_ID'.
+     * @param targetObject   Required when resolveMode = 'EXTERNAL_ID'. SObject API name.
+     * @param externalIdField Required when resolveMode = 'EXTERNAL_ID'. Field API name.
      */
     @AuraEnabled(cacheable=false)
-    public static ResolveResultDTO resolveIds(List<String> rawIds) {
+    public static ResolveResultDTO resolveIds(
+        List<String> rawIds,
+        String resolveMode,
+        String targetObject,
+        String externalIdField
+    ) {
         ResolveResultDTO result = new ResolveResultDTO();
         result.directObjects   = new List<ObjectScopeDTO>();
         result.childObjects    = new List<ObjectScopeDTO>();
         result.invalidIds      = new List<String>();
+        result.brands          = new List<String>();
         result.totalValid      = 0;
 
         if (rawIds == null || rawIds.isEmpty()) return result;
 
-        // Step 1 — group provided IDs by SObject type
-        Map<String, List<Id>> directIdsByObject = parseAndGroupIds(rawIds, result.invalidIds);
+        // Step 1 — group provided values by SObject type
+        Map<String, List<Id>> directIdsByObject;
+        if (resolveMode == MODE_EXTERNAL_ID
+                && String.isNotBlank(targetObject)
+                && String.isNotBlank(externalIdField)) {
+            directIdsByObject = resolveByExternalIds(rawIds, targetObject, externalIdField, result.invalidIds);
+        } else {
+            directIdsByObject = parseAndGroupIds(rawIds, result.invalidIds);
+        }
 
-        // Step 2 — load all active CMDT configs (fields + parent relations)
+        // Step 2 — load all active CMDT configs
         List<TEKCO_AnonymizationFieldConfig__mdt> allConfigs = loadAllActiveConfigs();
         Set<String> configuredObjects = getConfiguredObjectNames(allConfigs);
 
@@ -52,7 +73,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
             }
         }
 
-        // Step 3 — resolve children whose parent matches a direct object
+        // Step 3 — resolve child objects
         Map<String, ChildRelationInfo> childRelByObject = buildChildRelationMap(allConfigs);
         for (String childObj : childRelByObject.keySet()) {
             ChildRelationInfo rel = childRelByObject.get(childObj);
@@ -70,15 +91,46 @@ public with sharing class TEKCO_AnonymizationByIdController {
             }
         }
 
+        // Step 4 — collect distinct brands from direct records
+        Set<String> brandSet = new Set<String>();
+        for (String obj : directIdsByObject.keySet()) {
+            if (TEKCO_AnonymizationPatternService.hasField(obj, 'tekco_brand__c')) {
+                List<Id> ids = directIdsByObject.get(obj);
+                try {
+                    for (SObject r : Database.query(
+                        'SELECT TEKCO_Brand__c FROM ' + obj
+                        + ' WHERE Id IN :ids AND TEKCO_Brand__c != null'
+                    )) {
+                        brandSet.add((String) r.get('TEKCO_Brand__c'));
+                    }
+                } catch (Exception e) { /* field absent — skip */ }
+            }
+        }
+        List<String> brandList = new List<String>(brandSet);
+        brandList.sort();
+        result.brands = brandList;
+
         return result;
     }
 
     /**
-     * Validates permission, resolves all IDs (direct + children), loads CMDT configs,
+     * Validates permission, resolves all IDs (direct + children), applies field exclusions,
      * then launches the TEKCO_AnonymizationByIdBatch chain.
+     *
+     * @param rawIds          Raw strings pasted by the user.
+     * @param resolveMode     'SF_ID' or 'EXTERNAL_ID'.
+     * @param targetObject    Required when resolveMode = 'EXTERNAL_ID'.
+     * @param externalIdField Required when resolveMode = 'EXTERNAL_ID'.
+     * @param excludedFields  List of field keys (objectApiName.fieldApiName.recordType) to skip.
      */
     @AuraEnabled
-    public static Id startAnonymizationByIds(List<String> rawIds) {
+    public static Id startAnonymizationByIds(
+        List<String> rawIds,
+        String resolveMode,
+        String targetObject,
+        String externalIdField,
+        List<String> excludedFields
+    ) {
         if (!FeatureManagement.checkPermission('TEKCO_AnonymizeData')) {
             throw new AuraHandledException(
                 'Permission denied: the "TEKCO Anonymize Data" custom permission is required.'
@@ -90,9 +142,20 @@ public with sharing class TEKCO_AnonymizationByIdController {
             throw new AuraHandledException('No IDs provided.');
         }
 
+        Set<String> excludedFieldKeys = new Set<String>();
+        if (excludedFields != null) excludedFieldKeys.addAll(excludedFields);
+
         // Resolve full scope (direct + children)
         List<String> parseErrors = new List<String>();
-        Map<String, List<Id>> directIdsByObject = parseAndGroupIds(rawIds, parseErrors);
+        Map<String, List<Id>> directIdsByObject;
+        if (resolveMode == MODE_EXTERNAL_ID
+                && String.isNotBlank(targetObject)
+                && String.isNotBlank(externalIdField)) {
+            directIdsByObject = resolveByExternalIds(rawIds, targetObject, externalIdField, parseErrors);
+        } else {
+            directIdsByObject = parseAndGroupIds(rawIds, parseErrors);
+        }
+
         if (directIdsByObject.isEmpty()) {
             throw new AuraHandledException('No valid Salesforce IDs found.'
                 + (parseErrors.isEmpty() ? '' : ' Invalid: ' + String.join(parseErrors, ', ')));
@@ -104,23 +167,19 @@ public with sharing class TEKCO_AnonymizationByIdController {
 
         Map<String, List<Id>> allIdsByObject = new Map<String, List<Id>>();
 
-        // Add direct objects that are configured
         for (String obj : directIdsByObject.keySet()) {
             if (configuredObjects.contains(obj.toLowerCase())) {
                 allIdsByObject.put(obj, directIdsByObject.get(obj));
             }
         }
 
-        // Resolve and add children
         for (String childObj : childRelByObject.keySet()) {
             ChildRelationInfo rel = childRelByObject.get(childObj);
             List<Id> parentIds = directIdsByObject.get(rel.parentObjectApiName);
             if (parentIds == null || parentIds.isEmpty()) continue;
             List<Id> childIds = resolveChildIds(childObj, rel.parentLookupField, parentIds);
             if (!childIds.isEmpty()) {
-                if (!allIdsByObject.containsKey(childObj)) {
-                    allIdsByObject.put(childObj, new List<Id>());
-                }
+                if (!allIdsByObject.containsKey(childObj)) allIdsByObject.put(childObj, new List<Id>());
                 allIdsByObject.get(childObj).addAll(childIds);
             }
         }
@@ -131,7 +190,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
             );
         }
 
-        // Build per-object config groups
         List<String> objectsToProcess = new List<String>(allIdsByObject.keySet());
 
         List<TEKCO_AnonymizationFieldConfig__mdt> scopedConfigs = [
@@ -152,7 +210,11 @@ public with sharing class TEKCO_AnonymizationByIdController {
         Map<String, List<Id>> historyIdsByObject = new Map<String, List<Id>>();
 
         for (TEKCO_AnonymizationFieldConfig__mdt fc : scopedConfigs) {
-            String obj = fc.TEKCO_ObjectApiName__c;
+            String obj      = fc.TEKCO_ObjectApiName__c;
+            String fieldKey = obj + '.' + fc.TEKCO_FieldApiName__c + '.'
+                + (fc.TEKCO_RecordTypeDeveloperName__c != null ? fc.TEKCO_RecordTypeDeveloperName__c : '');
+
+            if (excludedFieldKeys.contains(fieldKey)) continue;
 
             if (fc.TEKCO_PatternType__c == PATTERN_DELETE_CD) {
                 contentDocConfigs.add(fc);
@@ -193,7 +255,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
 
         Id batchJobId;
 
-        // Objects that have field-level configs (not just content-doc)
         List<String> fieldObjects = new List<String>();
         for (String obj : objectsToProcess) {
             if (configsByObject.containsKey(obj)) fieldObjects.add(obj);
@@ -257,7 +318,74 @@ public with sharing class TEKCO_AnonymizationByIdController {
         ];
     }
 
+    /**
+     * Returns the distinct external-ID field names configured in CMDT patterns for
+     * a given object, used to populate the External ID field selector in the LWC.
+     */
+    @AuraEnabled(cacheable=true)
+    public static List<String> getExternalIdFieldsForObject(String objectApiName) {
+        if (String.isBlank(objectApiName)) return new List<String>();
+
+        Set<String> patternTypesForObj = new Set<String>();
+        for (TEKCO_AnonymizationFieldConfig__mdt fc : [
+            SELECT TEKCO_PatternType__c
+            FROM TEKCO_AnonymizationFieldConfig__mdt
+            WHERE TEKCO_ObjectApiName__c = :objectApiName
+              AND TEKCO_IsActive__c = true
+        ]) {
+            if (String.isNotBlank(fc.TEKCO_PatternType__c)) patternTypesForObj.add(fc.TEKCO_PatternType__c);
+        }
+
+        Set<String> fields = new Set<String>();
+        for (TEKCO_AnonymizationPattern__mdt p : [
+            SELECT TEKCO_ExternalIdField__c
+            FROM TEKCO_AnonymizationPattern__mdt
+            WHERE DeveloperName IN :patternTypesForObj
+              AND TEKCO_IsActive__c = true
+              AND TEKCO_ExternalIdField__c != null
+        ]) {
+            fields.add(p.TEKCO_ExternalIdField__c);
+        }
+
+        // TEKCO_FunctionalId__c is used implicitly in batch code — include it if the field exists
+        if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_functionalid__c')) {
+            fields.add('TEKCO_FunctionalId__c');
+        }
+
+        List<String> result = new List<String>(fields);
+        result.sort();
+        return result;
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    /** Resolves external-ID values to Salesforce record IDs via a dynamic SOQL. */
+    private static Map<String, List<Id>> resolveByExternalIds(
+        List<String> rawValues,
+        String objectApiName,
+        String fieldApiName,
+        List<String> invalidOut
+    ) {
+        Map<String, List<Id>> result = new Map<String, List<Id>>();
+        if (Schema.getGlobalDescribe().get(objectApiName) == null) {
+            if (invalidOut != null) invalidOut.add(objectApiName + ' — object not found in org');
+            return result;
+        }
+        try {
+            List<SObject> records = Database.query(
+                'SELECT Id FROM ' + objectApiName
+                + ' WHERE ' + fieldApiName + ' IN :rawValues'
+            );
+            List<Id> ids = new List<Id>();
+            for (SObject r : records) ids.add(r.Id);
+            if (!ids.isEmpty()) result.put(objectApiName, ids);
+        } catch (Exception e) {
+            if (invalidOut != null) {
+                invalidOut.add(objectApiName + '.' + fieldApiName + ' — ' + e.getMessage());
+            }
+        }
+        return result;
+    }
 
     private static Map<String, List<Id>> parseAndGroupIds(
         List<String> rawIds, List<String> invalidOut
@@ -299,7 +427,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
         return result;
     }
 
-    /** Builds a map of child object → parent relation info from CMDT. */
     private static Map<String, ChildRelationInfo> buildChildRelationMap(
         List<TEKCO_AnonymizationFieldConfig__mdt> configs
     ) {
@@ -308,7 +435,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
             if (String.isBlank(fc.TEKCO_ParentObjectApiName__c)
                     || String.isBlank(fc.TEKCO_ParentLookupFieldApiName__c)) continue;
             String childObj = fc.TEKCO_ObjectApiName__c;
-            if (result.containsKey(childObj)) continue; // one relation per child object
+            if (result.containsKey(childObj)) continue;
             ChildRelationInfo rel  = new ChildRelationInfo();
             rel.parentObjectApiName = fc.TEKCO_ParentObjectApiName__c;
             rel.parentLookupField   = fc.TEKCO_ParentLookupFieldApiName__c;
@@ -317,7 +444,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
         return result;
     }
 
-    /** Queries child records whose lookup field points to the given parent IDs. Bulk-safe. */
     private static List<Id> resolveChildIds(
         String childObjectApiName, String parentLookupField, List<Id> parentIds
     ) {
@@ -329,9 +455,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
                 + ' WHERE ' + parentLookupField + ' IN :parentIds'
             );
             for (SObject child : children) childIds.add(child.Id);
-        } catch (Exception e) {
-            // object or field not available — skip silently
-        }
+        } catch (Exception e) { }
         return childIds;
     }
 
@@ -360,6 +484,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
         @AuraEnabled public List<ObjectScopeDTO> directObjects;
         @AuraEnabled public List<ObjectScopeDTO> childObjects;
         @AuraEnabled public List<String>         invalidIds;
+        @AuraEnabled public List<String>         brands;
         @AuraEnabled public Integer              totalValid;
     }
 

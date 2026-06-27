@@ -322,10 +322,45 @@
                     </div>
                 </template>
 
+                <!-- Resolve mode selector -->
+                <div class="slds-grid slds-gutters slds-m-bottom_medium">
+                    <div class="slds-col slds-size_1-of-3">
+                        <lightning-combobox
+                            label="Resolution mode"
+                            value={byIdResolveMode}
+                            options={resolveModeOptions}
+                            onchange={handleByIdResolveModeChange}>
+                        </lightning-combobox>
+                    </div>
+
+                    <!-- External ID selectors — visible only in EXTERNAL_ID mode -->
+                    <template if:true={isExternalIdMode}>
+                        <div class="slds-col slds-size_1-of-3">
+                            <lightning-combobox
+                                label="Target object"
+                                placeholder="Select object..."
+                                value={byIdTargetObject}
+                                options={byIdObjectOptions}
+                                onchange={handleByIdTargetObjectChange}>
+                            </lightning-combobox>
+                        </div>
+                        <div class="slds-col slds-size_1-of-3">
+                            <lightning-combobox
+                                label="External ID field"
+                                placeholder="Select field..."
+                                value={byIdExternalIdField}
+                                options={byIdExternalIdFieldOptions}
+                                disabled={byIdExternalIdFieldDisabled}
+                                onchange={handleByIdExternalIdFieldChange}>
+                            </lightning-combobox>
+                        </div>
+                    </template>
+                </div>
+
                 <!-- ID input -->
                 <div class="slds-form-element slds-m-bottom_medium">
                     <label class="slds-form-element__label" for="byid-input">
-                        Salesforce Record IDs
+                        Record IDs / External IDs
                         <span class="slds-text-body_small slds-text-color_weak slds-m-left_x-small">
                             (one per line, or comma / semicolon separated)
                         </span>
@@ -400,6 +435,67 @@
                             <p class="slds-text-color_error">
                                 No valid configured IDs found. Check that the objects are active in TEKCO_AnonymizationFieldConfig__mdt.
                             </p>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Fields to Anonymize table (shown after resolve) -->
+                <template if:true={hasByIdFieldConfigs}>
+                    <div class="slds-m-bottom_medium">
+                        <div class="slds-grid slds-grid_align-spread slds-m-bottom_small">
+                            <h3 class="slds-text-heading_small">
+                                Fields to Anonymize
+                                <span class="slds-text-body_small slds-text-color_weak slds-m-left_x-small">
+                                    (uncheck to exclude a field from this run)
+                                </span>
+                            </h3>
+                            <div class="slds-text-body_small">
+                                <lightning-button label="Select All" variant="base" onclick={handleByIdSelectAllFields}></lightning-button>
+                                /
+                                <lightning-button label="Deselect All" variant="base" onclick={handleByIdDeselectAllFields}></lightning-button>
+                            </div>
+                        </div>
+                        <template for:each={byIdFieldConfigsByObject} for:item="group">
+                            <div key={group.objectApiName} class="slds-m-bottom_small">
+                                <p class="slds-text-title_caps slds-m-bottom_xx-small">{group.objectApiName}</p>
+                                <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_col-bordered">
+                                    <thead>
+                                        <tr class="slds-line-height_reset">
+                                            <th style="width:3rem"><div class="slds-truncate">Run</div></th>
+                                            <th><div class="slds-truncate">Field</div></th>
+                                            <th><div class="slds-truncate">Pattern</div></th>
+                                            <th><div class="slds-truncate">Record Type</div></th>
+                                            <th><div class="slds-truncate">Description</div></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template for:each={group.fields} for:item="field">
+                                            <tr key={field.configKey} class={field.rowClass}>
+                                                <td>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={field.enabled}
+                                                        data-key={field.configKey}
+                                                        onchange={handleByIdFieldToggle} />
+                                                </td>
+                                                <td><div class="slds-truncate">{field.fieldApiName}</div></td>
+                                                <td>
+                                                    <div class="slds-truncate">
+                                                        <template if:true={field.isContentDoc}>
+                                                            <span class="slds-badge slds-badge_inverse">{field.patternType}</span>
+                                                        </template>
+                                                        <template if:false={field.isContentDoc}>
+                                                            <span class="slds-badge">{field.patternType}</span>
+                                                        </template>
+                                                    </div>
+                                                </td>
+                                                <td><div class="slds-truncate">{field.recordTypeDeveloperName}</div></td>
+                                                <td><div class="slds-truncate">{field.patternDescription}</div></td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
                         </template>
                     </div>
                 </template>
