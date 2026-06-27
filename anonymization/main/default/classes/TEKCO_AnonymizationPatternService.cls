@@ -91,7 +91,10 @@ public class TEKCO_AnonymizationPatternService {
                 return null; // handled by TEKCO_ContentDocumentBatch
             }
             when 'EMAIL_MESSAGE_LOREM' {
-                return null; // handled by TEKCO_AnonymizationBatch 
+                return null; // handled by TEKCO_AnonymizationBatch
+            }
+            when 'REGEX' {
+                return applyRegex(currentValue, pattern);
             }
             when else {
                 return currentValue;
@@ -229,6 +232,25 @@ public class TEKCO_AnonymizationPatternService {
      *              Example: "Allée 12 des Fleurs" → "Allée 26 des Fleurs"
      *              If no number is found, returns value unchanged.
      */
+    /**
+     * @description REGEX: applies a configurable find/replace regex to the field value.
+     *              If TEKCO_RegexFind__c is blank, replaces the entire value with TEKCO_RegexReplace__c.
+     *              If the regex is invalid, returns the original value unchanged.
+     */
+    private static String applyRegex(String currentValue, TEKCO_AnonymizationPattern__mdt pattern) {
+        String replacement = pattern.TEKCO_RegexReplace__c != null ? pattern.TEKCO_RegexReplace__c : '';
+        if (String.isBlank(pattern.TEKCO_RegexFind__c)) {
+            return replacement;
+        }
+        try {
+            return Pattern.compile(pattern.TEKCO_RegexFind__c)
+                          .matcher(currentValue)
+                          .replaceAll(replacement);
+        } catch (Exception e) {
+            return currentValue;
+        }
+    }
+
     private static String applyAddressStreetRandom(String currentValue) {
         if (String.isBlank(currentValue)) return currentValue;
         Matcher numMatcher = Pattern.compile('(\\d+)').matcher(currentValue);
