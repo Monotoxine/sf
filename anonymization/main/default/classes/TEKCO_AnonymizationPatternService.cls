@@ -243,9 +243,9 @@ public class TEKCO_AnonymizationPatternService {
             return replacement;
         }
         try {
-            return Pattern.compile(pattern.TEKCO_RegexFind__c)
-                          .matcher(currentValue)
-                          .replaceAll(replacement);
+            return System.Pattern.compile(pattern.TEKCO_RegexFind__c)
+                                .matcher(currentValue)
+                                .replaceAll(replacement);
         } catch (Exception e) {
             return currentValue;
         }
