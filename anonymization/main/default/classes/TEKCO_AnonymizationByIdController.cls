@@ -347,9 +347,12 @@ public with sharing class TEKCO_AnonymizationByIdController {
             fields.add(p.TEKCO_ExternalIdField__c);
         }
 
-        // TEKCO_FunctionalId__c is used implicitly in batch code — include it if the field exists
-        if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_functionalid__c')) {
-            fields.add('TEKCO_FunctionalId__c');
+        // DataMig standard external ID fields — always offered when present on the object
+        if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_datamigid__c')) {
+            fields.add('Tekco_DatamigId__c');
+        }
+        if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_fhirid__c')) {
+            fields.add('Tekco_Fhirid__c');
         }
 
         List<String> result = new List<String>(fields);
