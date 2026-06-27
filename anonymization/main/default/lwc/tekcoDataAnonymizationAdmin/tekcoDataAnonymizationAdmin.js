@@ -332,6 +332,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
                     ...cfg,
                     configKey:    `${cfg.objectApiName}.${cfg.fieldApiName}.${cfg.recordTypeDeveloperName || ''}`,
                     enabled:      true,
+                    deleteHistory: cfg.deleteHistory !== false,
                     isContentDoc: cfg.patternType === 'DELETE_CONTENT_DOCUMENT'
                 }));
             })
@@ -347,6 +348,13 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
     handleByIdSelectAllFields()   { this.byIdFieldConfigs = this.byIdFieldConfigs.map(cfg => ({ ...cfg, enabled: true })); }
     handleByIdDeselectAllFields() { this.byIdFieldConfigs = this.byIdFieldConfigs.map(cfg => ({ ...cfg, enabled: false })); }
+
+    handleByIdDeleteHistoryToggle(event) {
+        const configKey = event.target.dataset.key;
+        this.byIdFieldConfigs = this.byIdFieldConfigs.map(cfg =>
+            cfg.configKey === configKey ? { ...cfg, deleteHistory: event.target.checked } : cfg
+        );
+    }
 
     handleByIdLaunch() {
         if (!this.hasPermission) {
@@ -378,13 +386,15 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         this.isByIdRunning        = true;
         this.byIdErrorMessage     = '';
         const ids = this._parseByIdInput();
-        const excludedFields = this.byIdFieldConfigs.filter(c => !c.enabled).map(c => c.configKey);
+        const excludedFields  = this.byIdFieldConfigs.filter(c => !c.enabled).map(c => c.configKey);
+        const noHistoryFields = this.byIdFieldConfigs.filter(c => c.enabled && !c.deleteHistory && !c.isContentDoc).map(c => c.configKey);
         startAnonymizationByIds({
             rawIds:          ids,
             resolveMode:     this.byIdResolveMode,
             targetObject:    this.byIdTargetObject || null,
             externalIdField: this.byIdExternalIdField || null,
-            excludedFields:  excludedFields.length > 0 ? excludedFields : null
+            excludedFields:  excludedFields.length  > 0 ? excludedFields  : null,
+            noHistoryFields: noHistoryFields.length > 0 ? noHistoryFields : null
         })
             .then(auditLogId => {
                 this.isByIdRunning = false;

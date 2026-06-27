@@ -129,7 +129,8 @@ public with sharing class TEKCO_AnonymizationByIdController {
         String resolveMode,
         String targetObject,
         String externalIdField,
-        List<String> excludedFields
+        List<String> excludedFields,
+        List<String> noHistoryFields
     ) {
         if (!FeatureManagement.checkPermission('TEKCO_AnonymizeData')) {
             throw new AuraHandledException(
@@ -142,8 +143,10 @@ public with sharing class TEKCO_AnonymizationByIdController {
             throw new AuraHandledException('No IDs provided.');
         }
 
-        Set<String> excludedFieldKeys = new Set<String>();
-        if (excludedFields != null) excludedFieldKeys.addAll(excludedFields);
+        Set<String> excludedFieldKeys  = new Set<String>();
+        if (excludedFields  != null) excludedFieldKeys.addAll(excludedFields);
+        Set<String> noHistoryFieldKeys = new Set<String>();
+        if (noHistoryFields != null) noHistoryFieldKeys.addAll(noHistoryFields);
 
         // Resolve full scope (direct + children)
         List<String> parseErrors = new List<String>();
@@ -229,7 +232,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
             }
             configsByObject.get(obj).add(fc);
 
-            if (fc.TEKCO_DeleteHistory__c) {
+            if (fc.TEKCO_DeleteHistory__c && !noHistoryFieldKeys.contains(fieldKey)) {
                 historyConfigs.add(fc);
                 if (!historyIdsByObject.containsKey(obj)) {
                     historyIdsByObject.put(obj, allIdsByObject.get(obj));

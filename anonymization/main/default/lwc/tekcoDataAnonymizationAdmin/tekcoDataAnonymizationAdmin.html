@@ -465,6 +465,7 @@
                                             <th><div class="slds-truncate">Field</div></th>
                                             <th><div class="slds-truncate">Pattern</div></th>
                                             <th><div class="slds-truncate">Record Type</div></th>
+                                            <th style="width:5rem"><div class="slds-truncate">Del. History</div></th>
                                             <th><div class="slds-truncate">Description</div></th>
                                         </tr>
                                     </thead>
@@ -490,6 +491,14 @@
                                                     </div>
                                                 </td>
                                                 <td><div class="slds-truncate">{field.recordTypeDeveloperName}</div></td>
+                                                <td>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={field.deleteHistory}
+                                                        disabled={field.isContentDoc}
+                                                        data-key={field.configKey}
+                                                        onchange={handleByIdDeleteHistoryToggle} />
+                                                </td>
                                                 <td><div class="slds-truncate">{field.patternDescription}</div></td>
                                             </tr>
                                         </template>
