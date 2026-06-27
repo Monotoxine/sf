@@ -372,14 +372,14 @@ public with sharing class TEKCO_AnonymizationByIdController {
         }
 
         // DataMig standard external ID fields — always offered when present on the object
-        if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_datamigrationid__c')) {
-            fields.add('Tekco_DataMigrationId__c');
+        if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'TEKCO_datamigrationid__c')) {
+            fields.add('TEKCO_DataMigrationId__c');
         }
-        if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_externalid__c')) {
-            fields.add('Tekco_ExternalId__c');
+        if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'TEKCO_externalid__c')) {
+            fields.add('TEKCO_ExternalId__c');
         }
-        if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_fhirid__c')) {
-            fields.add('Tekco_Fhirid__c');
+        if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'TEKCO_fhirid__c')) {
+            fields.add('TEKCO_Fhirid__c');
         }
 
         List<String> result = new List<String>(fields);
