@@ -61,6 +61,8 @@ This is **bulk-safe**: one SOQL per child object type regardless of how many par
 
 > **Note on CMDT reuse**: In the existing "By Criteria" batch, `TEKCO_ParentObjectApiName__c` is used as a *filter* — it generates a subquery to restrict children by their parent's brand/record type. In the By ID flow, the same field is used in the *opposite direction* — to discover which children to include given parent IDs. Same metadata, complementary logic, no conflict.
 
+> **Important — missing parent fields**: `buildChildRelationMap()` skips any CMDT config row where either `TEKCO_ParentObjectApiName__c` or `TEKCO_ParentLookupFieldApiName__c` is blank. Such an object is treated as a **root/direct object** (eligible for direct ID input) and will **never be resolved automatically as a child** of another object. If parent IDs are provided but a child object's CMDT rows have no parent relation configured, those child records will be silently excluded from the run — no error, no warning. Always verify that child-object CMDT rows have both fields populated before relying on automatic child resolution.
+
 **Step 4 — Preview (`resolveIds`)**
 
 A dedicated `@AuraEnabled(cacheable=false)` method returns a `ResolveResultDTO` without launching any batch:
