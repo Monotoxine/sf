@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>TEKCO_AnonymizationByIdBatch</members>
+        <members>TEKCO_AnonymizationByIdController</members>
+        <members>TEKCO_AnonymizationController</members>
+        <members>TEKCO_AnonymizationPatternService</members>
+        <members>TEKCO_ContentDocumentByIdBatch</members>
+        <members>TEKCO_FieldHistoryByIdBatch</members>
+        <name>ApexClass</name>
+    </types>
+    <types>
+        <members>TEKCO_AnonymizationPattern__mdt.TEKCO_RegexFind__c</members>
+        <members>TEKCO_AnonymizationPattern__mdt.TEKCO_RegexReplace__c</members>
+        <name>CustomField</name>
+    </types>
+    <types>
+        <members>tekcoDataAnonymizationAdmin</members>
+        <name>LightningComponentBundle</name>
+    </types>
+    <version>65.0</version>
+</Package>
