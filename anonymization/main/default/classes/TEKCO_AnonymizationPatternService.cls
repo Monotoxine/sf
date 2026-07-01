@@ -6,16 +6,14 @@
  * Pattern types:
  *   NAME_FIRST_LETTER               - First letter + ExternalId → TEKCO_FunctionalId__c → Salesforce Id
  *   NAME_FIRST_LETTER_SFID          - First letter + Salesforce record Id
- *   PHONE_MASK                      - First 4 chars + zeros
  *   EMAIL_PLUS_EXTERNALID           - base+ExternalId@domain
  *   EMAIL_PLUS_EXTERNALID_SUBDOMAIN - base+ExternalId@domain.country.sandbox
  *   EMAIL_PLUS_SFID                 - base+SalesforceId@domain
  *   EMAIL_PLUS_SFID_SUBDOMAIN       - base+SalesforceId@domain.country.sandbox
  *   SSN_SEQUENTIAL                  - Sequential digits to configured length
- *   LOREM_IPSUM                     - Fixed lorem ipsum text
  *   ADDRESS_STREET_RANDOM           - Street number + random 1-20
  *   KEEP                            - No-op: field value is left unchanged
- *   CLEAR                           - Empties the field if it has a value (sets to null)
+ *   REGEX                           - Configurable find/replace via TEKCO_RegexFind__c / TEKCO_RegexReplace__c
  *   DELETE_CONTENT_DOCUMENT         - Handled by dedicated batch (Phase 2)
  *   EMAIL_MESSAGE_LOREM             - Draft → lorem ipsum on the field; non-Draft → record deleted (handled in batch)
  */
@@ -25,7 +23,6 @@ public class TEKCO_AnonymizationPatternService {
         'Lorem ipsum dolor sit amet, consectetur adipiscing elit. ' +
         'Morbi diam diam, vestibulum non aliquam in, dictum quis eros.';
 
-    private static final Integer PHONE_MASK_KEEP_CHARS = 4;
     private static final Integer ADDRESS_RANDOM_MAX    = 20;
     private static final Integer SSN_DEFAULT_LENGTH    = 15;
 
@@ -60,9 +57,6 @@ public class TEKCO_AnonymizationPatternService {
             when 'NAME_FIRST_LETTER_SFID' {
                 return applyNameFirstLetter(currentValue, record, pattern);
             }
-            when 'PHONE_MASK' {
-                return applyPhoneMask(currentValue);
-            }
             when 'EMAIL_PLUS_EXTERNALID' {
                 return applyEmailPlusExternalId(currentValue, record, pattern, false);
             }
@@ -78,14 +72,8 @@ public class TEKCO_AnonymizationPatternService {
             when 'SSN_SEQUENTIAL' {
                 return applySsnSequential(currentValue, pattern);
             }
-            when 'LOREM_IPSUM' {
-                return LOREM_TEXT;
-            }
             when 'ADDRESS_STREET_RANDOM' {
                 return applyAddressStreetRandom(currentValue);
-            }
-            when 'CLEAR' {
-                return '';
             }
             when 'DELETE_CONTENT_DOCUMENT' {
                 return null; // handled by TEKCO_ContentDocumentBatch
@@ -136,19 +124,6 @@ public class TEKCO_AnonymizationPatternService {
 
         String sfId = getSalesforceId(record);
         return sfId;
-    }
-
-    /**
-     * @description PHONE_MASK: keeps the first 4 characters and replaces the rest with zeros.
-     *              Example: "+33123456789" → "+33100000000"
-     */
-    private static String applyPhoneMask(String currentValue) {
-        if (String.isBlank(currentValue)) return currentValue;
-        String cleanedValue = currentValue.trim();
-        Integer totalLength = cleanedValue.length();
-        if (totalLength <= PHONE_MASK_KEEP_CHARS) return cleanedValue;
-        return cleanedValue.substring(0, PHONE_MASK_KEEP_CHARS)
-            + '0'.repeat(totalLength - PHONE_MASK_KEEP_CHARS);
     }
 
     /**
