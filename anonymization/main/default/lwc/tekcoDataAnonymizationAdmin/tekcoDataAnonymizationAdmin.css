@@ -1,3 +1,11 @@
+.filter-input {
+    font-size: 0.75rem;
+    min-height: 1.5rem;
+    height: 1.5rem;
+    padding: 0 0.4rem;
+    font-weight: 400;
+}
+
 .badge {
     display: inline-block;
     padding: 0.125rem 0.5rem;

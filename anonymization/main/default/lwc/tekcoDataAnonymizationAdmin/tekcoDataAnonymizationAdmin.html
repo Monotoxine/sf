@@ -174,25 +174,6 @@
                             </span>
                         </div>
                     </div>
-                    <div class="slds-grid slds-gutters_x-small slds-m-bottom_small">
-                        <div class="slds-col slds-size_1-of-2">
-                            <lightning-input
-                                type="search"
-                                label="Filter by field name"
-                                placeholder="Type to filter..."
-                                value={fieldFilterText}
-                                onchange={handleFieldFilterChange}>
-                            </lightning-input>
-                        </div>
-                        <div class="slds-col slds-size_1-of-2">
-                            <lightning-combobox
-                                label="Filter by Record Type"
-                                value={fieldFilterRT}
-                                options={fieldFilterRtOptions}
-                                onchange={handleFieldFilterRtChange}>
-                            </lightning-combobox>
-                        </div>
-                    </div>
                     <template for:each={fieldConfigsByObject} for:item="group">
                         <div key={group.objectApiName} class="slds-m-bottom_small">
                             <p class="slds-text-title_caps slds-m-bottom_xx-small">{group.objectApiName}</p>
@@ -200,9 +181,23 @@
                                 <thead>
                                     <tr class="slds-line-height_reset">
                                         <th style="width:3rem"><div class="slds-truncate">Run</div></th>
-                                        <th><div class="slds-truncate">Field</div></th>
+                                        <th>
+                                            <div class="slds-truncate">Field</div>
+                                            <div class="slds-m-top_xx-small">
+                                                <input type="search" class="slds-input slds-input_small filter-input" placeholder="Filter…" value={fieldFilterText} oninput={handleFieldFilterChange} />
+                                            </div>
+                                        </th>
                                         <th><div class="slds-truncate">Pattern</div></th>
-                                        <th><div class="slds-truncate">Record Type</div></th>
+                                        <th>
+                                            <div class="slds-truncate">Record Type</div>
+                                            <div class="slds-m-top_xx-small">
+                                                <select class="slds-select slds-select_small filter-input" onchange={handleFieldFilterRtChange}>
+                                                    <template for:each={fieldFilterRtOptions} for:item="opt">
+                                                        <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.label}</option>
+                                                    </template>
+                                                </select>
+                                            </div>
+                                        </th>
                                         <th><div class="slds-truncate">Del. History</div></th>
                                         <th><div class="slds-truncate">Description</div></th>
                                     </tr>
@@ -483,25 +478,6 @@
                                 </span>
                             </div>
                         </div>
-                        <div class="slds-grid slds-gutters_x-small slds-m-bottom_small">
-                            <div class="slds-col slds-size_1-of-2">
-                                <lightning-input
-                                    type="search"
-                                    label="Filter by field name"
-                                    placeholder="Type to filter..."
-                                    value={byIdFieldFilterText}
-                                    onchange={handleByIdFieldFilterChange}>
-                                </lightning-input>
-                            </div>
-                            <div class="slds-col slds-size_1-of-2">
-                                <lightning-combobox
-                                    label="Filter by Record Type"
-                                    value={byIdFieldFilterRT}
-                                    options={byIdFieldFilterRtOptions}
-                                    onchange={handleByIdFieldFilterRtChange}>
-                                </lightning-combobox>
-                            </div>
-                        </div>
                         <template for:each={byIdFieldConfigsByObject} for:item="group">
                             <div key={group.objectApiName} class="slds-m-bottom_small">
                                 <p class="slds-text-title_caps slds-m-bottom_xx-small">{group.objectApiName}</p>
@@ -509,9 +485,23 @@
                                     <thead>
                                         <tr class="slds-line-height_reset">
                                             <th style="width:3rem"><div class="slds-truncate">Run</div></th>
-                                            <th><div class="slds-truncate">Field</div></th>
+                                            <th>
+                                                <div class="slds-truncate">Field</div>
+                                                <div class="slds-m-top_xx-small">
+                                                    <input type="search" class="slds-input slds-input_small filter-input" placeholder="Filter…" value={byIdFieldFilterText} oninput={handleByIdFieldFilterChange} />
+                                                </div>
+                                            </th>
                                             <th><div class="slds-truncate">Pattern</div></th>
-                                            <th><div class="slds-truncate">Record Type</div></th>
+                                            <th>
+                                                <div class="slds-truncate">Record Type</div>
+                                                <div class="slds-m-top_xx-small">
+                                                    <select class="slds-select slds-select_small filter-input" onchange={handleByIdFieldFilterRtChange}>
+                                                        <template for:each={byIdFieldFilterRtOptions} for:item="opt">
+                                                            <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.label}</option>
+                                                        </template>
+                                                    </select>
+                                                </div>
+                                            </th>
                                             <th style="width:5rem"><div class="slds-truncate">Del. History</div></th>
                                             <th><div class="slds-truncate">Description</div></th>
                                         </tr>
