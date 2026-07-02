@@ -163,7 +163,6 @@ public class TEKCO_AnonymizationPatternService {
 
     /**
      * @description Parses the org subdomain into a short "country.sandbox" suffix.
-     *              "airliquidehhc-fr--mmedlej" → "fr.mmedlej"
      *              Falls back to the raw subdomain if the expected format is not found.
      */
     private static String parseOrgSuffix(String subdomain) {

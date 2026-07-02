@@ -1,30 +1,15 @@
 /**
- * @description AuraEnabled controller for the "By ID" tab of tekcoDataAnonymizationAdmin LWC.
- *
- *              Key behaviour:
- *              1. resolveIds() — resolves raw values (SF IDs or external IDs) into a scope
- *                 preview, groups them by SObject type, resolves child objects via CMDT parent
- *                 relations (1 SOQL per child type, bulk-safe), and returns distinct brands
- *                 found on the direct records.
- *              2. startAnonymizationByIds() — runs the same resolution (supporting excluded
- *                 fields), then launches TEKCO_AnonymizationByIdBatch →
- *                 TEKCO_ContentDocumentByIdBatch → TEKCO_FieldHistoryByIdBatch.
- *              3. getExternalIdFieldsForObject() — returns distinct external-ID field names
- *                 configured in CMDT patterns for a given object (used to populate the
- *                 External ID field selector in the LWC).
+ * @description controller for the "By ID" tab of tekcoDataAnonymizationAdmin LWC.
  */
 public with sharing class TEKCO_AnonymizationByIdController {
 
     private static final String PATTERN_DELETE_CD  = 'DELETE_CONTENT_DOCUMENT';
     private static final String MODE_EXTERNAL_ID   = 'EXTERNAL_ID';
 
-    // ── Public API ────────────────────────────────────────────────────────────
-
     /**
-     * Resolves raw values into a scope preview.
      *
      * @param rawIds         Raw strings pasted by the user (SF IDs or external ID values).
-     * @param resolveMode    'SF_ID' (default) or 'EXTERNAL_ID'.
+     * @param resolveMode    'SF_ID' or 'EXTERNAL_ID'.
      * @param targetObject   Required when resolveMode = 'EXTERNAL_ID'. SObject API name.
      * @param externalIdField Required when resolveMode = 'EXTERNAL_ID'. Field API name.
      */
@@ -44,7 +29,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
 
         if (rawIds == null || rawIds.isEmpty()) return result;
 
-        // Step 1 — group provided values by SObject type
         Map<String, List<Id>> directIdsByObject;
         if (resolveMode == MODE_EXTERNAL_ID
                 && String.isNotBlank(targetObject)
@@ -54,7 +38,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
             directIdsByObject = parseAndGroupIds(rawIds, result.invalidIds);
         }
 
-        // Step 2 — load all active CMDT configs
         List<TEKCO_AnonymizationFieldConfig__mdt> allConfigs = loadAllActiveConfigs();
         Set<String> configuredObjects = getConfiguredObjectNames(allConfigs);
 
@@ -73,7 +56,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
             }
         }
 
-        // Step 3 — resolve child objects
+        // child objects
         Map<String, ChildRelationInfo> childRelByObject = buildChildRelationMap(allConfigs);
         for (String childObj : childRelByObject.keySet()) {
             ChildRelationInfo rel = childRelByObject.get(childObj);
@@ -91,7 +74,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
             }
         }
 
-        // Step 4 — collect distinct brands from direct records
+        // collect distinct brands from direct records
         Set<String> brandSet = new Set<String>();
         for (String obj : directIdsByObject.keySet()) {
             if (TEKCO_AnonymizationPatternService.hasField(obj, 'tekco_brand__c')) {
@@ -103,7 +86,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
                     )) {
                         brandSet.add((String) r.get('TEKCO_Brand__c'));
                     }
-                } catch (Exception e) { /* field absent — skip */ }
+                } catch (Exception e) {  }
             }
         }
         List<String> brandList = new List<String>(brandSet);
@@ -114,9 +97,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
     }
 
     /**
-     * Validates permission, resolves all IDs (direct + children), applies field exclusions,
-     * then launches the TEKCO_AnonymizationByIdBatch chain.
-     *
      * @param rawIds          Raw strings pasted by the user.
      * @param resolveMode     'SF_ID' or 'EXTERNAL_ID'.
      * @param targetObject    Required when resolveMode = 'EXTERNAL_ID'.
@@ -148,7 +128,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
         Set<String> noHistoryFieldKeys = new Set<String>();
         if (noHistoryFields != null) noHistoryFieldKeys.addAll(noHistoryFields);
 
-        // Resolve full scope (direct + children)
         List<String> parseErrors = new List<String>();
         Map<String, List<Id>> directIdsByObject;
         if (resolveMode == MODE_EXTERNAL_ID
@@ -306,7 +285,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
         return auditLog.Id;
     }
 
-    /** Returns the last 20 BY_ID runs for the audit log panel. */
     @AuraEnabled(cacheable=false)
     public static List<TEKCO_AnonymizationAuditLog__c> getAuditLogsByid() {
         return [
@@ -321,10 +299,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
         ];
     }
 
-    /**
-     * Returns the distinct external-ID field names configured in CMDT patterns for
-     * a given object, used to populate the External ID field selector in the LWC.
-     */
     @AuraEnabled(cacheable=true)
     public static List<Map<String, String>> getDirectObjects() {
         Set<String> seen = new Set<String>();
@@ -371,7 +345,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
             fields.add(p.TEKCO_ExternalIdField__c);
         }
 
-        // DataMig standard external ID fields — always offered when present on the object
         if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'TEKCO_datamigrationid__c')) {
             fields.add('TEKCO_DataMigrationId__c');
         }
@@ -387,9 +360,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
         return result;
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────────
-
-    /** Resolves external-ID values to Salesforce record IDs via a dynamic SOQL. */
     private static Map<String, List<Id>> resolveByExternalIds(
         List<String> rawValues,
         String objectApiName,
@@ -503,8 +473,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
         }
         return result;
     }
-
-    // ── Inner types ───────────────────────────────────────────────────────────
 
     private class ChildRelationInfo {
         String parentObjectApiName;
