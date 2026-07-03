@@ -140,6 +140,8 @@ public class TEKCO_AnonymizationPatternService {
         TEKCO_AnonymizationPattern__mdt pattern,
         Boolean appendSubdomain
     ) {
+        if (String.isBlank(currentValue)) return currentValue;
+
         String externalId = getExternalId(record, pattern);
         if (String.isBlank(externalId)) externalId = getSalesforceId(record);
 
