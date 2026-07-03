@@ -152,22 +152,39 @@
 
             <template if:true={hasFieldConfigs}>
                 <div class="slds-m-bottom_medium">
-                    <div class="slds-grid slds-grid_align-spread slds-m-bottom_small">
-                        <h3 class="slds-text-heading_small">
-                            Fields to Anonymize
-                            <span class="slds-text-body_small slds-text-color_weak slds-m-left_x-small">
-                                (uncheck to bypass a field for this run)
-                            </span>
-                        </h3>
-                        <div class="slds-text-body_small">
-                            <span class="slds-m-right_medium">
+                    <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_small">
+                        <div class="slds-col">
+                            <h3 class="slds-text-heading_small">
+                                Fields to Anonymize
+                                <span class="slds-text-body_small slds-text-color_weak slds-m-left_x-small">
+                                    (uncheck to bypass a field for this run)
+                                </span>
+                            </h3>
+                        </div>
+                        <div class="slds-col slds-grow-none slds-grid slds-grid_vertical-align-center" style="gap:0.5rem">
+                            <lightning-input
+                                type="search"
+                                variant="label-hidden"
+                                label="Filter by field"
+                                placeholder="Field…"
+                                value={fieldFilterText}
+                                onchange={handleFieldFilterChange}
+                                style="width:130px">
+                            </lightning-input>
+                            <lightning-combobox
+                                variant="label-hidden"
+                                label="Record Type"
+                                value={fieldFilterRT}
+                                options={fieldFilterRtOptions}
+                                onchange={handleFieldFilterRtChange}
+                                style="width:160px">
+                            </lightning-combobox>
+                            <span class="slds-text-body_small" style="white-space:nowrap">
                                 Run:
                                 <lightning-button label="Select All" variant="base" onclick={handleSelectAllRun}></lightning-button>
                                 /
                                 <lightning-button label="Deselect All" variant="base" onclick={handleDeselectAllRun}></lightning-button>
-                            </span>
-                            <span>
-                                Del. History:
+                                &nbsp;&nbsp;Del. History:
                                 <lightning-button label="Select All" variant="base" onclick={handleSelectAllHistory}></lightning-button>
                                 /
                                 <lightning-button label="Deselect All" variant="base" onclick={handleDeselectAllHistory}></lightning-button>
@@ -442,22 +459,39 @@
                 <!-- Fields to Anonymize table (shown after resolve) -->
                 <template if:true={hasByIdFieldConfigs}>
                     <div class="slds-m-bottom_medium">
-                        <div class="slds-grid slds-grid_align-spread slds-m-bottom_small">
-                            <h3 class="slds-text-heading_small">
-                                Fields to Anonymize
-                                <span class="slds-text-body_small slds-text-color_weak slds-m-left_x-small">
-                                    (uncheck to bypass a field for this run)
-                                </span>
-                            </h3>
-                            <div class="slds-text-body_small">
-                                <span class="slds-m-right_medium">
+                        <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_small">
+                            <div class="slds-col">
+                                <h3 class="slds-text-heading_small">
+                                    Fields to Anonymize
+                                    <span class="slds-text-body_small slds-text-color_weak slds-m-left_x-small">
+                                        (uncheck to bypass a field for this run)
+                                    </span>
+                                </h3>
+                            </div>
+                            <div class="slds-col slds-grow-none slds-grid slds-grid_vertical-align-center" style="gap:0.5rem">
+                                <lightning-input
+                                    type="search"
+                                    variant="label-hidden"
+                                    label="Filter by field"
+                                    placeholder="Field…"
+                                    value={byIdFieldFilterText}
+                                    onchange={handleByIdFieldFilterChange}
+                                    style="width:130px">
+                                </lightning-input>
+                                <lightning-combobox
+                                    variant="label-hidden"
+                                    label="Record Type"
+                                    value={byIdFieldFilterRT}
+                                    options={byIdFieldFilterRtOptions}
+                                    onchange={handleByIdFieldFilterRtChange}
+                                    style="width:160px">
+                                </lightning-combobox>
+                                <span class="slds-text-body_small" style="white-space:nowrap">
                                     Run:
                                     <lightning-button label="Select All" variant="base" onclick={handleByIdSelectAllFields}></lightning-button>
                                     /
                                     <lightning-button label="Deselect All" variant="base" onclick={handleByIdDeselectAllFields}></lightning-button>
-                                </span>
-                                <span>
-                                    Del. History:
+                                    &nbsp;&nbsp;Del. History:
                                     <lightning-button label="Select All" variant="base" onclick={handleByIdSelectAllHistory}></lightning-button>
                                     /
                                     <lightning-button label="Deselect All" variant="base" onclick={handleByIdDeselectAllHistory}></lightning-button>

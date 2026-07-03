@@ -40,6 +40,9 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     @track previewByObject = [];
     @track auditLogs       = [];
 
+    @track fieldFilterText = '';
+    @track fieldFilterRT   = '_all_';
+
     @track isLoading        = false;
     @track isLoadingPreview = false;
     @track isRunning        = false;
@@ -54,6 +57,9 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     _auditTimer   = null;
 
     // ── By ID tab state ───────────────────────────────────────────────────────
+    @track byIdFieldFilterText = '';
+    @track byIdFieldFilterRT   = '_all_';
+
     @track byIdRawInput              = '';
     @track byIdResolveMode           = 'SF_ID';
     @track byIdTargetObject          = '';
@@ -183,10 +189,24 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     handleSelectAllObjects()      { this.selectedObjects = this.objectOptions.map(o => o.value); this.loadRecordTypes(this.selectedObjects); }
     handleSelectAllRecordTypes()  { this.selectedRecordTypes = this.recordTypeOptions.map(o => o.value); }
     handlePreview()               { this.loadFieldConfigs(); this.loadPreview(); }
-    handleSelectAllRun()          { this.fieldConfigs = this.fieldConfigs.map(cfg => ({ ...cfg, enabled: true })); }
-    handleDeselectAllRun()        { this.fieldConfigs = this.fieldConfigs.map(cfg => ({ ...cfg, enabled: false })); }
-    handleSelectAllHistory()      { this.fieldConfigs = this.fieldConfigs.map(cfg => cfg.originalDeleteHistory ? { ...cfg, deleteHistory: true } : cfg); }
-    handleDeselectAllHistory()    { this.fieldConfigs = this.fieldConfigs.map(cfg => ({ ...cfg, deleteHistory: false })); }
+    handleFieldFilterChange(event)   { this.fieldFilterText = event.target.value; }
+    handleFieldFilterRtChange(event) { this.fieldFilterRT   = event.detail.value; }
+    handleSelectAllRun() {
+        const visible = new Set(this.fieldConfigsFiltered.map(c => c.configKey));
+        this.fieldConfigs = this.fieldConfigs.map(cfg => visible.has(cfg.configKey) ? { ...cfg, enabled: true } : cfg);
+    }
+    handleDeselectAllRun() {
+        const visible = new Set(this.fieldConfigsFiltered.map(c => c.configKey));
+        this.fieldConfigs = this.fieldConfigs.map(cfg => visible.has(cfg.configKey) ? { ...cfg, enabled: false } : cfg);
+    }
+    handleSelectAllHistory() {
+        const visible = new Set(this.fieldConfigsFiltered.map(c => c.configKey));
+        this.fieldConfigs = this.fieldConfigs.map(cfg => visible.has(cfg.configKey) && cfg.originalDeleteHistory ? { ...cfg, deleteHistory: true } : cfg);
+    }
+    handleDeselectAllHistory() {
+        const visible = new Set(this.fieldConfigsFiltered.map(c => c.configKey));
+        this.fieldConfigs = this.fieldConfigs.map(cfg => visible.has(cfg.configKey) ? { ...cfg, deleteHistory: false } : cfg);
+    }
     handleRefreshLogs()           { this.loadAuditLogs(); }
 
     handleFieldToggle(event) {
@@ -350,10 +370,24 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         );
     }
 
-    handleByIdSelectAllFields()   { this.byIdFieldConfigs = this.byIdFieldConfigs.map(cfg => ({ ...cfg, enabled: true })); }
-    handleByIdDeselectAllFields() { this.byIdFieldConfigs = this.byIdFieldConfigs.map(cfg => ({ ...cfg, enabled: false })); }
-    handleByIdSelectAllHistory()  { this.byIdFieldConfigs = this.byIdFieldConfigs.map(cfg => cfg.originalDeleteHistory ? { ...cfg, deleteHistory: true } : cfg); }
-    handleByIdDeselectAllHistory(){ this.byIdFieldConfigs = this.byIdFieldConfigs.map(cfg => ({ ...cfg, deleteHistory: false })); }
+    handleByIdFieldFilterChange(event)   { this.byIdFieldFilterText = event.target.value; }
+    handleByIdFieldFilterRtChange(event) { this.byIdFieldFilterRT   = event.detail.value; }
+    handleByIdSelectAllFields() {
+        const visible = new Set(this.byIdFieldConfigsFiltered.map(c => c.configKey));
+        this.byIdFieldConfigs = this.byIdFieldConfigs.map(cfg => visible.has(cfg.configKey) ? { ...cfg, enabled: true } : cfg);
+    }
+    handleByIdDeselectAllFields() {
+        const visible = new Set(this.byIdFieldConfigsFiltered.map(c => c.configKey));
+        this.byIdFieldConfigs = this.byIdFieldConfigs.map(cfg => visible.has(cfg.configKey) ? { ...cfg, enabled: false } : cfg);
+    }
+    handleByIdSelectAllHistory() {
+        const visible = new Set(this.byIdFieldConfigsFiltered.map(c => c.configKey));
+        this.byIdFieldConfigs = this.byIdFieldConfigs.map(cfg => visible.has(cfg.configKey) && cfg.originalDeleteHistory ? { ...cfg, deleteHistory: true } : cfg);
+    }
+    handleByIdDeselectAllHistory() {
+        const visible = new Set(this.byIdFieldConfigsFiltered.map(c => c.configKey));
+        this.byIdFieldConfigs = this.byIdFieldConfigs.map(cfg => visible.has(cfg.configKey) ? { ...cfg, deleteHistory: false } : cfg);
+    }
 
     handleByIdDeleteHistoryToggle(event) {
         const configKey = event.target.dataset.key;
@@ -482,9 +516,35 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     get isByIdLaunchDisabled()    { return !this.hasPermission || !this.hasByIdAnyValid || this.isByIdRunning; }
     get byIdLaunchLabel()         { return this.isByIdRunning ? 'Running...' : 'Launch Anonymization'; }
 
+    get byIdFieldConfigsFiltered() {
+        let result = this.byIdFieldConfigs || [];
+        if (this.byIdFieldFilterText) {
+            const q = this.byIdFieldFilterText.toLowerCase();
+            result = result.filter(c => c.fieldApiName.toLowerCase().includes(q));
+        }
+        if (this.byIdFieldFilterRT && this.byIdFieldFilterRT !== '_all_') {
+            const isBlank = this.byIdFieldFilterRT === '_blank_';
+            result = result.filter(c => isBlank ? !c.recordTypeDeveloperName : c.recordTypeDeveloperName === this.byIdFieldFilterRT);
+        }
+        return result;
+    }
+
+    get byIdFieldFilterRtOptions() {
+        const seen = new Set();
+        const options = [{ label: 'All Record Types', value: '_all_' }];
+        (this.byIdFieldConfigs || []).forEach(c => {
+            const rt = c.recordTypeDeveloperName || '';
+            if (!seen.has(rt)) {
+                seen.add(rt);
+                options.push({ label: rt || '(none)', value: rt || '_blank_' });
+            }
+        });
+        return options;
+    }
+
     get byIdFieldConfigsByObject() {
         const groupMap = {};
-        this.byIdFieldConfigs.forEach(cfg => {
+        this.byIdFieldConfigsFiltered.forEach(cfg => {
             if (!groupMap[cfg.objectApiName]) {
                 groupMap[cfg.objectApiName] = { objectApiName: cfg.objectApiName, fields: [] };
             }
@@ -506,9 +566,42 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             : 'You need the "TEKCO Anonymize Data" custom permission to trigger anonymization.';
     }
 
+    get fieldConfigsFiltered() {
+        let result = this.fieldConfigs || [];
+        // Pre-filter by the main RT selector when record types are selected
+        if (this.selectedRecordTypes && this.selectedRecordTypes.length > 0) {
+            const selectedSet = new Set(this.selectedRecordTypes);
+            result = result.filter(c => !c.recordTypeDeveloperName || selectedSet.has(c.recordTypeDeveloperName));
+        }
+        // Manual text filter
+        if (this.fieldFilterText) {
+            const q = this.fieldFilterText.toLowerCase();
+            result = result.filter(c => c.fieldApiName.toLowerCase().includes(q));
+        }
+        // Manual RT dropdown filter
+        if (this.fieldFilterRT && this.fieldFilterRT !== '_all_') {
+            const isBlank = this.fieldFilterRT === '_blank_';
+            result = result.filter(c => isBlank ? !c.recordTypeDeveloperName : c.recordTypeDeveloperName === this.fieldFilterRT);
+        }
+        return result;
+    }
+
+    get fieldFilterRtOptions() {
+        const seen = new Set();
+        const options = [{ label: 'All Record Types', value: '_all_' }];
+        (this.fieldConfigs || []).forEach(c => {
+            const rt = c.recordTypeDeveloperName || '';
+            if (!seen.has(rt)) {
+                seen.add(rt);
+                options.push({ label: rt || '(none)', value: rt || '_blank_' });
+            }
+        });
+        return options;
+    }
+
     get fieldConfigsByObject() {
         const groupMap = {};
-        this.fieldConfigs.forEach(cfg => {
+        this.fieldConfigsFiltered.forEach(cfg => {
             if (!groupMap[cfg.objectApiName]) {
                 groupMap[cfg.objectApiName] = { objectApiName: cfg.objectApiName, fields: [] };
             }
