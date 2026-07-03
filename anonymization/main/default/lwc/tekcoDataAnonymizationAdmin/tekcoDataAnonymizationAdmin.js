@@ -190,7 +190,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     handleSelectAllRecordTypes()  { this.selectedRecordTypes = this.recordTypeOptions.map(o => o.value); }
     handlePreview()               { this.loadFieldConfigs(); this.loadPreview(); }
     handleFieldFilterChange(event)   { this.fieldFilterText = event.target.value; }
-    handleFieldFilterRtChange(event) { this.fieldFilterRT = event.target.value; }
+    handleFieldFilterRtChange(event) { this.fieldFilterRT = event.detail.value; }
     handleSelectAllRun()          { const v = new Set(this.fieldConfigsFiltered.map(c => c.configKey)); this.fieldConfigs = this.fieldConfigs.map(cfg => v.has(cfg.configKey) ? { ...cfg, enabled: true } : cfg); }
     handleDeselectAllRun()        { const v = new Set(this.fieldConfigsFiltered.map(c => c.configKey)); this.fieldConfigs = this.fieldConfigs.map(cfg => v.has(cfg.configKey) ? { ...cfg, enabled: false } : cfg); }
     handleSelectAllHistory()      { const v = new Set(this.fieldConfigsFiltered.map(c => c.configKey)); this.fieldConfigs = this.fieldConfigs.map(cfg => v.has(cfg.configKey) && cfg.originalDeleteHistory ? { ...cfg, deleteHistory: true } : cfg); }
@@ -359,7 +359,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     }
 
     handleByIdFieldFilterChange(event)   { this.byIdFieldFilterText = event.target.value; }
-    handleByIdFieldFilterRtChange(event) { this.byIdFieldFilterRT = event.target.value; }
+    handleByIdFieldFilterRtChange(event) { this.byIdFieldFilterRT = event.detail.value; }
     handleByIdSelectAllFields()   { const v = new Set(this.byIdFieldConfigsFiltered.map(c => c.configKey)); this.byIdFieldConfigs = this.byIdFieldConfigs.map(cfg => v.has(cfg.configKey) ? { ...cfg, enabled: true } : cfg); }
     handleByIdDeselectAllFields() { const v = new Set(this.byIdFieldConfigsFiltered.map(c => c.configKey)); this.byIdFieldConfigs = this.byIdFieldConfigs.map(cfg => v.has(cfg.configKey) ? { ...cfg, enabled: false } : cfg); }
     handleByIdSelectAllHistory()  { const v = new Set(this.byIdFieldConfigsFiltered.map(c => c.configKey)); this.byIdFieldConfigs = this.byIdFieldConfigs.map(cfg => v.has(cfg.configKey) && cfg.originalDeleteHistory ? { ...cfg, deleteHistory: true } : cfg); }
@@ -512,7 +512,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             const rt = c.recordTypeDeveloperName || '';
             if (!seen.has(rt)) { seen.add(rt); raw.push({ label: rt || '(none)', value: rt || '_blank_' }); }
         });
-        return raw.map(o => ({ ...o, selected: o.value === this.byIdFieldFilterRT }));
+        return raw;
     }
 
     get byIdFieldConfigsByObject() {
@@ -559,7 +559,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             const rt = c.recordTypeDeveloperName || '';
             if (!seen.has(rt)) { seen.add(rt); raw.push({ label: rt || '(none)', value: rt || '_blank_' }); }
         });
-        return raw.map(o => ({ ...o, selected: o.value === this.fieldFilterRT }));
+        return raw;
     }
 
     get fieldConfigsByObject() {

@@ -191,11 +191,14 @@
                                         <th>
                                             <div class="slds-truncate">Record Type</div>
                                             <div class="slds-m-top_xx-small">
-                                                <select class="slds-select slds-select_small filter-input" onchange={handleFieldFilterRtChange}>
-                                                    <template for:each={fieldFilterRtOptions} for:item="opt">
-                                                        <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.label}</option>
-                                                    </template>
-                                                </select>
+                                                <lightning-combobox
+                                                    variant="label-hidden"
+                                                    label="Record Type"
+                                                    value={fieldFilterRT}
+                                                    options={fieldFilterRtOptions}
+                                                    class="filter-combobox"
+                                                    onchange={handleFieldFilterRtChange}>
+                                                </lightning-combobox>
                                             </div>
                                         </th>
                                         <th><div class="slds-truncate">Del. History</div></th>
@@ -495,11 +498,14 @@
                                             <th>
                                                 <div class="slds-truncate">Record Type</div>
                                                 <div class="slds-m-top_xx-small">
-                                                    <select class="slds-select slds-select_small filter-input" onchange={handleByIdFieldFilterRtChange}>
-                                                        <template for:each={byIdFieldFilterRtOptions} for:item="opt">
-                                                            <option key={opt.value} value={opt.value} selected={opt.selected}>{opt.label}</option>
-                                                        </template>
-                                                    </select>
+                                                    <lightning-combobox
+                                                        variant="label-hidden"
+                                                        label="Record Type"
+                                                        value={byIdFieldFilterRT}
+                                                        options={byIdFieldFilterRtOptions}
+                                                        class="filter-combobox"
+                                                        onchange={handleByIdFieldFilterRtChange}>
+                                                    </lightning-combobox>
                                                 </div>
                                             </th>
                                             <th style="width:5rem"><div class="slds-truncate">Del. History</div></th>
