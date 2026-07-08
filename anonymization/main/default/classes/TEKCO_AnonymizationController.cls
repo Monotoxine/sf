@@ -286,7 +286,7 @@ public with sharing class TEKCO_AnonymizationController {
                         if (orgCfg.usesBrandObject()) {
                             List<String> escaped = new List<String>();
                             for (String b : selectedBrands) escaped.add('\'' + String.escapeSingleQuotes(b) + '\'');
-                            conditions.add(orgCfg.brandLookupFieldOnRecord + '.' + orgCfg.brandCodeField
+                            conditions.add(orgCfg.brandLookupRelationshipName() + '.' + orgCfg.brandCodeField
                                 + ' IN (' + String.join(escaped, ', ') + ')');
                         } else {
                             conditions.add('TEKCO_Brand__c IN :selectedBrands');
