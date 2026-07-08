@@ -162,7 +162,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         && TEKCO_AnonymizationPatternService.hasField(objectApiName, orgCfg.brandLookupFieldOnRecord)) {
                     List<String> escaped = new List<String>();
                     for (String b : selectedBrands) escaped.add('\'' + String.escapeSingleQuotes(b) + '\'');
-                    topConditions.add(orgCfg.brandLookupRelationshipName() + '.' + orgCfg.brandCodeField
+                    topConditions.add(orgCfg.brandLookupFieldOnRecord + '.' + orgCfg.brandCodeField
                         + ' IN (' + String.join(escaped, ', ') + ')');
                 } else if (hasEmailMessageLorem) {
                     topConditions.add('Parent.TEKCO_Brand__c IN :selectedBrands');

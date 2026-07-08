@@ -26,18 +26,6 @@ public class TEKCO_OrgConfigService {
         public Boolean usesBrandObject() {
             return String.isNotBlank(brandObjectApiName);
         }
-
-        /**
-         * Returns the SOQL relationship name for brandLookupFieldOnRecord.
-         * Custom lookup fields end in __c; their relationship name ends in __r.
-         * Standard fields are returned unchanged.
-         */
-        public String brandLookupRelationshipName() {
-            if (String.isBlank(brandLookupFieldOnRecord)) return brandLookupFieldOnRecord;
-            return brandLookupFieldOnRecord.endsWith('__c')
-                ? brandLookupFieldOnRecord.removeEnd('__c') + '__r'
-                : brandLookupFieldOnRecord;
-        }
     }
 
     private static OrgConfig cachedConfig;
