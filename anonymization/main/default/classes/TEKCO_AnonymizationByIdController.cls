@@ -83,21 +83,15 @@ public with sharing class TEKCO_AnonymizationByIdController {
                 if (orgCfg.usesBrandObject()
                         && String.isNotBlank(orgCfg.brandLookupFieldOnRecord)
                         && String.isNotBlank(orgCfg.brandCodeField)) {
-                    // brandLookupFieldOnRecord is stored as the relationship name (e.g. ALH_Brand__r)
-                    // derive the field API name (__c) for the hasField check
-                    String relName   = orgCfg.brandLookupFieldOnRecord;
-                    String fieldName = relName.endsWith('__r')
-                        ? relName.removeEnd('__r') + '__c' : relName;
-                    if (TEKCO_AnonymizationPatternService.hasField(obj, fieldName)) {
-                        for (SObject r : Database.query(
-                            'SELECT ' + relName + '.' + orgCfg.brandCodeField
-                            + ' FROM ' + obj + ' WHERE Id IN :ids'
-                        )) {
-                            SObject rel = (SObject) r.getSObject(relName);
-                            if (rel != null) {
-                                Object val = rel.get(orgCfg.brandCodeField);
-                                if (val != null) brandSet.add(String.valueOf(val));
-                            }
+                    String relName = orgCfg.brandLookupFieldOnRecord;
+                    for (SObject r : Database.query(
+                        'SELECT ' + relName + '.' + orgCfg.brandCodeField
+                        + ' FROM ' + obj + ' WHERE Id IN :ids'
+                    )) {
+                        SObject rel = (SObject) r.getSObject(relName);
+                        if (rel != null) {
+                            Object val = rel.get(orgCfg.brandCodeField);
+                            if (val != null) brandSet.add(String.valueOf(val));
                         }
                     }
                 } else if (!orgCfg.usesBrandObject()
