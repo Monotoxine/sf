@@ -76,18 +76,34 @@ public with sharing class TEKCO_AnonymizationByIdController {
 
         // collect distinct brands from direct records
         Set<String> brandSet = new Set<String>();
+        TEKCO_OrgConfigService.OrgConfig orgCfg = TEKCO_OrgConfigService.getConfig();
         for (String obj : directIdsByObject.keySet()) {
-            if (TEKCO_AnonymizationPatternService.hasField(obj, 'tekco_brand__c')) {
-                List<Id> ids = directIdsByObject.get(obj);
-                try {
+            List<Id> ids = directIdsByObject.get(obj);
+            try {
+                if (orgCfg.usesBrandObject()
+                        && String.isNotBlank(orgCfg.brandLookupFieldOnRecord)
+                        && String.isNotBlank(orgCfg.brandCodeField)
+                        && TEKCO_AnonymizationPatternService.hasField(obj, orgCfg.brandLookupFieldOnRecord)) {
+                    String relName = orgCfg.brandLookupFieldOnRecord.endsWith('__c')
+                        ? orgCfg.brandLookupFieldOnRecord.removeEnd('__c') + '__r'
+                        : orgCfg.brandLookupFieldOnRecord;
+                    for (SObject r : Database.query(
+                        'SELECT ' + relName + '.' + orgCfg.brandCodeField + ' FROM ' + obj
+                        + ' WHERE Id IN :ids AND ' + orgCfg.brandLookupFieldOnRecord + ' != null'
+                    )) {
+                        SObject rel = (SObject) r.getSObject(relName);
+                        if (rel != null) brandSet.add(String.valueOf(rel.get(orgCfg.brandCodeField)));
+                    }
+                } else if (!orgCfg.usesBrandObject()
+                        && TEKCO_AnonymizationPatternService.hasField(obj, 'tekco_brand__c')) {
                     for (SObject r : Database.query(
                         'SELECT TEKCO_Brand__c FROM ' + obj
                         + ' WHERE Id IN :ids AND TEKCO_Brand__c != null'
                     )) {
                         brandSet.add((String) r.get('TEKCO_Brand__c'));
                     }
-                } catch (Exception e) {  }
-            }
+                }
+            } catch (Exception e) {  }
         }
         List<String> brandList = new List<String>(brandSet);
         brandList.sort();
