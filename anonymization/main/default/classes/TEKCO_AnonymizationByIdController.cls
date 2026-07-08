@@ -358,7 +358,9 @@ public with sharing class TEKCO_AnonymizationByIdController {
               AND TEKCO_IsActive__c = true
               AND TEKCO_ExternalIdField__c != null
         ]) {
-            fields.add(p.TEKCO_ExternalIdField__c);
+            if (TEKCO_AnonymizationPatternService.hasField(objectApiName, p.TEKCO_ExternalIdField__c.toLowerCase())) {
+                fields.add(p.TEKCO_ExternalIdField__c);
+            }
         }
 
         String extraFields = TEKCO_OrgConfigService.getConfig().externalIdFields;
