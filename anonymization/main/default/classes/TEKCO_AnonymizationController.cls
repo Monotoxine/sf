@@ -254,8 +254,13 @@ public with sharing class TEKCO_AnonymizationController {
         Map<String, Boolean> hasRecordType = new Map<String, Boolean>();
         for (String obj : objectsToCount) {
             if (orgCfg.usesBrandObject()) {
-                hasBrand.put(obj, String.isNotBlank(orgCfg.brandLookupFieldOnRecord)
-                    && TEKCO_AnonymizationPatternService.hasField(obj, orgCfg.brandLookupFieldOnRecord));
+                // brandLookupFieldOnRecord is the relationship name (e.g. ALH_Brand__r).
+                // hasField expects the field API name (ALH_Brand__c), so we convert __r → __c.
+                String lookupFieldApiName = String.isNotBlank(orgCfg.brandLookupFieldOnRecord)
+                    ? orgCfg.brandLookupFieldOnRecord.replaceAll('__r$', '__c')
+                    : null;
+                hasBrand.put(obj, String.isNotBlank(lookupFieldApiName)
+                    && TEKCO_AnonymizationPatternService.hasField(obj, lookupFieldApiName));
             } else {
                 hasBrand.put(obj, TEKCO_AnonymizationPatternService.hasField(obj, 'tekco_brand__c'));
             }
