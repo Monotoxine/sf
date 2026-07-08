@@ -82,17 +82,23 @@ public with sharing class TEKCO_AnonymizationByIdController {
             try {
                 if (orgCfg.usesBrandObject()
                         && String.isNotBlank(orgCfg.brandLookupFieldOnRecord)
-                        && String.isNotBlank(orgCfg.brandCodeField)
-                        && TEKCO_AnonymizationPatternService.hasField(obj, orgCfg.brandLookupFieldOnRecord)) {
-                    String relName = orgCfg.brandLookupFieldOnRecord.endsWith('__c')
-                        ? orgCfg.brandLookupFieldOnRecord.removeEnd('__c') + '__r'
-                        : orgCfg.brandLookupFieldOnRecord;
-                    for (SObject r : Database.query(
-                        'SELECT ' + relName + '.' + orgCfg.brandCodeField + ' FROM ' + obj
-                        + ' WHERE Id IN :ids AND ' + orgCfg.brandLookupFieldOnRecord + ' != null'
-                    )) {
-                        SObject rel = (SObject) r.getSObject(relName);
-                        if (rel != null) brandSet.add(String.valueOf(rel.get(orgCfg.brandCodeField)));
+                        && String.isNotBlank(orgCfg.brandCodeField)) {
+                    // brandLookupFieldOnRecord is stored as the relationship name (e.g. ALH_Brand__r)
+                    // derive the field API name (__c) for the hasField check
+                    String relName   = orgCfg.brandLookupFieldOnRecord;
+                    String fieldName = relName.endsWith('__r')
+                        ? relName.removeEnd('__r') + '__c' : relName;
+                    if (TEKCO_AnonymizationPatternService.hasField(obj, fieldName)) {
+                        for (SObject r : Database.query(
+                            'SELECT ' + relName + '.' + orgCfg.brandCodeField
+                            + ' FROM ' + obj + ' WHERE Id IN :ids'
+                        )) {
+                            SObject rel = (SObject) r.getSObject(relName);
+                            if (rel != null) {
+                                Object val = rel.get(orgCfg.brandCodeField);
+                                if (val != null) brandSet.add(String.valueOf(val));
+                            }
+                        }
                     }
                 } else if (!orgCfg.usesBrandObject()
                         && TEKCO_AnonymizationPatternService.hasField(obj, 'tekco_brand__c')) {
