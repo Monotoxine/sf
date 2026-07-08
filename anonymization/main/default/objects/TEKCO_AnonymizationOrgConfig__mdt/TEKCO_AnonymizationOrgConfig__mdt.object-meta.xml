@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
-    <label>TEKCO Org Config</label>
-    <pluralLabel>TEKCO Org Configs</pluralLabel>
+    <label>TEKCO Anonymization Org Config</label>
+    <pluralLabel>TEKCO Anonymization Org Configs</pluralLabel>
     <visibility>Public</visibility>
 </CustomObject>

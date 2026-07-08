@@ -76,7 +76,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
 
         // collect distinct brands from direct records
         Set<String> brandSet = new Set<String>();
-        TEKCO_OrgConfigService.OrgConfig orgCfg = TEKCO_OrgConfigService.getConfig();
+        TEKCO_AnonymizationOrgConfigService.OrgConfig orgCfg = TEKCO_AnonymizationOrgConfigService.getConfig();
         for (String obj : directIdsByObject.keySet()) {
             List<Id> ids = directIdsByObject.get(obj);
             try {
@@ -363,7 +363,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
             }
         }
 
-        String extraFields = TEKCO_OrgConfigService.getConfig().externalIdFields;
+        String extraFields = TEKCO_AnonymizationOrgConfigService.getConfig().externalIdFields;
         if (String.isNotBlank(extraFields)) {
             for (String f : extraFields.split(',')) {
                 String trimmed = f.trim();

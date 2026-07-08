@@ -165,7 +165,7 @@ A generic `REGEX` type was added to `TEKCO_AnonymizationPattern__mdt`, allowing 
 
 ---
 
-## Multi-Org Configuration (`TEKCO_OrgConfig__mdt`)
+## Multi-Org Configuration (`TEKCO_AnonymizationOrgConfig__mdt`)
 
 A custom metadata type allows per-org adaptation without code changes. The correct record is selected by matching `TEKCO_OrgDomain__c` against the current org's domain prefix.
 

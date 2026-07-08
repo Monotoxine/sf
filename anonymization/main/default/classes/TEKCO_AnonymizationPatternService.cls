@@ -115,7 +115,7 @@ public class TEKCO_AnonymizationPatternService {
         String externalId = getExternalId(record, pattern);
         if (String.isNotBlank(externalId)) return externalId;
 
-        String functionalIdField = TEKCO_OrgConfigService.getConfig().functionalIdField;
+        String functionalIdField = TEKCO_AnonymizationOrgConfigService.getConfig().functionalIdField;
         if (String.isNotBlank(functionalIdField)) {
             try {
                 Object functionalId = record.get(functionalIdField);
@@ -280,7 +280,7 @@ public class TEKCO_AnonymizationPatternService {
         List<String> countries = new List<String>();
         if (brands == null || brands.isEmpty()) return countries;
 
-        TEKCO_OrgConfigService.OrgConfig cfg = TEKCO_OrgConfigService.getConfig();
+        TEKCO_AnonymizationOrgConfigService.OrgConfig cfg = TEKCO_AnonymizationOrgConfigService.getConfig();
 
         if (cfg.usesBrandObject()) {
             // Portugal mode: query the brand object directly

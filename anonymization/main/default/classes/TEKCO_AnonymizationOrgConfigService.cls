@@ -1,5 +1,5 @@
 /**
- * @description Loads the TEKCO_OrgConfig__mdt record matching the current org's domain.
+ * @description Loads the TEKCO_AnonymizationOrgConfig__mdt record matching the current org's domain.
  *              Falls back to a default "TEKCO mode" config when no record matches,
  *              so existing orgs need no CMDT record (backward-compatible).
  *
@@ -12,7 +12,7 @@
  *   TEKCO_BrandCountryField__c     — field on brand object holding the country value
  *   TEKCO_BrandLookupFieldOnRecord__c — field on anonymized objects pointing to brand object
  */
-public class TEKCO_OrgConfigService {
+public class TEKCO_AnonymizationOrgConfigService {
 
     public class OrgConfig {
         public String  orgDomain;
@@ -42,9 +42,9 @@ public class TEKCO_OrgConfigService {
             currentDomain = '';
         }
 
-        TEKCO_OrgConfig__mdt mdtRecord = null;
+        TEKCO_AnonymizationOrgConfig__mdt mdtRecord = null;
         if (String.isNotBlank(currentDomain)) {
-            List<TEKCO_OrgConfig__mdt> records = [
+            List<TEKCO_AnonymizationOrgConfig__mdt> records = [
                 SELECT
                     TEKCO_OrgDomain__c,
                     TEKCO_FunctionalIdField__c,
@@ -54,7 +54,7 @@ public class TEKCO_OrgConfigService {
                     TEKCO_BrandCountryField__c,
                     TEKCO_BrandLookupFieldOnRecord__c,
                     TEKCO_ExternalIdFields__c
-                FROM TEKCO_OrgConfig__mdt
+                FROM TEKCO_AnonymizationOrgConfig__mdt
                 WHERE TEKCO_OrgDomain__c = :currentDomain
                 LIMIT 1
             ];

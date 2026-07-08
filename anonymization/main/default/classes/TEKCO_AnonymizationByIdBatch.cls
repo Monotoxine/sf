@@ -107,7 +107,7 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
                     fieldApiNames.add(pattern.TEKCO_ExternalIdField__c);
                 }
                 if (patternType == 'NAME_FIRST_LETTER' || patternType == 'NAME_FIRST_LETTER_SFID') {
-                    String funcField = TEKCO_OrgConfigService.getConfig().functionalIdField;
+                    String funcField = TEKCO_AnonymizationOrgConfigService.getConfig().functionalIdField;
                     if (String.isNotBlank(funcField) && objectFieldMap.containsKey(funcField.toLowerCase())) {
                         fieldApiNames.add(funcField);
                     }

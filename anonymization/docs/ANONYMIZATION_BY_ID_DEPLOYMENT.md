@@ -41,24 +41,24 @@ anonymization/main/default/objects/TEKCO_AnonymizationPattern__mdt/fields/TEKCO_
 anonymization/main/default/objects/TEKCO_AnonymizationPattern__mdt/fields/TEKCO_RegexReplace__c.field-meta.xml
 ```
 
-Deploy the new fields on `TEKCO_OrgConfig__mdt`:
+Deploy the new fields on `TEKCO_AnonymizationOrgConfig__mdt`:
 
 ```
-anonymization/main/default/objects/TEKCO_OrgConfig__mdt/fields/TEKCO_ExternalIdFields__c.field-meta.xml
-anonymization/main/default/objects/TEKCO_OrgConfig__mdt/fields/TEKCO_BrandObjectApiName__c.field-meta.xml
-anonymization/main/default/objects/TEKCO_OrgConfig__mdt/fields/TEKCO_BrandCodeField__c.field-meta.xml
-anonymization/main/default/objects/TEKCO_OrgConfig__mdt/fields/TEKCO_BrandCountryField__c.field-meta.xml
-anonymization/main/default/objects/TEKCO_OrgConfig__mdt/fields/TEKCO_BrandLookupFieldOnRecord__c.field-meta.xml
+anonymization/main/default/objects/TEKCO_AnonymizationOrgConfig__mdt/fields/TEKCO_ExternalIdFields__c.field-meta.xml
+anonymization/main/default/objects/TEKCO_AnonymizationOrgConfig__mdt/fields/TEKCO_BrandObjectApiName__c.field-meta.xml
+anonymization/main/default/objects/TEKCO_AnonymizationOrgConfig__mdt/fields/TEKCO_BrandCodeField__c.field-meta.xml
+anonymization/main/default/objects/TEKCO_AnonymizationOrgConfig__mdt/fields/TEKCO_BrandCountryField__c.field-meta.xml
+anonymization/main/default/objects/TEKCO_AnonymizationOrgConfig__mdt/fields/TEKCO_BrandLookupFieldOnRecord__c.field-meta.xml
 ```
 
 ### 4. Custom Metadata — OrgConfig Record
 
-Create or update a `TEKCO_OrgConfig__mdt` record for the target org. Set `TEKCO_OrgDomain__c` to the org's domain prefix (e.g. `airliquide-pt--sandbox`).
+Create or update a `TEKCO_AnonymizationOrgConfig__mdt` record for the target org. Set `TEKCO_OrgDomain__c` to the org's domain prefix (e.g. `airliquide-pt--sandbox`).
 
 The template record is at:
 
 ```
-anonymization/main/default/customMetadata/TEKCO_OrgConfig.Portugal_ALH.md-meta.xml
+anonymization/main/default/customMetadata/TEKCO_AnonymizationOrgConfig.Portugal_ALH.md-meta.xml
 ```
 
 Replace `REPLACE_WITH_PORTUGAL_ORG_DOMAIN` with the actual domain prefix before deploying.
@@ -94,7 +94,7 @@ sf project deploy start \
 
 ## OrgConfig Setup
 
-The `TEKCO_OrgConfig__mdt` record controls how the system behaves in a specific org. Fill in the fields relevant to your org:
+The `TEKCO_AnonymizationOrgConfig__mdt` record controls how the system behaves in a specific org. Fill in the fields relevant to your org:
 
 | Field | Required | Notes |
 |-------|----------|-------|
@@ -107,7 +107,7 @@ The `TEKCO_OrgConfig__mdt` record controls how the system behaves in a specific 
 | `TEKCO_BrandLookupFieldOnRecord__c` | If brand object set | Relationship field on anonymized records pointing to the brand (e.g. `ALH_Brand__r`) |
 | `TEKCO_ExternalIdFields__c` | Optional | Comma-separated external ID fields shown in the By ID tab dropdown |
 
-If no `TEKCO_OrgConfig__mdt` record matches the current org, the system falls back to the TEKCO/Air Liquide default config automatically.
+If no `TEKCO_AnonymizationOrgConfig__mdt` record matches the current org, the system falls back to the TEKCO/Air Liquide default config automatically.
 
 ---
 

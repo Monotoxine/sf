@@ -108,7 +108,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                     fieldApiNames.add(pattern.TEKCO_ExternalIdField__c);
                 }
                 if (patternType == 'NAME_FIRST_LETTER' || patternType == 'NAME_FIRST_LETTER_SFID') {
-                    String funcField = TEKCO_OrgConfigService.getConfig().functionalIdField;
+                    String funcField = TEKCO_AnonymizationOrgConfigService.getConfig().functionalIdField;
                     if (String.isNotBlank(funcField) && objectFieldMap.containsKey(funcField.toLowerCase())) {
                         fieldApiNames.add(funcField);
                     }
@@ -157,7 +157,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 }
                 topConditions.add(parentLookupField + ' IN (' + parentSubquery + ')');
             } else if (!selectedBrands.isEmpty()) {
-                TEKCO_OrgConfigService.OrgConfig orgCfg = TEKCO_OrgConfigService.getConfig();
+                TEKCO_AnonymizationOrgConfigService.OrgConfig orgCfg = TEKCO_AnonymizationOrgConfigService.getConfig();
                 if (orgCfg.usesBrandObject() && String.isNotBlank(orgCfg.brandLookupFieldOnRecord)
                         && TEKCO_AnonymizationPatternService.hasField(objectApiName, orgCfg.brandLookupFieldOnRecord)) {
                     List<String> escaped = new List<String>();

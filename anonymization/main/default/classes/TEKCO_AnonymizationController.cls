@@ -8,7 +8,7 @@ public with sharing class TEKCO_AnonymizationController {
 
     @AuraEnabled(cacheable=false)
     public static List<Map<String, String>> getBrands() {
-        TEKCO_OrgConfigService.OrgConfig cfg = TEKCO_OrgConfigService.getConfig();
+        TEKCO_AnonymizationOrgConfigService.OrgConfig cfg = TEKCO_AnonymizationOrgConfigService.getConfig();
         List<Map<String, String>> brandOptions = new List<Map<String, String>>();
 
         if (cfg.usesBrandObject()) {
@@ -247,7 +247,7 @@ public with sharing class TEKCO_AnonymizationController {
             }
         }
 
-        TEKCO_OrgConfigService.OrgConfig orgCfg = TEKCO_OrgConfigService.getConfig();
+        TEKCO_AnonymizationOrgConfigService.OrgConfig orgCfg = TEKCO_AnonymizationOrgConfigService.getConfig();
 
         Map<String, Boolean> hasBrand      = new Map<String, Boolean>();
         Map<String, Boolean> hasCountry    = new Map<String, Boolean>();
