@@ -1,37 +1,8 @@
 # Data Anonymization — Proposed Solution
 
-## Table of Contents
-
-1. [Needs](#1-needs)
-2. [Solution Overview](#2-solution-overview)
-3. [Technical Architecture](#3-technical-architecture)
-4. [Processing Chains](#4-processing-chains)
-   - 4.1 [By Criteria — Standard Chain](#41-by-criteria--standard-chain)
-   - 4.2 [By ID — DataMig Chain](#42-by-id--datamig-chain)
-5. [Anonymization Patterns Reference](#5-anonymization-patterns-reference)
-6. [Configuring Anonymization Rules](#6-configuring-anonymization-rules)
-7. [Multi-Org Configuration](#7-multi-org-configuration)
-
 ---
 
-## 1. Needs
-
-Organizations that use Salesforce to store personal data — such as patient records, customer contact details, social security numbers, or medical history — are subject to strict data protection regulations (GDPR and equivalent frameworks). These regulations require that personal data held in non-production environments (sandboxes, UAT, training orgs) be anonymized before the environment is made available to users who do not have a legitimate need to access real data.
-
-Without a dedicated tool, anonymizing data in Salesforce is a manual, error-prone process that is difficult to audit, hard to repeat consistently across refreshes, and impossible to target by brand or population segment.
-
-The specific challenges addressed by this tool are:
-
-- **Volume**: production orgs can contain millions of personal records across multiple objects. Manual anonymization is not feasible at scale.
-- **Repeatability**: every sandbox refresh restores production data. Anonymization must be repeatable and reliable each time.
-- **Traceability**: data protection officers need evidence that anonymization was performed, by whom, and on what scope.
-- **Flexibility**: different teams or brands may need to anonymize different populations. A one-size-fits-all approach creates either over-anonymization (data no longer useful for testing) or under-anonymization (residual risk).
-- **Completeness**: personal data is not limited to standard fields. It may exist in field history, attached files, legacy notes, and custom fields — all of which must be covered.
-- **DataMig scenarios**: after a data migration, specific records may need to be anonymized immediately and individually, without waiting for a full brand-scoped run.
-
----
-
-## 2. Solution Overview
+## 1.1 Solution Overview
 
 The anonymization tool is a fully configurable, metadata-driven solution built natively on Salesforce. It replaces or destroys personal data across multiple objects in a single, controlled operation, without requiring any code changes to add or modify anonymization rules.
 
@@ -65,13 +36,13 @@ Both modes run the same three-phase batch chain and share the same configuration
 | Configurable patterns | A generic REGEX pattern type allows new field transformations to be defined entirely in CMDT. |
 | Chained cleanup | Files (ContentDocuments and legacy Attachments) and field history are automatically cleaned up after field anonymization, in sequence. |
 | Production guard | A built-in sandbox check prevents the tool from ever running in a production org. |
-| Multi-org support | A dedicated CMDT record adapts the tool's behavior per org (functional ID field, brand object, external ID fields) without code changes. |
+| Multi-org support | A dedicated CMDT record adapts the tool's behavior per org (functional ID field, brand object mode, external ID fields) without code changes. |
 
 ---
 
-## 3. Technical Architecture
+## 2.2 Technical Architecture
 
-### 3.1 Component Inventory
+### Component Inventory
 
 | Type | Component | Role |
 |------|-----------|------|
@@ -87,7 +58,7 @@ Both modes run the same three-phase batch chain and share the same configuration
 | **Apex Class** | `TEKCO_AnonymizationAuditService` | Writes and finalizes the audit log record |
 | **Apex Class** | `TEKCO_AnonymizationBypassService` | Activates and restores automation bypass settings |
 | **Apex Class** | `TEKCO_AnonymizationOrgConfigService` | Loads per-org configuration from `TEKCO_AnonymizationOrgConfig__mdt` |
-| **LWC** | `tekcoDataAnonymizationAdmin` | User interface — two-tab component |
+| **LWC** | `tekcoDataAnonymizationAdmin` | User interface — two-tab component (By Criteria + By ID) |
 | **Custom Metadata** | `TEKCO_AnonymizationPattern__mdt` | Defines anonymization algorithms |
 | **Custom Metadata** | `TEKCO_AnonymizationFieldConfig__mdt` | Maps fields to patterns |
 | **Custom Metadata** | `TEKCO_AnonymizationOrgConfig__mdt` | Per-org configuration (naming conventions, brand object) |
@@ -98,15 +69,15 @@ Both modes run the same three-phase batch chain and share the same configuration
 | **Permission Set** | `TEKCO Anonymization Admin` | Bundles all required permissions |
 | **Tab** | `TEKCO Data Anonymization` | Navigation entry point |
 
-### 3.2 Zero-Regression Design
+### Zero-Regression Design (By ID)
 
 The By ID batch classes are entirely independent from the By Criteria batch classes. Their `execute()` methods are exact copies; only `start()` differs — using `WHERE Id IN :recordIds` instead of brand/parent subquery filters. No existing class was modified when the By ID feature was added.
 
 ---
 
-## 4. Processing Chains
+## 2.3 Processing Chain
 
-### 4.1 By Criteria — Standard Chain
+### By Criteria — Standard Chain
 
 Triggered from the **By Criteria** tab by selecting brands, objects, and optionally record types.
 
@@ -144,17 +115,7 @@ startAnonymization()
              Bypasses restored
 ```
 
-**Batch size rationale:**
-- Phases 1 and 3 use size 2 000 (the Salesforce maximum): each `execute()` performs a single-object DML update or delete with no risk of hitting row limits.
-- Phase 2 uses size 500: each `execute()` queries ContentDocumentLinks for the parent records in scope. A larger batch size risks exceeding the 50 000 SOQL rows governor limit for objects with many linked files.
-
-**Automation bypass:** Before the first batch starts, `TEKCO_AnonymizationBypassService` sets all boolean flags on `TEKCO_BypassSettings__c` to `true` for the running user, suppressing triggers and automations during processing. The original settings are restored once the entire chain completes (or fails).
-
-**Audit log:** A `TEKCO_AnonymizationAuditLog__c` record is created at launch with `TEKCO_BrandFilter__c` containing the selected brands. It is updated throughout the chain and closed when all phases finish.
-
----
-
-### 4.2 By ID — DataMig Chain
+### By ID — DataMig Chain
 
 Triggered from the **By ID (DataMig)** tab by pasting a list of Salesforce record IDs.
 
@@ -236,9 +197,30 @@ startAnonymizationByIds()
 
 **State forwarding between phases:** each batch receives the remaining work via constructor parameters: `remainingObjectIds`, `contentDocIdsByObject`, `historyIdsByObject`, a bypass snapshot, and accumulated error/record counters.
 
+### Batch size rationale
+
+- Phases 1 and 3 use size 2 000 (the Salesforce maximum): each `execute()` performs a single-object DML update or delete with no risk of hitting row limits.
+- Phase 2 uses size 500: each `execute()` queries ContentDocumentLinks for the parent records in scope. A larger batch size risks exceeding the 50 000 SOQL rows governor limit for objects with many linked files.
+
+### Automation bypass
+
+Before the first batch starts, `TEKCO_AnonymizationBypassService` sets all boolean flags on `TEKCO_BypassSettings__c` to `true` for the running user, suppressing triggers and automations during processing. The original settings are restored once the entire chain completes (or fails).
+
+### Audit log
+
+A `TEKCO_AnonymizationAuditLog__c` record is created at launch with `TEKCO_BrandFilter__c` containing the selected brands (or `BY_ID (N record(s))` for By ID runs). It is updated throughout the chain and closed when all phases finish.
+
+### Scalability
+
+All three batch classes implement `Database.Batchable` with `Database.getQueryLocator` for Phase 1 and Phase 3. This allows Salesforce to stream records from the database rather than loading them all into heap, making the batch scalable to tens of millions of records within a single execution.
+
+### Error handling
+
+The batch chain accumulates errors across phases. Up to 50 individual record errors are captured per batch execution; once the threshold is reached, the batch switches to `allOrNothing = false` mode and continues processing. If a query returns no records (e.g. object has no matching records or the IDs list is empty), the batch completes immediately with zero items processed and chains to the next phase normally.
+
 ---
 
-## 5. Anonymization Patterns Reference
+## 2.4 Anonymization Patterns Reference
 
 Patterns are defined in `TEKCO_AnonymizationPattern__mdt`. Each pattern defines **how** a field value is transformed. The `TEKCO_PatternType__c` field on a `TEKCO_AnonymizationFieldConfig__mdt` record references the `DeveloperName` of a pattern record.
 
@@ -250,9 +232,12 @@ Patterns are defined in `TEKCO_AnonymizationPattern__mdt`. Each pattern defines 
 | `EMAIL_PLUS_EXTERNALID_SUBDOMAIN` | Same with the sandbox subdomain appended. e.g. `sf_sap+EXT001@airliquide.com.fr.mmedlej` |
 | `EMAIL_PLUS_SFID` | Email with a `+` alias containing the Salesforce Id. e.g. `sf_sap+0035g00000XyZAA@airliquide.com` |
 | `EMAIL_PLUS_SFID_SUBDOMAIN` | Same with the sandbox subdomain appended. |
-| `SSN_SEQUENTIAL` | Replaces with a sequential digit string of the same length as the original value. |
+| `SSN_SEQUENTIAL` | Replaces with a sequential digit string of the same length as the original value. Equivalent REGEX: `RegexFind = \d`, `RegexReplace = 0`. |
 | `ADDRESS_STREET_RANDOM` | Finds the first number in the address and adds a random offset (1–20). |
-| `REGEX` | Configurable find/replace using regular expressions (see below). |
+| `PHONE_MASK` | Keeps the first 4 characters and replaces the rest with `0`. Equivalent REGEX: `RegexFind = (?<=^.{4})[\s\S]`, `RegexReplace = 0`. |
+| `LOREM_IPSUM` | Replaces the entire field value with Lorem Ipsum text. Equivalent REGEX: blank `RegexFind`, `RegexReplace = Lorem ipsum…`. |
+| `CLEAR` | Clears the field (sets it to empty). Equivalent REGEX: `RegexFind = [\s\S]*`, blank `RegexReplace`. |
+| `REGEX` | Configurable find/replace using regular expressions (see below). Replaces `PHONE_MASK`, `LOREM_IPSUM`, and `CLEAR` as the recommended approach for new transformations. |
 | `DELETE_CONTENT_DOCUMENT` | Marks the object for file deletion in Phase 2. No field value is changed in Phase 1. |
 | `KEEP` | No-op — field value is left unchanged. |
 | `EMAIL_MESSAGE_LOREM` | For EmailMessage: Draft records have body replaced by Lorem Ipsum; non-Draft records are deleted entirely. |
@@ -271,7 +256,7 @@ Patterns are defined in `TEKCO_AnonymizationPattern__mdt`. Each pattern defines 
 
 ### REGEX Pattern Type
 
-The `REGEX` pattern type allows any field transformation to be configured entirely in CMDT, without code changes. It replaces `PHONE_MASK`, `LOREM_IPSUM`, and `CLEAR` as the recommended approach for new transformations.
+The `REGEX` pattern type allows any field transformation to be configured entirely in CMDT, without code changes.
 
 **Behavior:**
 - If `TEKCO_RegexFind__c` is blank → the entire field value is replaced by `TEKCO_RegexReplace__c` (fixed replacement).
@@ -290,7 +275,7 @@ The `REGEX` pattern type allows any field transformation to be configured entire
 
 ---
 
-## 6. Configuring Anonymization Rules
+## 2.5 Configuring Anonymization Rules
 
 Field rules are defined in `TEKCO_AnonymizationFieldConfig__mdt`. Each record maps a field on an object to a pattern.
 
@@ -314,9 +299,9 @@ Field rules are defined in `TEKCO_AnonymizationFieldConfig__mdt`. Each record ma
 
 | Field | Description |
 |---|---|
-| `TEKCO_ParentObjectApiName__c` | API name of the parent object. e.g. `Account` |
-| `TEKCO_ParentLookupFieldApiName__c` | API name of the lookup field on the child pointing to the parent. |
-| `TEKCO_ParentRecordTypeDeveloperName__c` | Record Type of the parent used as a filter. |
+| `TEKCO_ParentObjectApiName__c` | API name of the parent object. e.g. `Account`. Also used in By ID mode to discover child records from parent IDs. |
+| `TEKCO_ParentLookupFieldApiName__c` | API name of the lookup field on the child pointing to the parent. e.g. `AccountId`. |
+| `TEKCO_ParentRecordTypeDeveloperName__c` | Record Type of the parent used as a filter (By Criteria mode only). |
 
 **History behavior:**
 
@@ -324,19 +309,31 @@ Field rules are defined in `TEKCO_AnonymizationFieldConfig__mdt`. Each record ma
 |---|---|
 | `TEKCO_DeleteHistory__c` | If checked, the field change history will be deleted in Phase 3. |
 
-> **Note for By ID mode**: `TEKCO_ParentObjectApiName__c` and `TEKCO_ParentLookupFieldApiName__c` serve a dual purpose. In By Criteria mode they filter children by parent attributes. In By ID mode the same fields are read in the opposite direction to *discover* child records from provided parent IDs.
+### Adding a new rule
+
+1. Go to **Setup → Custom Metadata Types → TEKCO Anonymization Field Config → Manage Records**.
+2. Click **New**.
+3. Enter a meaningful **Label** (e.g. `Patient PersonEmail`) and a unique **Developer Name** (e.g. `Patient_PersonEmail`).
+4. Fill in the required fields: object, field, pattern type, and check `TEKCO_IsActive__c`.
+5. Optional: fill in the Record Type if the rule applies to one population only.
+6. Optional: check `TEKCO_DeleteHistory__c` if the field history should be purged.
+7. Save.
+
+> **No code deployment is required** to add or modify an anonymization rule.
+
+### Disabling a rule
+
+To temporarily disable a rule without deleting it, uncheck `TEKCO_IsActive__c`. The rule disappears from the interface and is not processed until re-enabled.
 
 ---
 
-## 7. Multi-Org Configuration
+## 2.6 Multi-Org Configuration
 
 ### Why it exists
 
-The tool was originally designed for TEKCO/Air Liquide orgs with a specific naming convention: brand stored as a picklist field `TEKCO_Brand__c` on Account, functional IDs stored in `TEKCO_FunctionalId__c`, external IDs in `TEKCO_DataMigrationId__c`, etc.
+The tool was originally designed for TEKCO/Air Liquide orgs with a specific naming convention: brand stored as a picklist field `TEKCO_Brand__c` on Account, functional IDs in `TEKCO_FunctionalId__c`, external IDs in `TEKCO_DataMigrationId__c`, etc.
 
-Orgs that do not follow this convention — for example the Portugal (ALH) org, where brand is a separate lookup object (`ALH_Brand__c`) and the functional ID field is `ALH_FunctionalId__c` — previously required code changes to adapt the tool.
-
-The `TEKCO_AnonymizationOrgConfig__mdt` Custom Metadata type removes this requirement. One CMDT record per org controls all naming adaptations, deployed alongside the standard package. No Apex is modified.
+Orgs that do not follow this convention — for example the Portugal (ALH) org, where brand is a separate lookup object (`ALH_Brand__c`) and the functional ID field is `ALH_FunctionalId__c` — previously required code changes. The `TEKCO_AnonymizationOrgConfig__mdt` Custom Metadata type removes this requirement. One CMDT record per org controls all naming adaptations, deployed alongside the standard package. No Apex is modified.
 
 ### How it works
 
@@ -347,26 +344,25 @@ At startup, `TEKCO_AnonymizationOrgConfigService` resolves the current org's dom
 | Field | Purpose | Standard default |
 |-------|---------|-----------------|
 | `TEKCO_OrgDomain__c` | Org domain prefix to match (e.g. `airliquide-pt--sandbox`) | — |
-| `TEKCO_FunctionalIdField__c` | API name of the field used as functional identifier on records | `TEKCO_FunctionalId__c` |
+| `TEKCO_FunctionalIdField__c` | API name of the functional identifier field on records | `TEKCO_FunctionalId__c` |
 | `TEKCO_BypassEnabled__c` | Whether trigger bypass via `TEKCO_BypassSettings__c` is active | `true` |
-| `TEKCO_BrandObjectApiName__c` | SObject API name of the brand object. **Blank = picklist mode** (standard behavior). | *(blank)* |
-| `TEKCO_BrandCodeField__c` | Field on the brand object holding the brand code displayed in the UI | — |
+| `TEKCO_BrandObjectApiName__c` | SObject API name of the brand object. **Blank = picklist mode** | *(blank)* |
+| `TEKCO_BrandCodeField__c` | Field on the brand object holding the brand code shown in the UI | — |
 | `TEKCO_BrandCountryField__c` | Field on the brand object holding the country value | — |
-| `TEKCO_BrandLookupFieldOnRecord__c` | Relationship field on anonymized records pointing to the brand object (e.g. `ALH_Brand__r`) | — |
-| `TEKCO_ExternalIdFields__c` | Comma-separated list of external ID fields offered in the By ID tab's external ID selector | `TEKCO_DataMigrationId__c,TEKCO_ExternalId__c,TEKCO_FhirId__c` |
+| `TEKCO_BrandLookupFieldOnRecord__c` | Relationship field on anonymized records pointing to the brand object | — |
+| `TEKCO_ExternalIdFields__c` | Comma-separated external ID fields in the By ID tab's external ID selector | `TEKCO_DataMigrationId__c,TEKCO_ExternalId__c,TEKCO_FhirId__c` |
 
 ### Brand modes
 
-**Picklist mode** (standard, `TEKCO_BrandObjectApiName__c` is blank):
+**Picklist mode** (`TEKCO_BrandObjectApiName__c` is blank — standard behavior):
 - Brands are read from the picklist field `TEKCO_Brand__c` on Account.
 - Countries are derived via `TEKCO_CountryBrandSetting__mdt`.
-- The By Criteria filter displays the picklist values.
 
 **Brand object mode** (`TEKCO_BrandObjectApiName__c` is set):
 - Brands are records of a dedicated SObject (e.g. `ALH_Brand__c`).
-- The brand code displayed in the UI is read from `TEKCO_BrandCodeField__c`.
-- Countries are read directly from `TEKCO_BrandCountryField__c` on the brand record.
-- Records are linked to their brand via the relationship field `TEKCO_BrandLookupFieldOnRecord__c`.
+- The brand code shown in the UI is read from `TEKCO_BrandCodeField__c`.
+- Countries are read from `TEKCO_BrandCountryField__c` on the brand record.
+- Records are linked to their brand via `TEKCO_BrandLookupFieldOnRecord__c`.
 - `TEKCO_CountryBrandSetting__mdt` is not used.
 
 ### Example — Portugal (ALH) org
