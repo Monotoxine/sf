@@ -108,22 +108,24 @@ public class TEKCO_AnonymizationPatternService {
     /**
      * @description Resolves the identifier to append for NAME_FIRST_LETTER.
      *              1. TEKCO_ExternalIdField__c value (if configured and non-blank)
-     *              2. TEKCO_FunctionalId__c value on the record (if field exists and non-blank)
+     *              2. Org-configured functional ID field (e.g. TEKCO_FunctionalId__c or ALH_FunctionalId__c)
      *              3. Salesforce record Id as last resort
      */
     private static String resolveNameIdentifier(SObject record, TEKCO_AnonymizationPattern__mdt pattern) {
         String externalId = getExternalId(record, pattern);
         if (String.isNotBlank(externalId)) return externalId;
 
-        try {
-            Object functionalId = record.get('TEKCO_FunctionalId__c');
-            if (functionalId != null && String.isNotBlank(String.valueOf(functionalId))) {
-                return String.valueOf(functionalId);
-            }
-        } catch (Exception e) {}
+        String functionalIdField = TEKCO_OrgConfigService.getConfig().functionalIdField;
+        if (String.isNotBlank(functionalIdField)) {
+            try {
+                Object functionalId = record.get(functionalIdField);
+                if (functionalId != null && String.isNotBlank(String.valueOf(functionalId))) {
+                    return String.valueOf(functionalId);
+                }
+            } catch (Exception e) {}
+        }
 
-        String sfId = getSalesforceId(record);
-        return sfId;
+        return getSalesforceId(record);
     }
 
     /**
@@ -277,13 +279,34 @@ public class TEKCO_AnonymizationPatternService {
     public static List<String> getCountriesForBrands(List<String> brands) {
         List<String> countries = new List<String>();
         if (brands == null || brands.isEmpty()) return countries;
-        for (TEKCO_CountryBrandSetting__mdt mapping : [
-            SELECT TEKCO_Country__c
-            FROM TEKCO_CountryBrandSetting__mdt
-            WHERE TEKCO_Brand__c IN :brands
-              AND TEKCO_Country__c != null
-        ]) {
-            countries.add(mapping.TEKCO_Country__c);
+
+        TEKCO_OrgConfigService.OrgConfig cfg = TEKCO_OrgConfigService.getConfig();
+
+        if (cfg.usesBrandObject()) {
+            // Portugal mode: query the brand object directly
+            if (String.isBlank(cfg.brandObjectApiName)
+                    || String.isBlank(cfg.brandCodeField)
+                    || String.isBlank(cfg.brandCountryField)) {
+                return countries;
+            }
+            String soql = 'SELECT ' + cfg.brandCountryField
+                + ' FROM ' + cfg.brandObjectApiName
+                + ' WHERE ' + cfg.brandCodeField + ' IN :brands'
+                + ' AND ' + cfg.brandCountryField + ' != null';
+            for (SObject rec : Database.query(soql)) {
+                Object country = rec.get(cfg.brandCountryField);
+                if (country != null) countries.add(String.valueOf(country));
+            }
+        } else {
+            // Default: CMDT mapping table
+            for (TEKCO_CountryBrandSetting__mdt mapping : [
+                SELECT TEKCO_Country__c
+                FROM TEKCO_CountryBrandSetting__mdt
+                WHERE TEKCO_Brand__c IN :brands
+                  AND TEKCO_Country__c != null
+            ]) {
+                countries.add(mapping.TEKCO_Country__c);
+            }
         }
         return countries;
     }

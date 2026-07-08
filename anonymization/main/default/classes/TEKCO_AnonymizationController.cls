@@ -6,27 +6,56 @@ public with sharing class TEKCO_AnonymizationController {
 
     private static final String PATTERN_TYPE_DELETE_CONTENT_DOCUMENT  = 'DELETE_CONTENT_DOCUMENT';
 
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled(cacheable=false)
     public static List<Map<String, String>> getBrands() {
+        TEKCO_OrgConfigService.OrgConfig cfg = TEKCO_OrgConfigService.getConfig();
         List<Map<String, String>> brandOptions = new List<Map<String, String>>();
-        try {
-            Schema.DescribeFieldResult fieldDescriptor =
-                Schema.SObjectType.Account.fields.getMap()
-                    .get('tekco_brand__c')
-                    .getDescribe();
-            for (Schema.PicklistEntry entry : fieldDescriptor.getPicklistValues()) {
-                if (entry.isActive()) {
-                    brandOptions.add(new Map<String, String>{
-                        'label' => entry.getLabel(),
-                        'value' => entry.getValue()
-                    });
-                }
+
+        if (cfg.usesBrandObject()) {
+            // Portugal mode: query the brand lookup object
+            if (String.isBlank(cfg.brandObjectApiName) || String.isBlank(cfg.brandCodeField)) {
+                throw new AuraHandledException(
+                    'Org config error: TEKCO_BrandObjectApiName__c and TEKCO_BrandCodeField__c must be set when using a brand object.'
+                );
             }
-        } catch (Exception e) {
-            throw new AuraHandledException(
-                'Could not load TEKCO_Brands picklist values. Verify that Account.TEKCO_Brand__c uses the TEKCO_Brands global value set. Error: '
-                + e.getMessage()
-            );
+            String labelField = String.isNotBlank(cfg.brandCountryField)
+                ? cfg.brandCodeField + ', ' + cfg.brandCountryField
+                : cfg.brandCodeField;
+            String soql = 'SELECT ' + labelField + ' FROM ' + cfg.brandObjectApiName + ' ORDER BY ' + cfg.brandCodeField;
+            try {
+                for (SObject rec : Database.query(soql)) {
+                    String code    = String.valueOf(rec.get(cfg.brandCodeField));
+                    String country = String.isNotBlank(cfg.brandCountryField)
+                        ? String.valueOf(rec.get(cfg.brandCountryField)) : null;
+                    String label   = String.isNotBlank(country) ? code + ' (' + country + ')' : code;
+                    brandOptions.add(new Map<String, String>{ 'label' => label, 'value' => code });
+                }
+            } catch (Exception e) {
+                throw new AuraHandledException(
+                    'Could not load brands from ' + cfg.brandObjectApiName + '. Error: ' + e.getMessage()
+                );
+            }
+        } else {
+            // Default: TEKCO_Brand__c picklist on Account
+            try {
+                Schema.DescribeFieldResult fieldDescriptor =
+                    Schema.SObjectType.Account.fields.getMap()
+                        .get('tekco_brand__c')
+                        .getDescribe();
+                for (Schema.PicklistEntry entry : fieldDescriptor.getPicklistValues()) {
+                    if (entry.isActive()) {
+                        brandOptions.add(new Map<String, String>{
+                            'label' => entry.getLabel(),
+                            'value' => entry.getValue()
+                        });
+                    }
+                }
+            } catch (Exception e) {
+                throw new AuraHandledException(
+                    'Could not load TEKCO_Brands picklist values. Verify that Account.TEKCO_Brand__c uses the TEKCO_Brands global value set. Error: '
+                    + e.getMessage()
+                );
+            }
         }
         return brandOptions;
     }
@@ -218,11 +247,18 @@ public with sharing class TEKCO_AnonymizationController {
             }
         }
 
+        TEKCO_OrgConfigService.OrgConfig orgCfg = TEKCO_OrgConfigService.getConfig();
+
         Map<String, Boolean> hasBrand      = new Map<String, Boolean>();
         Map<String, Boolean> hasCountry    = new Map<String, Boolean>();
         Map<String, Boolean> hasRecordType = new Map<String, Boolean>();
         for (String obj : objectsToCount) {
-            hasBrand.put(obj,      TEKCO_AnonymizationPatternService.hasField(obj, 'tekco_brand__c'));
+            if (orgCfg.usesBrandObject()) {
+                hasBrand.put(obj, String.isNotBlank(orgCfg.brandLookupFieldOnRecord)
+                    && TEKCO_AnonymizationPatternService.hasField(obj, orgCfg.brandLookupFieldOnRecord));
+            } else {
+                hasBrand.put(obj, TEKCO_AnonymizationPatternService.hasField(obj, 'tekco_brand__c'));
+            }
             hasCountry.put(obj,    TEKCO_AnonymizationPatternService.hasField(obj, 'tekco_country__c'));
             hasRecordType.put(obj, TEKCO_AnonymizationPatternService.hasField(obj, 'recordtypeid'));
         }
@@ -247,7 +283,14 @@ public with sharing class TEKCO_AnonymizationController {
                 List<String> conditions = new List<String>();
                 if (selectedBrands != null && !selectedBrands.isEmpty()) {
                     if (hasBrand.get(objectApiName) == true) {
-                        conditions.add('TEKCO_Brand__c IN :selectedBrands');
+                        if (orgCfg.usesBrandObject()) {
+                            List<String> escaped = new List<String>();
+                            for (String b : selectedBrands) escaped.add('\'' + String.escapeSingleQuotes(b) + '\'');
+                            conditions.add(orgCfg.brandLookupFieldOnRecord + '.' + orgCfg.brandCodeField
+                                + ' IN (' + String.join(escaped, ', ') + ')');
+                        } else {
+                            conditions.add('TEKCO_Brand__c IN :selectedBrands');
+                        }
                     } else if (hasCountry.get(objectApiName) == true && !countryValues.isEmpty()) {
                         conditions.add('TEKCO_Country__c IN :countryValues');
                     }

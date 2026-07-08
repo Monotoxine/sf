@@ -107,9 +107,11 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         && objectFieldMap.containsKey(pattern.TEKCO_ExternalIdField__c.toLowerCase())) {
                     fieldApiNames.add(pattern.TEKCO_ExternalIdField__c);
                 }
-                if ((patternType == 'NAME_FIRST_LETTER' || patternType == 'NAME_FIRST_LETTER_SFID')
-                        && objectFieldMap.containsKey('tekco_functionalid__c')) {
-                    fieldApiNames.add('TEKCO_FunctionalId__c');
+                if (patternType == 'NAME_FIRST_LETTER' || patternType == 'NAME_FIRST_LETTER_SFID') {
+                    String funcField = TEKCO_OrgConfigService.getConfig().functionalIdField;
+                    if (String.isNotBlank(funcField) && objectFieldMap.containsKey(funcField.toLowerCase())) {
+                        fieldApiNames.add(funcField);
+                    }
                 }
                 if (String.isNotBlank(fieldConfig.TEKCO_RecordTypeDeveloperName__c)) {
                     needsRecordTypeId = true;
@@ -155,7 +157,14 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 }
                 topConditions.add(parentLookupField + ' IN (' + parentSubquery + ')');
             } else if (!selectedBrands.isEmpty()) {
-                if (hasEmailMessageLorem) {
+                TEKCO_OrgConfigService.OrgConfig orgCfg = TEKCO_OrgConfigService.getConfig();
+                if (orgCfg.usesBrandObject() && String.isNotBlank(orgCfg.brandLookupFieldOnRecord)
+                        && TEKCO_AnonymizationPatternService.hasField(objectApiName, orgCfg.brandLookupFieldOnRecord)) {
+                    List<String> escaped = new List<String>();
+                    for (String b : selectedBrands) escaped.add('\'' + String.escapeSingleQuotes(b) + '\'');
+                    topConditions.add(orgCfg.brandLookupFieldOnRecord + '.' + orgCfg.brandCodeField
+                        + ' IN (' + String.join(escaped, ', ') + ')');
+                } else if (hasEmailMessageLorem) {
                     topConditions.add('Parent.TEKCO_Brand__c IN :selectedBrands');
                 } else if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_brand__c')) {
                     topConditions.add('TEKCO_Brand__c IN :selectedBrands');

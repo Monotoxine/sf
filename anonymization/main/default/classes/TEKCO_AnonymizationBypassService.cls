@@ -12,10 +12,15 @@ public class TEKCO_AnonymizationBypassService {
     }
 
     public static BypassSnapshot activate() {
-        Id userId = UserInfo.getUserId();
         BypassSnapshot snapshot = new BypassSnapshot();
         snapshot.preExistingFieldValues = new Map<String, Boolean>();
 
+        if (!TEKCO_OrgConfigService.getConfig().bypassEnabled) {
+            snapshot.hasPreExistingRecord = false;
+            return snapshot;
+        }
+
+        Id userId = UserInfo.getUserId();
         TEKCO_BypassSettings__c existingUserRecord = TEKCO_BypassSettings__c.getInstance(userId);
         snapshot.hasPreExistingRecord = (existingUserRecord != null
             && existingUserRecord.SetupOwnerId == userId);
@@ -48,6 +53,7 @@ public class TEKCO_AnonymizationBypassService {
 
     public static void restore(BypassSnapshot snapshot) {
         if (snapshot == null) return;
+        if (!TEKCO_OrgConfigService.getConfig().bypassEnabled) return;
 
         Id userId = UserInfo.getUserId();
         List<TEKCO_BypassSettings__c> existingRecords = [
