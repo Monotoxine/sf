@@ -121,6 +121,7 @@
         <members>TEKCO_OrgConfig__mdt.TEKCO_BrandCodeField__c</members>
         <members>TEKCO_OrgConfig__mdt.TEKCO_BrandCountryField__c</members>
         <members>TEKCO_OrgConfig__mdt.TEKCO_BrandLookupFieldOnRecord__c</members>
+        <members>TEKCO_OrgConfig__mdt.TEKCO_ExternalIdFields__c</members>
         <name>CustomField</name>
     </types>
     <types>

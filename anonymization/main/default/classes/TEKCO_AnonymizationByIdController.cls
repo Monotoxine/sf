@@ -361,14 +361,15 @@ public with sharing class TEKCO_AnonymizationByIdController {
             fields.add(p.TEKCO_ExternalIdField__c);
         }
 
-        if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'TEKCO_datamigrationid__c')) {
-            fields.add('TEKCO_DataMigrationId__c');
-        }
-        if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'TEKCO_externalid__c')) {
-            fields.add('TEKCO_ExternalId__c');
-        }
-        if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'TEKCO_fhirid__c')) {
-            fields.add('TEKCO_Fhirid__c');
+        String extraFields = TEKCO_OrgConfigService.getConfig().externalIdFields;
+        if (String.isNotBlank(extraFields)) {
+            for (String f : extraFields.split(',')) {
+                String trimmed = f.trim();
+                if (String.isNotBlank(trimmed)
+                        && TEKCO_AnonymizationPatternService.hasField(objectApiName, trimmed.toLowerCase())) {
+                    fields.add(trimmed);
+                }
+            }
         }
 
         List<String> result = new List<String>(fields);

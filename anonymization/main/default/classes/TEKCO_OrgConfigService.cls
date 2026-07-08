@@ -22,6 +22,8 @@ public class TEKCO_OrgConfigService {
         public String  brandCodeField;
         public String  brandCountryField;
         public String  brandLookupFieldOnRecord;
+        /** Comma-separated list of extra external ID field API names offered in the By ID tab. */
+        public String  externalIdFields;
 
         public Boolean usesBrandObject() {
             return String.isNotBlank(brandObjectApiName);
@@ -50,7 +52,8 @@ public class TEKCO_OrgConfigService {
                     TEKCO_BrandObjectApiName__c,
                     TEKCO_BrandCodeField__c,
                     TEKCO_BrandCountryField__c,
-                    TEKCO_BrandLookupFieldOnRecord__c
+                    TEKCO_BrandLookupFieldOnRecord__c,
+                    TEKCO_ExternalIdFields__c
                 FROM TEKCO_OrgConfig__mdt
                 WHERE TEKCO_OrgDomain__c = :currentDomain
                 LIMIT 1
@@ -68,6 +71,7 @@ public class TEKCO_OrgConfigService {
             cfg.brandCodeField             = mdtRecord.TEKCO_BrandCodeField__c;
             cfg.brandCountryField          = mdtRecord.TEKCO_BrandCountryField__c;
             cfg.brandLookupFieldOnRecord   = mdtRecord.TEKCO_BrandLookupFieldOnRecord__c;
+            cfg.externalIdFields           = mdtRecord.TEKCO_ExternalIdFields__c;
         } else {
             // Default: TEKCO/Air Liquide standard config
             cfg.functionalIdField          = 'TEKCO_FunctionalId__c';
@@ -76,6 +80,7 @@ public class TEKCO_OrgConfigService {
             cfg.brandCodeField             = null;
             cfg.brandCountryField          = null;
             cfg.brandLookupFieldOnRecord   = null;
+            cfg.externalIdFields           = 'TEKCO_DataMigrationId__c,TEKCO_ExternalId__c,TEKCO_FhirId__c';
         }
 
         cachedConfig = cfg;

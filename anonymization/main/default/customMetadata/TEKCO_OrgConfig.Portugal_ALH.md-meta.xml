@@ -30,7 +30,10 @@
     </values>
     <values>
         <field>TEKCO_BrandLookupFieldOnRecord__c</field>
-        <!-- Field on anonymized objects (e.g. Contact, Account) that is a lookup to ALH_Brand__c -->
-        <value xsi:type="xsd:string">ALH_Brand__c</value>
+        <value xsi:type="xsd:string">ALH_Brand__r</value>
+    </values>
+    <values>
+        <field>TEKCO_ExternalIdFields__c</field>
+        <value xsi:type="xsd:string">ALH_ExternalSystemID__c</value>
     </values>
 </CustomMetadata>
