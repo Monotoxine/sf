@@ -3,8 +3,7 @@
     <fullName>TEKCO_BrandObjectApiName__c</fullName>
     <fieldManageability>DeveloperControlled</fieldManageability>
     <label>Brand Object API Name</label>
-    <helpText>Leave blank to use the TEKCO_Brand__c picklist on Account. Set to a SObject API name (e.g. ALH_Brand__c) to use a lookup object instead.</helpText>
-    <length>255</length>
+<length>255</length>
     <type>Text</type>
     <unique>false</unique>
 </CustomField>

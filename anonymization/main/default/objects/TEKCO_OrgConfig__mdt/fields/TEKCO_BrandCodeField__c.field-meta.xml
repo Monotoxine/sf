@@ -3,8 +3,7 @@
     <fullName>TEKCO_BrandCodeField__c</fullName>
     <fieldManageability>DeveloperControlled</fieldManageability>
     <label>Brand Code Field API Name</label>
-    <helpText>Field on the brand object that holds the brand code/name shown in the UI (e.g. Name or ALH_BrandCode__c).</helpText>
-    <length>255</length>
+<length>255</length>
     <type>Text</type>
     <unique>false</unique>
 </CustomField>

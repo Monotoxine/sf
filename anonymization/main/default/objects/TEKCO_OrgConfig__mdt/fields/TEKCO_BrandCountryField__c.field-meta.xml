@@ -3,8 +3,7 @@
     <fullName>TEKCO_BrandCountryField__c</fullName>
     <fieldManageability>DeveloperControlled</fieldManageability>
     <label>Brand Country Field API Name</label>
-    <helpText>Field on the brand object that holds the country code (e.g. ALH_Country__c).</helpText>
-    <length>255</length>
+<length>255</length>
     <type>Text</type>
     <unique>false</unique>
 </CustomField>

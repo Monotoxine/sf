@@ -3,8 +3,7 @@
     <fullName>TEKCO_BrandLookupFieldOnRecord__c</fullName>
     <fieldManageability>DeveloperControlled</fieldManageability>
     <label>Brand Lookup Field on Record</label>
-    <helpText>API name of the field on anonymized objects that points to the brand object (e.g. ALH_Brand__c). Used to filter records by brand.</helpText>
-    <length>255</length>
+<length>255</length>
     <type>Text</type>
     <unique>false</unique>
 </CustomField>
