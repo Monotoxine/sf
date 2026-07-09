@@ -35,7 +35,7 @@ Deployment is performed using the Salesforce CLI (`sf`) with the `package.xml` m
 
 | Metadata type | Components included |
 |---|---|
-| **ApexClass** | `TEKCO_AnonymizationBatch`, `TEKCO_AnonymizationController`, `TEKCO_AnonymizationPatternService`, `TEKCO_AnonymizationAuditService`, `TEKCO_AnonymizationBypassService`, `TEKCO_ContentDocumentBatch`, `TEKCO_FieldHistoryBatch`, `TEKCO_AnonymizationByIdBatch`, `TEKCO_ContentDocumentByIdBatch`, `TEKCO_FieldHistoryByIdBatch`, `TEKCO_AnonymizationByIdController`, `TEKCO_AnonymizationOrgConfigService` |
+| **ApexClass** | `TEKCO_AnonymizationBatch`, `TEKCO_AnonymizationController`, `TEKCO_AnonymizationPatternService`, `TEKCO_AnonymizationExecuteService`, `TEKCO_AnonymizationBatchUtils`, `TEKCO_AnonymizationAuditService`, `TEKCO_AnonymizationBypassService`, `TEKCO_ContentDocumentBatch`, `TEKCO_FieldHistoryBatch`, `TEKCO_AnonymizationByIdBatch`, `TEKCO_ContentDocumentByIdBatch`, `TEKCO_FieldHistoryByIdBatch`, `TEKCO_AnonymizationByIdController`, `TEKCO_AnonymizationOrgConfigService` |
 | **LightningComponentBundle** | `tekcoDataAnonymizationAdmin` |
 | **CustomObject** | `TEKCO_AnonymizationAuditLog__c`, `TEKCO_AnonymizationFieldConfig__mdt`, `TEKCO_AnonymizationPattern__mdt`, `TEKCO_AnonymizationOrgConfig__mdt` |
 | **CustomField** | `TEKCO_AnonymizationPattern__mdt.TEKCO_RegexFind__c`, `TEKCO_AnonymizationPattern__mdt.TEKCO_RegexReplace__c`, all `TEKCO_AnonymizationOrgConfig__mdt` fields |

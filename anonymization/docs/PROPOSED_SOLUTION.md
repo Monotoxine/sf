@@ -55,6 +55,8 @@ Both modes run the same three-phase batch chain and share the same configuration
 | **Apex Class** | `TEKCO_AnonymizationController` | AuraEnabled controller for the By Criteria tab |
 | **Apex Class** | `TEKCO_AnonymizationByIdController` | AuraEnabled controller for the By ID tab |
 | **Apex Class** | `TEKCO_AnonymizationPatternService` | Shared utility: applies patterns, field checks, sandbox guard |
+| **Apex Class** | `TEKCO_AnonymizationExecuteService` | Shared Phase 1 record-level logic (used by both Phase 1 batch classes) |
+| **Apex Class** | `TEKCO_AnonymizationBatchUtils` | Shared batch utilities: history object naming, config list helpers |
 | **Apex Class** | `TEKCO_AnonymizationAuditService` | Writes and finalizes the audit log record |
 | **Apex Class** | `TEKCO_AnonymizationBypassService` | Activates and restores automation bypass settings |
 | **Apex Class** | `TEKCO_AnonymizationOrgConfigService` | Loads per-org configuration from `TEKCO_AnonymizationOrgConfig__mdt` |
@@ -71,7 +73,7 @@ Both modes run the same three-phase batch chain and share the same configuration
 
 ### Zero-Regression Design (By ID)
 
-The By ID batch classes are entirely independent from the By Criteria batch classes. Their `execute()` methods are exact copies; only `start()` differs — using `WHERE Id IN :recordIds` instead of brand/parent subquery filters. No existing class was modified when the By ID feature was added.
+The By ID batch classes are entirely independent from the By Criteria batch classes. Both pairs delegate their Phase 1 record-level logic to `TEKCO_AnonymizationExecuteService.executeFieldAnonymization()` — a shared static method that applies patterns, handles Email Message deletion, and performs the DML update/delete. Only `start()` differs between the two modes: By Criteria uses brand/parent subquery filters, By ID uses `WHERE Id IN :recordIds`. No existing class was modified when the By ID feature was added.
 
 ---
 
