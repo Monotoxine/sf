@@ -61,29 +61,22 @@ public with sharing class TEKCO_AnonymizationController {
 
     @AuraEnabled(cacheable=true)
     public static List<Map<String, String>> getObjects() {
-        Map<String, String> parentByObject = new Map<String, String>();
+        Set<String> objectNames = new Set<String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fc : [
-            SELECT TEKCO_ObjectApiName__c, TEKCO_ParentObjectApiName__c
+            SELECT TEKCO_ObjectApiName__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
             WHERE TEKCO_IsActive__c = true
               AND TEKCO_ObjectApiName__c != null
         ]) {
-            String obj    = fc.TEKCO_ObjectApiName__c;
-            String parent = fc.TEKCO_ParentObjectApiName__c;
-            if (!parentByObject.containsKey(obj)
-                    || (String.isBlank(parentByObject.get(obj)) && String.isNotBlank(parent))) {
-                parentByObject.put(obj, parent);
-            }
+            objectNames.add(fc.TEKCO_ObjectApiName__c);
         }
 
-        List<String> sortedObjects = new List<String>(parentByObject.keySet());
+        List<String> sortedObjects = new List<String>(objectNames);
         sortedObjects.sort();
 
         List<Map<String, String>> options = new List<Map<String, String>>();
         for (String obj : sortedObjects) {
-            String parent = parentByObject.get(obj);
-            String label  = String.isNotBlank(parent) ? obj + ' (' + parent + ')' : obj;
-            options.add(new Map<String, String>{ 'label' => label, 'value' => obj });
+            options.add(new Map<String, String>{ 'label' => obj, 'value' => obj });
         }
         return options;
     }
