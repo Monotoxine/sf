@@ -82,11 +82,8 @@ public class TEKCO_AnonymizationPatternService {
             when 'EMAIL_MESSAGE_LOREM' {
                 return null; // handled by TEKCO_AnonymizationBatch
             }
-            when 'REGEX' {
-                return applyRegex(currentValue, pattern);
-            }
             when else {
-                return currentValue;
+                return applyRegex(currentValue, pattern);
             }
         }
     }
@@ -211,6 +208,9 @@ public class TEKCO_AnonymizationPatternService {
      */
     private static String applyRegex(String currentValue, TEKCO_AnonymizationPattern__mdt pattern) {
         String replacement = pattern.TEKCO_RegexReplace__c != null ? pattern.TEKCO_RegexReplace__c : '';
+        if (String.isBlank(pattern.TEKCO_RegexFind__c) && String.isBlank(replacement)) {
+            return currentValue;
+        }
         if (String.isBlank(pattern.TEKCO_RegexFind__c)) {
             return replacement;
         }
