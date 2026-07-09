@@ -23,15 +23,15 @@
         <value xsi:type="xsd:string">Address</value>
     </values>
     <values>
-        <field>TEKCO_ParentLookupFieldApiName__c</field>
+        <field>TEKCO_ByIdParentLookupFieldApiName__c</field>
         <value xsi:nil="true"/>
     </values>
     <values>
-        <field>TEKCO_ParentObjectApiName__c</field>
+        <field>TEKCO_ByIdParentObjectApiName__c</field>
         <value xsi:nil="true"/>
     </values>
     <values>
-        <field>TEKCO_ParentRecordTypeDeveloperName__c</field>
+        <field>TEKCO_ByIdParentRecordTypeDeveloperName__c</field>
         <value xsi:nil="true"/>
     </values>
     <values>

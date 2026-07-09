@@ -63,13 +63,13 @@ public with sharing class TEKCO_AnonymizationController {
     public static List<Map<String, String>> getObjects() {
         Map<String, String> parentByObject = new Map<String, String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fc : [
-            SELECT TEKCO_ObjectApiName__c, TEKCO_ParentObjectApiName__c
+            SELECT TEKCO_ObjectApiName__c, TEKCO_ByIdParentObjectApiName__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
             WHERE TEKCO_IsActive__c = true
               AND TEKCO_ObjectApiName__c != null
         ]) {
             String obj    = fc.TEKCO_ObjectApiName__c;
-            String parent = fc.TEKCO_ParentObjectApiName__c;
+            String parent = fc.TEKCO_ByIdParentObjectApiName__c;
             if (!parentByObject.containsKey(obj)
                     || (String.isBlank(parentByObject.get(obj)) && String.isNotBlank(parent))) {
                 parentByObject.put(obj, parent);
@@ -144,9 +144,9 @@ public with sharing class TEKCO_AnonymizationController {
                     TEKCO_IsActive__c,
                     TEKCO_RecordTypeDeveloperName__c,
                     TEKCO_DeleteHistory__c,
-                    TEKCO_ParentObjectApiName__c,
-                    TEKCO_ParentLookupFieldApiName__c,
-                    TEKCO_ParentRecordTypeDeveloperName__c,
+                    TEKCO_ByIdParentObjectApiName__c,
+                    TEKCO_ByIdParentLookupFieldApiName__c,
+                    TEKCO_ByIdParentRecordTypeDeveloperName__c,
                     TEKCO_AdditionalFilter__c
                 FROM TEKCO_AnonymizationFieldConfig__mdt
                 WHERE TEKCO_IsActive__c = true
@@ -161,9 +161,9 @@ public with sharing class TEKCO_AnonymizationController {
                     TEKCO_IsActive__c,
                     TEKCO_RecordTypeDeveloperName__c,
                     TEKCO_DeleteHistory__c,
-                    TEKCO_ParentObjectApiName__c,
-                    TEKCO_ParentLookupFieldApiName__c,
-                    TEKCO_ParentRecordTypeDeveloperName__c,
+                    TEKCO_ByIdParentObjectApiName__c,
+                    TEKCO_ByIdParentLookupFieldApiName__c,
+                    TEKCO_ByIdParentRecordTypeDeveloperName__c,
                     TEKCO_AdditionalFilter__c
                 FROM TEKCO_AnonymizationFieldConfig__mdt
                 WHERE TEKCO_IsActive__c = true
@@ -182,9 +182,9 @@ public with sharing class TEKCO_AnonymizationController {
             fieldConfigDto.patternType                    = fieldConfig.TEKCO_PatternType__c;
             fieldConfigDto.recordTypeDeveloperName        = fieldConfig.TEKCO_RecordTypeDeveloperName__c;
             fieldConfigDto.deleteHistory                  = fieldConfig.TEKCO_DeleteHistory__c;
-            fieldConfigDto.parentObjectApiName            = fieldConfig.TEKCO_ParentObjectApiName__c;
-            fieldConfigDto.parentLookupFieldApiName       = fieldConfig.TEKCO_ParentLookupFieldApiName__c;
-            fieldConfigDto.parentRecordTypeDeveloperName  = fieldConfig.TEKCO_ParentRecordTypeDeveloperName__c;
+            fieldConfigDto.parentObjectApiName            = fieldConfig.TEKCO_ByIdParentObjectApiName__c;
+            fieldConfigDto.parentLookupFieldApiName       = fieldConfig.TEKCO_ByIdParentLookupFieldApiName__c;
+            fieldConfigDto.parentRecordTypeDeveloperName  = fieldConfig.TEKCO_ByIdParentRecordTypeDeveloperName__c;
             fieldConfigDto.additionalFilter               = fieldConfig.TEKCO_AdditionalFilter__c;
 
             TEKCO_AnonymizationPattern__mdt patternRecord = patternsByType.get(fieldConfig.TEKCO_PatternType__c);
@@ -380,9 +380,9 @@ public with sharing class TEKCO_AnonymizationController {
                 TEKCO_IsActive__c,
                 TEKCO_RecordTypeDeveloperName__c,
                 TEKCO_DeleteHistory__c,
-                TEKCO_ParentObjectApiName__c,
-                TEKCO_ParentLookupFieldApiName__c,
-                TEKCO_ParentRecordTypeDeveloperName__c,
+                TEKCO_ByIdParentObjectApiName__c,
+                TEKCO_ByIdParentLookupFieldApiName__c,
+                TEKCO_ByIdParentRecordTypeDeveloperName__c,
                 TEKCO_AdditionalFilter__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
             WHERE TEKCO_IsActive__c = true
@@ -416,16 +416,6 @@ public with sharing class TEKCO_AnonymizationController {
             String fieldKey = obj + '.' + fieldConfig.TEKCO_FieldApiName__c + '.'
                 + (fieldConfig.TEKCO_RecordTypeDeveloperName__c != null ? fieldConfig.TEKCO_RecordTypeDeveloperName__c : '');
 
-            if (!parentFiltersByObject.containsKey(obj)
-                    && String.isNotBlank(fieldConfig.TEKCO_ParentObjectApiName__c)
-                    && String.isNotBlank(fieldConfig.TEKCO_ParentLookupFieldApiName__c)) {
-                parentFiltersByObject.put(obj, new List<String>{
-                    fieldConfig.TEKCO_ParentObjectApiName__c,
-                    fieldConfig.TEKCO_ParentLookupFieldApiName__c,
-                    fieldConfig.TEKCO_ParentRecordTypeDeveloperName__c != null
-                        ? fieldConfig.TEKCO_ParentRecordTypeDeveloperName__c : ''
-                });
-            }
             if (!additionalFiltersByObject.containsKey(obj)
                     && String.isNotBlank(fieldConfig.TEKCO_AdditionalFilter__c)) {
                 additionalFiltersByObject.put(obj, fieldConfig.TEKCO_AdditionalFilter__c);
