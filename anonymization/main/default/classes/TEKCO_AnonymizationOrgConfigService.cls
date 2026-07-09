@@ -83,6 +83,25 @@ public class TEKCO_AnonymizationOrgConfigService {
         cachedConfig = null;
     }
 
+    // ─── Sandbox guard ───────────────────────────────────────────────────────
+
+    public class ProductionOrgException extends Exception {}
+
+    @TestVisible public static Boolean isSandboxCached = null;
+
+    public static void assertIsSandbox() {
+        if (isSandboxCached == null) {
+            Organization org = [SELECT IsSandbox FROM Organization LIMIT 1];
+            isSandboxCached = org.IsSandbox;
+        }
+        if (!isSandboxCached) {
+            throw new ProductionOrgException(
+                'ABORT: Data anonymization is not allowed on Production orgs. ' +
+                'This operation has been blocked. No data was modified.'
+            );
+        }
+    }
+
     // ─── Field utilities ─────────────────────────────────────────────────────
 
     @TestVisible private static Map<String, Schema.SObjectType> globalDescribeCache;

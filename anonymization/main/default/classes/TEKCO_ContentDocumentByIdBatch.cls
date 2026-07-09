@@ -49,7 +49,7 @@ public class TEKCO_ContentDocumentByIdBatch implements Database.Batchable<SObjec
     }
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
-        TEKCO_AnonymizationPatternService.assertIsSandbox();
+        TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
         return Database.getQueryLocator(
             'SELECT Id FROM ' + objectApiName + ' WHERE Id IN :parentIds'
         );

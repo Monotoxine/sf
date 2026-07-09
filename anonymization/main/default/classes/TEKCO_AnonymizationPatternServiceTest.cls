@@ -36,7 +36,7 @@ private class TEKCO_AnonymizationPatternServiceTest {
     @isTest
     static void nameFirstLetter_uppercasesFirstChar() {
         TEKCO_AnonymizationOrgConfigService.resetCache();
-        TEKCO_AnonymizationPatternService.isSandboxCached = true;
+        TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
 
         TEKCO_AnonymizationPattern__mdt pattern = activePattern('NAME_FIRST_LETTER');
 
@@ -54,7 +54,7 @@ private class TEKCO_AnonymizationPatternServiceTest {
 
     @isTest
     static void nameFirstLetterSfid_usesSalesforceIdDirectly() {
-        TEKCO_AnonymizationPatternService.isSandboxCached = true;
+        TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
         TEKCO_AnonymizationPattern__mdt pattern = activePattern('NAME_FIRST_LETTER_SFID');
         // External ID configured — SFID variant must ignore it
         pattern.TEKCO_ExternalIdField__c = 'TEKCO_FunctionalId__c';
@@ -73,7 +73,7 @@ private class TEKCO_AnonymizationPatternServiceTest {
 
     @isTest
     static void emailPlusExternalId_insertsIdAsAlias() {
-        TEKCO_AnonymizationPatternService.isSandboxCached = true;
+        TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
 
         Account acc = new Account(Name = 'Test');
         insert acc;
@@ -167,25 +167,25 @@ private class TEKCO_AnonymizationPatternServiceTest {
 
     @isTest
     static void assertIsSandbox_cachedAfterFirstCall() {
-        TEKCO_AnonymizationPatternService.isSandboxCached = null;
+        TEKCO_AnonymizationOrgConfigService.isSandboxCached = null;
         // In test context, org.IsSandbox may be true or false depending on the org.
         // We just verify that a second call does NOT issue another SOQL (cache hit).
         // We inject the cached value to avoid needing a real sandbox.
-        TEKCO_AnonymizationPatternService.isSandboxCached = true;
+        TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
 
         // Should not throw
-        TEKCO_AnonymizationPatternService.assertIsSandbox();
-        System.assertEquals(true, TEKCO_AnonymizationPatternService.isSandboxCached, 'Cache populated');
+        TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
+        System.assertEquals(true, TEKCO_AnonymizationOrgConfigService.isSandboxCached, 'Cache populated');
     }
 
     @isTest
     static void assertIsSandbox_throwsOnProduction() {
-        TEKCO_AnonymizationPatternService.isSandboxCached = false;
+        TEKCO_AnonymizationOrgConfigService.isSandboxCached = false;
 
         try {
-            TEKCO_AnonymizationPatternService.assertIsSandbox();
+            TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
             System.assert(false, 'Expected ProductionOrgException');
-        } catch (TEKCO_AnonymizationPatternService.ProductionOrgException e) {
+        } catch (TEKCO_AnonymizationOrgConfigService.ProductionOrgException e) {
             System.assert(e.getMessage().contains('ABORT'), 'Exception message must say ABORT');
         }
     }

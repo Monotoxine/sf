@@ -119,7 +119,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
                 'Permission denied: the "TEKCO Anonymize Data" custom permission is required.'
             );
         }
-        TEKCO_AnonymizationPatternService.assertIsSandbox();
+        TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
 
         if (rawIds == null || rawIds.isEmpty()) {
             throw new AuraHandledException('No IDs provided.');

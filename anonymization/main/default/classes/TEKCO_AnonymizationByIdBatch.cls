@@ -63,7 +63,7 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
     }
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
-        TEKCO_AnonymizationPatternService.assertIsSandbox();
+        TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
 
         Schema.SObjectType sObjectType = Schema.getGlobalDescribe().get(objectApiName);
         if (sObjectType == null) {

@@ -15,7 +15,7 @@ private class TEKCO_AnonymizationExecuteServiceTest {
 
     @isTest
     static void execute_updatesFieldWhenPatternChangesValue() {
-        TEKCO_AnonymizationPatternService.isSandboxCached = true;
+        TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
 
         Account acc = new Account(Name = 'Jean Dupont', Phone = '0612345678');
         insert acc;

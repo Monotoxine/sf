@@ -259,21 +259,4 @@ public class TEKCO_AnonymizationPatternService {
         }
     }
 
-    public class ProductionOrgException extends Exception {}
-
-    @TestVisible private static Boolean isSandboxCached = null;
-
-    public static void assertIsSandbox() {
-        if (isSandboxCached == null) {
-            Organization org = [SELECT IsSandbox FROM Organization LIMIT 1];
-            isSandboxCached = org.IsSandbox;
-        }
-        if (!isSandboxCached) {
-            throw new ProductionOrgException(
-                'ABORT: Data anonymization is not allowed on Production orgs. ' +
-                'This operation has been blocked. No data was modified.'
-            );
-        }
-    }
-
 }

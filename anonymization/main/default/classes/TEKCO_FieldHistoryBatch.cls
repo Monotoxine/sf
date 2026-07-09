@@ -53,7 +53,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     }
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
-        TEKCO_AnonymizationPatternService.assertIsSandbox();
+        TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
 
         if (Schema.getGlobalDescribe().get(objectApiName) == null) {
             errors.add('Object not found in org, skipped: ' + objectApiName);
