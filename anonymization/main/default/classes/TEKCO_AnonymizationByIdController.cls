@@ -1,18 +1,11 @@
 /**
- * @description controller for the "By ID" tab of tekcoDataAnonymizationAdmin LWC.
+ * @description AuraEnabled controller for the "By ID" tab of tekcoDataAnonymizationAdmin LWC.
  */
 public with sharing class TEKCO_AnonymizationByIdController {
 
     private static final String PATTERN_DELETE_CD  = 'DELETE_CONTENT_DOCUMENT';
     private static final String MODE_EXTERNAL_ID   = 'EXTERNAL_ID';
 
-    /**
-     *
-     * @param rawIds         Raw strings pasted by the user (SF IDs or external ID values).
-     * @param resolveMode    'SF_ID' or 'EXTERNAL_ID'.
-     * @param targetObject   Required when resolveMode = 'EXTERNAL_ID'. SObject API name.
-     * @param externalIdField Required when resolveMode = 'EXTERNAL_ID'. Field API name.
-     */
     @AuraEnabled(cacheable=false)
     public static ResolveResultDTO resolveIds(
         List<String> rawIds,
@@ -112,13 +105,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
         return result;
     }
 
-    /**
-     * @param rawIds          Raw strings pasted by the user.
-     * @param resolveMode     'SF_ID' or 'EXTERNAL_ID'.
-     * @param targetObject    Required when resolveMode = 'EXTERNAL_ID'.
-     * @param externalIdField Required when resolveMode = 'EXTERNAL_ID'.
-     * @param excludedFields  List of field keys (objectApiName.fieldApiName.recordType) to skip.
-     */
     @AuraEnabled
     public static Id startAnonymizationByIds(
         List<String> rawIds,

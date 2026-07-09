@@ -205,13 +205,6 @@ public class TEKCO_AnonymizationPatternService {
     }
 
     /**
-     * @description ADDRESS_STREET_RANDOM: finds the first numeric sequence anywhere in the string
-     *              and adds a random value between 1 and 20 to it.
-     *              Example: "123 Rue de la Paix"  → "137 Rue de la Paix"
-     *              Example: "Allée 12 des Fleurs" → "Allée 26 des Fleurs"
-     *              If no number is found, returns value unchanged.
-     */
-    /**
      * @description REGEX: applies a configurable find/replace regex to the field value.
      *              If TEKCO_RegexFind__c is blank, replaces the entire value with TEKCO_RegexReplace__c.
      *              If the regex is invalid, returns the original value unchanged.
@@ -230,6 +223,13 @@ public class TEKCO_AnonymizationPatternService {
         }
     }
 
+       /**
+     * @description ADDRESS_STREET_RANDOM: finds the first numeric sequence anywhere in the string
+     *              and adds a random value between 1 and 20 to it.
+     *              Example: "123 Rue de la Paix"  → "137 Rue de la Paix"
+     *              Example: "Allée 12 des Fleurs" → "Allée 26 des Fleurs"
+     *              If no number is found, returns value unchanged.
+     */
     private static String applyAddressStreetRandom(String currentValue) {
         if (String.isBlank(currentValue)) return currentValue;
         Matcher numMatcher = Pattern.compile('(\\d+)').matcher(currentValue);

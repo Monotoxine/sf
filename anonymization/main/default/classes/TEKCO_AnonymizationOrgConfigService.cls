@@ -1,16 +1,7 @@
 /**
  * @description Loads the TEKCO_AnonymizationOrgConfig__mdt record matching the current org's domain.
  *              Falls back to a default "TEKCO mode" config when no record matches,
- *              so existing orgs need no CMDT record (backward-compatible).
- *
- * Org config fields:
- *   TEKCO_OrgDomain__c             — org domain prefix (e.g. "airliquidehhc-fr--sbx")
- *   TEKCO_FunctionalIdField__c     — field API name used as functional ID on records
- *   TEKCO_BypassEnabled__c         — whether to activate TEKCO_BypassSettings__c
- *   TEKCO_BrandObjectApiName__c    — blank → picklist on Account; set → brand lookup SObject
- *   TEKCO_BrandCodeField__c        — field on brand object holding the brand code label
- *   TEKCO_BrandCountryField__c     — field on brand object holding the country value
- *   TEKCO_BrandLookupFieldOnRecord__c — field on anonymized objects pointing to brand object
+ *              so existing orgs need no CMDT record
  */
 public class TEKCO_AnonymizationOrgConfigService {
 
@@ -73,7 +64,7 @@ public class TEKCO_AnonymizationOrgConfigService {
             cfg.brandLookupFieldOnRecord   = mdtRecord.TEKCO_BrandLookupFieldOnRecord__c;
             cfg.externalIdFields           = mdtRecord.TEKCO_ExternalIdFields__c;
         } else {
-            // Default: TEKCO/Air Liquide standard config
+            // Default: TEKCO standard config
             cfg.functionalIdField          = 'TEKCO_FunctionalId__c';
             cfg.bypassEnabled              = true;
             cfg.brandObjectApiName         = null;
@@ -87,7 +78,6 @@ public class TEKCO_AnonymizationOrgConfigService {
         return cachedConfig;
     }
 
-    /** Clears cached config — useful in tests. */
     @TestVisible
     private static void resetCache() {
         cachedConfig = null;

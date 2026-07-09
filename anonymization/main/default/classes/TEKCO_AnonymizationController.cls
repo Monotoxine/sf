@@ -1,6 +1,5 @@
 /**
- * @author 
- * @description AuraEnabled controller for the tekcoDataAnonymizationAdmin LWC
+ * @description AuraEnabled controller for the "By Criteria" tab of tekcoDataAnonymizationAdmin LWC.
  */
 public with sharing class TEKCO_AnonymizationController {
 
@@ -36,7 +35,7 @@ public with sharing class TEKCO_AnonymizationController {
                 );
             }
         } else {
-            // Default: TEKCO_Brand__c picklist on Account
+            // Default mode: TEKCO_Brand__c picklist on Account
             try {
                 Schema.DescribeFieldResult fieldDescriptor =
                     Schema.SObjectType.Account.fields.getMap()
@@ -254,8 +253,6 @@ public with sharing class TEKCO_AnonymizationController {
         Map<String, Boolean> hasRecordType = new Map<String, Boolean>();
         for (String obj : objectsToCount) {
             if (orgCfg.usesBrandObject()) {
-                // brandLookupFieldOnRecord is the relationship name (e.g. ALH_Brand__r).
-                // hasField expects the field API name (ALH_Brand__c), so we convert __r → __c.
                 String lookupFieldApiName = String.isNotBlank(orgCfg.brandLookupFieldOnRecord)
                     ? orgCfg.brandLookupFieldOnRecord.replaceAll('__r$', '__c')
                     : null;
