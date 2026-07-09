@@ -2,7 +2,7 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>TEKCO_ParentRecordTypeDeveloperName__c</fullName>
     <fieldManageability>DeveloperControlled</fieldManageability>
-    <label>[By ID] Parent Record Type Developer Name</label>
+    <label>[By ID] Parent RT Developer Name</label>
     <length>255</length>
     <type>Text</type>
     <unique>false</unique>
