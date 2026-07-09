@@ -88,7 +88,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
                         }
                     }
                 } else if (!orgCfg.usesBrandObject()
-                        && TEKCO_AnonymizationPatternService.hasField(obj, 'tekco_brand__c')) {
+                        && TEKCO_AnonymizationOrgConfigService.hasField(obj, 'tekco_brand__c')) {
                     for (SObject r : Database.query(
                         'SELECT TEKCO_Brand__c FROM ' + obj
                         + ' WHERE Id IN :ids AND TEKCO_Brand__c != null'
@@ -344,7 +344,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
               AND TEKCO_IsActive__c = true
               AND TEKCO_ExternalIdField__c != null
         ]) {
-            if (TEKCO_AnonymizationPatternService.hasField(objectApiName, p.TEKCO_ExternalIdField__c.toLowerCase())) {
+            if (TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, p.TEKCO_ExternalIdField__c.toLowerCase())) {
                 fields.add(p.TEKCO_ExternalIdField__c);
             }
         }
@@ -354,7 +354,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
             for (String f : extraFields.split(',')) {
                 String trimmed = f.trim();
                 if (String.isNotBlank(trimmed)
-                        && TEKCO_AnonymizationPatternService.hasField(objectApiName, trimmed.toLowerCase())) {
+                        && TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, trimmed.toLowerCase())) {
                     fields.add(trimmed);
                 }
             }

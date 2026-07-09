@@ -195,7 +195,7 @@ private class TEKCO_AnonymizationPatternServiceTest {
     @isTest
     static void hasField_returnsTrueForExistingField() {
         TEKCO_AnonymizationPatternService.globalDescribeCache = null;
-        Boolean result = TEKCO_AnonymizationPatternService.hasField('Account', 'Name');
+        Boolean result = TEKCO_AnonymizationOrgConfigService.hasField('Account', 'Name');
         System.assertEquals(true, result);
         System.assertNotEquals(null, TEKCO_AnonymizationPatternService.globalDescribeCache,
             'Describe cache must be populated after first call');
@@ -203,20 +203,20 @@ private class TEKCO_AnonymizationPatternServiceTest {
 
     @isTest
     static void hasField_returnsFalseForMissingField() {
-        Boolean result = TEKCO_AnonymizationPatternService.hasField('Account', 'NonExistentField__xyz');
+        Boolean result = TEKCO_AnonymizationOrgConfigService.hasField('Account', 'NonExistentField__xyz');
         System.assertEquals(false, result);
     }
 
     @isTest
     static void hasField_returnsFalseForMissingObject() {
-        Boolean result = TEKCO_AnonymizationPatternService.hasField('NonExistentObject__xyz', 'Name');
+        Boolean result = TEKCO_AnonymizationOrgConfigService.hasField('NonExistentObject__xyz', 'Name');
         System.assertEquals(false, result);
     }
 
     @isTest
     static void hasField_returnsFalseForBlanks() {
-        System.assertEquals(false, TEKCO_AnonymizationPatternService.hasField('', 'Name'));
-        System.assertEquals(false, TEKCO_AnonymizationPatternService.hasField('Account', ''));
-        System.assertEquals(false, TEKCO_AnonymizationPatternService.hasField(null, null));
+        System.assertEquals(false, TEKCO_AnonymizationOrgConfigService.hasField('', 'Name'));
+        System.assertEquals(false, TEKCO_AnonymizationOrgConfigService.hasField('Account', ''));
+        System.assertEquals(false, TEKCO_AnonymizationOrgConfigService.hasField(null, null));
     }
 }

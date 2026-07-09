@@ -157,17 +157,17 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
             } else if (!selectedBrands.isEmpty()) {
                 TEKCO_AnonymizationOrgConfigService.OrgConfig orgCfg = TEKCO_AnonymizationOrgConfigService.getConfig();
                 if (orgCfg.usesBrandObject() && String.isNotBlank(orgCfg.brandLookupFieldOnRecord)
-                        && TEKCO_AnonymizationPatternService.hasField(objectApiName, orgCfg.brandLookupFieldOnRecord)) {
+                        && TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, orgCfg.brandLookupFieldOnRecord)) {
                     List<String> escaped = new List<String>();
                     for (String b : selectedBrands) escaped.add('\'' + String.escapeSingleQuotes(b) + '\'');
                     topConditions.add(orgCfg.brandLookupFieldOnRecord + '.' + orgCfg.brandCodeField
                         + ' IN (' + String.join(escaped, ', ') + ')');
                 } else if (hasEmailMessageLorem) {
                     topConditions.add('Parent.TEKCO_Brand__c IN :selectedBrands');
-                } else if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_brand__c')) {
+                } else if (TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, 'tekco_brand__c')) {
                     topConditions.add('TEKCO_Brand__c IN :selectedBrands');
-                } else if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_country__c')) {
-                    List<String> countryValues = TEKCO_AnonymizationPatternService.getCountriesForBrands(selectedBrands);
+                } else if (TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, 'tekco_country__c')) {
+                    List<String> countryValues = TEKCO_AnonymizationOrgConfigService.getCountriesForBrands(selectedBrands);
                     if (!countryValues.isEmpty()) {
                         topConditions.add('TEKCO_Country__c IN :countryValues');
                     }

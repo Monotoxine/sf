@@ -209,7 +209,7 @@ public with sharing class TEKCO_AnonymizationController {
             : getObjectApiNames();
 
         List<String> countryValues = (selectedBrands != null && !selectedBrands.isEmpty())
-            ? TEKCO_AnonymizationPatternService.getCountriesForBrands(selectedBrands)
+            ? TEKCO_AnonymizationOrgConfigService.getCountriesForBrands(selectedBrands)
             : new List<String>();
 
         List<TEKCO_AnonymizationFieldConfig__mdt> allConfigs = [
@@ -257,12 +257,12 @@ public with sharing class TEKCO_AnonymizationController {
                     ? orgCfg.brandLookupFieldOnRecord.replaceAll('__r$', '__c')
                     : null;
                 hasBrand.put(obj, String.isNotBlank(lookupFieldApiName)
-                    && TEKCO_AnonymizationPatternService.hasField(obj, lookupFieldApiName));
+                    && TEKCO_AnonymizationOrgConfigService.hasField(obj, lookupFieldApiName));
             } else {
-                hasBrand.put(obj, TEKCO_AnonymizationPatternService.hasField(obj, 'tekco_brand__c'));
+                hasBrand.put(obj, TEKCO_AnonymizationOrgConfigService.hasField(obj, 'tekco_brand__c'));
             }
-            hasCountry.put(obj,    TEKCO_AnonymizationPatternService.hasField(obj, 'tekco_country__c'));
-            hasRecordType.put(obj, TEKCO_AnonymizationPatternService.hasField(obj, 'recordtypeid'));
+            hasCountry.put(obj,    TEKCO_AnonymizationOrgConfigService.hasField(obj, 'tekco_country__c'));
+            hasRecordType.put(obj, TEKCO_AnonymizationOrgConfigService.hasField(obj, 'recordtypeid'));
         }
 
         Integer queriesRemaining = Limits.getLimitQueries() - Limits.getQueries();

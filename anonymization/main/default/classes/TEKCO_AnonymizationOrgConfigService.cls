@@ -82,4 +82,50 @@ public class TEKCO_AnonymizationOrgConfigService {
     private static void resetCache() {
         cachedConfig = null;
     }
+
+    // ─── Field utilities ─────────────────────────────────────────────────────
+
+    @TestVisible private static Map<String, Schema.SObjectType> globalDescribeCache;
+
+    public static Boolean hasField(String objectApiName, String fieldApiName) {
+        if (String.isBlank(objectApiName) || String.isBlank(fieldApiName)) return false;
+        if (globalDescribeCache == null) globalDescribeCache = Schema.getGlobalDescribe();
+        Schema.SObjectType sot = globalDescribeCache.get(objectApiName);
+        return sot != null && sot.getDescribe().fields.getMap().containsKey(fieldApiName.toLowerCase());
+    }
+
+    // ─── Brand / country resolution ──────────────────────────────────────────
+
+    public static List<String> getCountriesForBrands(List<String> brands) {
+        List<String> countries = new List<String>();
+        if (brands == null || brands.isEmpty()) return countries;
+
+        OrgConfig cfg = getConfig();
+
+        if (cfg.usesBrandObject()) {
+            if (String.isBlank(cfg.brandObjectApiName)
+                    || String.isBlank(cfg.brandCodeField)
+                    || String.isBlank(cfg.brandCountryField)) {
+                return countries;
+            }
+            String soql = 'SELECT ' + cfg.brandCountryField
+                + ' FROM ' + cfg.brandObjectApiName
+                + ' WHERE ' + cfg.brandCodeField + ' IN :brands'
+                + ' AND ' + cfg.brandCountryField + ' != null';
+            for (SObject rec : Database.query(soql)) {
+                Object country = rec.get(cfg.brandCountryField);
+                if (country != null) countries.add(String.valueOf(country));
+            }
+        } else {
+            for (TEKCO_CountryBrandSetting__mdt mapping : [
+                SELECT TEKCO_Country__c
+                FROM TEKCO_CountryBrandSetting__mdt
+                WHERE TEKCO_Brand__c IN :brands
+                  AND TEKCO_Country__c != null
+            ]) {
+                countries.add(mapping.TEKCO_Country__c);
+            }
+        }
+        return countries;
+    }
 }
