@@ -309,7 +309,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
             FROM TEKCO_AnonymizationFieldConfig__mdt
             WHERE TEKCO_IsActive__c = true
               AND TEKCO_ObjectApiName__c != null
-              AND (TEKCO_ByIdParentObjectApiName__c = null OR TEKCO_ByIdParentObjectApiName__c = '')
+              AND (TEKCO_ParentObjectApiName__c = null OR TEKCO_ParentObjectApiName__c = '')
         ]) {
             seen.add(fc.TEKCO_ObjectApiName__c);
         }
@@ -415,7 +415,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
         return [
             SELECT TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c, TEKCO_PatternType__c,
                    TEKCO_IsActive__c, TEKCO_RecordTypeDeveloperName__c, TEKCO_DeleteHistory__c,
-                   TEKCO_ByIdParentObjectApiName__c, TEKCO_ByIdParentLookupFieldApiName__c
+                   TEKCO_ParentObjectApiName__c, TEKCO_ParentLookupFieldApiName__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
             WHERE TEKCO_IsActive__c = true
               AND TEKCO_ObjectApiName__c != null
@@ -437,13 +437,13 @@ public with sharing class TEKCO_AnonymizationByIdController {
     ) {
         Map<String, ChildRelationInfo> result = new Map<String, ChildRelationInfo>();
         for (TEKCO_AnonymizationFieldConfig__mdt fc : configs) {
-            if (String.isBlank(fc.TEKCO_ByIdParentObjectApiName__c)
-                    || String.isBlank(fc.TEKCO_ByIdParentLookupFieldApiName__c)) continue;
+            if (String.isBlank(fc.TEKCO_ParentObjectApiName__c)
+                    || String.isBlank(fc.TEKCO_ParentLookupFieldApiName__c)) continue;
             String childObj = fc.TEKCO_ObjectApiName__c;
             if (result.containsKey(childObj)) continue;
             ChildRelationInfo rel  = new ChildRelationInfo();
-            rel.parentObjectApiName = fc.TEKCO_ByIdParentObjectApiName__c;
-            rel.parentLookupField   = fc.TEKCO_ByIdParentLookupFieldApiName__c;
+            rel.parentObjectApiName = fc.TEKCO_ParentObjectApiName__c;
+            rel.parentLookupField   = fc.TEKCO_ParentLookupFieldApiName__c;
             result.put(childObj, rel);
         }
         return result;

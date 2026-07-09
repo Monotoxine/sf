@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
-    <fullName>TEKCO_ByIdParentObjectApiName__c</fullName>
+    <fullName>TEKCO_ParentRecordTypeDeveloperName__c</fullName>
     <fieldManageability>DeveloperControlled</fieldManageability>
-    <label>Parent Object API Name</label>
+    <label>[By ID] Parent Record Type Developer Name</label>
     <length>255</length>
     <type>Text</type>
     <unique>false</unique>

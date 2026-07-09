@@ -23,15 +23,15 @@
         <value xsi:type="xsd:string">PRSCO_Prescription__c</value>
     </values>
     <values>
-        <field>TEKCO_ByIdParentLookupFieldApiName__c</field>
+        <field>TEKCO_ParentLookupFieldApiName__c</field>
         <value xsi:nil="true"/>
     </values>
     <values>
-        <field>TEKCO_ByIdParentObjectApiName__c</field>
+        <field>TEKCO_ParentObjectApiName__c</field>
         <value xsi:nil="true"/>
     </values>
     <values>
-        <field>TEKCO_ByIdParentRecordTypeDeveloperName__c</field>
+        <field>TEKCO_ParentRecordTypeDeveloperName__c</field>
         <value xsi:nil="true"/>
     </values>
     <values>
