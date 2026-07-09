@@ -162,13 +162,6 @@ public class TEKCO_ContentDocumentByIdBatch implements Database.Batchable<SObjec
     }
 
     private List<TEKCO_AnonymizationFieldConfig__mdt> popHistoryConfigsForObject(String obj) {
-        List<TEKCO_AnonymizationFieldConfig__mdt> forObj    = new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        List<TEKCO_AnonymizationFieldConfig__mdt> remaining = new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        for (TEKCO_AnonymizationFieldConfig__mdt fc : historyConfigs) {
-            if (fc.TEKCO_ObjectApiName__c == obj) forObj.add(fc);
-            else remaining.add(fc);
-        }
-        historyConfigs = remaining;
-        return forObj;
+        return TEKCO_AnonymizationBatchUtils.popConfigsForObject(obj, historyConfigs);
     }
 }

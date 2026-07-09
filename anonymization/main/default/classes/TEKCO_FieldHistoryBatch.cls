@@ -7,7 +7,6 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
 
     public static final Integer DEFAULT_BATCH_SIZE  = 2000;
     private static final Integer MAX_CAPTURED_ERRORS = 50;
-    private static final String  CUSTOM_OBJECT_SUFFIX = '__c';
 
     private String                                        objectApiName;
     private List<TEKCO_AnonymizationFieldConfig__mdt>     objectHistoryConfigs;
@@ -120,7 +119,15 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         } else {
             List<String> childConditions = new List<String>();
             if (!selectedBrands.isEmpty()) {
-                if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_brand__c')) {
+                TEKCO_AnonymizationOrgConfigService.OrgConfig orgCfg = TEKCO_AnonymizationOrgConfigService.getConfig();
+                if (orgCfg.usesBrandObject()
+                        && String.isNotBlank(orgCfg.brandLookupFieldOnRecord)
+                        && TEKCO_AnonymizationPatternService.hasField(objectApiName, orgCfg.brandLookupFieldOnRecord)) {
+                    List<String> escaped = new List<String>();
+                    for (String b : selectedBrands) escaped.add('\'' + String.escapeSingleQuotes(b) + '\'');
+                    childConditions.add(orgCfg.brandLookupFieldOnRecord + '.' + orgCfg.brandCodeField
+                        + ' IN (' + String.join(escaped, ', ') + ')');
+                } else if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_brand__c')) {
                     childConditions.add('TEKCO_Brand__c IN :selectedBrands');
                 } else if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_country__c')) {
                     List<String> countryValues = TEKCO_AnonymizationPatternService.getCountriesForBrands(selectedBrands);
@@ -199,36 +206,16 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     }
 
 
-    @TestVisible
     private static String computeHistoryObjectName(String objectApiName) {
-        if (objectApiName.endsWith(CUSTOM_OBJECT_SUFFIX)) {
-            return objectApiName.replace(CUSTOM_OBJECT_SUFFIX, '__History');
-        }
-        return objectApiName + 'History';
+        return TEKCO_AnonymizationBatchUtils.computeHistoryObjectName(objectApiName);
     }
 
-    @TestVisible
     private static String computeParentIdFieldName(String objectApiName) {
-        if (objectApiName.endsWith(CUSTOM_OBJECT_SUFFIX)) {
-            return 'ParentId';
-        }
-        return objectApiName + 'Id';
+        return TEKCO_AnonymizationBatchUtils.computeParentIdFieldName(objectApiName);
     }
 
     private List<TEKCO_AnonymizationFieldConfig__mdt> popConfigsForObject(String objectApiName) {
-        List<TEKCO_AnonymizationFieldConfig__mdt> configsForObject =
-            new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        List<TEKCO_AnonymizationFieldConfig__mdt> remainingConfigs =
-            new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : remainingHistoryConfigs) {
-            if (fieldConfig.TEKCO_ObjectApiName__c == objectApiName) {
-                configsForObject.add(fieldConfig);
-            } else {
-                remainingConfigs.add(fieldConfig);
-            }
-        }
-        remainingHistoryConfigs = remainingConfigs;
-        return configsForObject;
+        return TEKCO_AnonymizationBatchUtils.popConfigsForObject(objectApiName, remainingHistoryConfigs);
     }
 
 }

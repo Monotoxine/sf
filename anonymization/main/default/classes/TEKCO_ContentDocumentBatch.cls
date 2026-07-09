@@ -103,7 +103,15 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         } else {
             List<String> conditions = new List<String>();
             if (!selectedBrands.isEmpty()) {
-                if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_brand__c')) {
+                TEKCO_AnonymizationOrgConfigService.OrgConfig orgCfg = TEKCO_AnonymizationOrgConfigService.getConfig();
+                if (orgCfg.usesBrandObject()
+                        && String.isNotBlank(orgCfg.brandLookupFieldOnRecord)
+                        && TEKCO_AnonymizationPatternService.hasField(objectApiName, orgCfg.brandLookupFieldOnRecord)) {
+                    List<String> escaped = new List<String>();
+                    for (String b : selectedBrands) escaped.add('\'' + String.escapeSingleQuotes(b) + '\'');
+                    conditions.add(orgCfg.brandLookupFieldOnRecord + '.' + orgCfg.brandCodeField
+                        + ' IN (' + String.join(escaped, ', ') + ')');
+                } else if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_brand__c')) {
                     conditions.add('TEKCO_Brand__c IN :selectedBrands');
                 } else if (TEKCO_AnonymizationPatternService.hasField(objectApiName, 'tekco_country__c')) {
                     List<String> countryValues = TEKCO_AnonymizationPatternService.getCountriesForBrands(selectedBrands);
@@ -257,22 +265,8 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
 
 
 
-    private List<TEKCO_AnonymizationFieldConfig__mdt> popHistoryConfigsForObject(
-        String objectApiName
-    ) {
-        List<TEKCO_AnonymizationFieldConfig__mdt> configsForObject =
-            new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        List<TEKCO_AnonymizationFieldConfig__mdt> remainingConfigs =
-            new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : historyConfigs) {
-            if (fieldConfig.TEKCO_ObjectApiName__c == objectApiName) {
-                configsForObject.add(fieldConfig);
-            } else {
-                remainingConfigs.add(fieldConfig);
-            }
-        }
-        historyConfigs = remainingConfigs;
-        return configsForObject;
+    private List<TEKCO_AnonymizationFieldConfig__mdt> popHistoryConfigsForObject(String objectApiName) {
+        return TEKCO_AnonymizationBatchUtils.popConfigsForObject(objectApiName, historyConfigs);
     }
 
 }

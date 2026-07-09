@@ -10,7 +10,6 @@
 public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>, Database.Stateful {
 
     public static final Integer DEFAULT_BATCH_SIZE   = 2000;
-    private static final Integer MAX_CAPTURED_ERRORS = 50;
     private static final String  PATTERN_DELETE_CD   = 'DELETE_CONTENT_DOCUMENT';
     private static final String  PATTERN_EMAIL_LOREM = 'EMAIL_MESSAGE_LOREM';
 
@@ -138,103 +137,14 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
         }
     }
 
-    // Identical logic to TEKCO_AnonymizationBatch.execute() — no brand/parent filtering needed
-    // because scope is already restricted to the explicit recordIds list via the QueryLocator.
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
-        List<SObject> recordsToUpdate = new List<SObject>();
-        List<SObject> recordsToDelete = new List<SObject>();
-
-        for (SObject record : scope) {
-            Boolean isModified   = false;
-            Boolean shouldDelete = false;
-
-            for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : fieldConfigs) {
-                String patternType = fieldConfig.TEKCO_PatternType__c;
-
-                if (patternType == PATTERN_EMAIL_LOREM) {
-                    String emailStatus = (String) record.get('Status');
-                    if (emailStatus == '5') {
-                        String currentValue;
-                        try {
-                            currentValue = (String) record.get(fieldConfig.TEKCO_FieldApiName__c);
-                        } catch (Exception e) { continue; }
-                        if (String.isNotBlank(currentValue)) {
-                            record.put(fieldConfig.TEKCO_FieldApiName__c,
-                                TEKCO_AnonymizationPatternService.LOREM_TEXT);
-                            isModified = true;
-                        }
-                    } else {
-                        shouldDelete = true;
-                    }
-                    continue;
-                }
-
-                if (String.isNotBlank(fieldConfig.TEKCO_RecordTypeDeveloperName__c)) {
-                    Id recordTypeId = (Id) record.get('RecordTypeId');
-                    String recordTypeDeveloperName = recordTypeId != null
-                        ? recordTypeDevNameById.get(recordTypeId) : null;
-                    if (recordTypeDeveloperName == null
-                            || recordTypeDeveloperName != fieldConfig.TEKCO_RecordTypeDeveloperName__c) {
-                        continue;
-                    }
-                }
-
-                TEKCO_AnonymizationPattern__mdt pattern = patternsByType.get(patternType);
-                if (pattern == null || !pattern.TEKCO_IsActive__c) continue;
-
-                String currentValue;
-                try {
-                    currentValue = (String) record.get(fieldConfig.TEKCO_FieldApiName__c);
-                } catch (Exception e) { continue; }
-
-                String newValue = TEKCO_AnonymizationPatternService.applyPattern(
-                    patternType, currentValue, record, pattern
-                );
-
-                if (newValue != null && newValue != currentValue) {
-                    record.put(fieldConfig.TEKCO_FieldApiName__c, newValue);
-                    isModified = true;
-                }
-            }
-
-            if (shouldDelete) {
-                recordsToDelete.add(record);
-            } else if (isModified) {
-                recordsToUpdate.add(record);
-            }
-        }
-
-        if (!recordsToUpdate.isEmpty()) {
-            Database.SaveResult[] saveResults = Database.update(recordsToUpdate, false);
-            for (Database.SaveResult sr : saveResults) {
-                if (sr.isSuccess()) {
-                    recordsProcessed++;
-                } else {
-                    recordsFailed++;
-                    if (errors.size() < MAX_CAPTURED_ERRORS) {
-                        List<String> msgs = new List<String>();
-                        for (Database.Error e : sr.getErrors()) msgs.add(e.getMessage());
-                        errors.add(sr.getId() + ': ' + String.join(msgs, '; '));
-                    }
-                }
-            }
-        }
-
-        if (!recordsToDelete.isEmpty()) {
-            Database.DeleteResult[] deleteResults = Database.delete(recordsToDelete, false);
-            for (Database.DeleteResult dr : deleteResults) {
-                if (dr.isSuccess()) {
-                    recordsProcessed++;
-                } else {
-                    recordsFailed++;
-                    if (errors.size() < MAX_CAPTURED_ERRORS) {
-                        List<String> msgs = new List<String>();
-                        for (Database.Error e : dr.getErrors()) msgs.add(e.getMessage());
-                        errors.add('Delete ' + dr.getId() + ': ' + String.join(msgs, '; '));
-                    }
-                }
-            }
-        }
+        TEKCO_AnonymizationExecuteService.ExecuteResult result =
+            TEKCO_AnonymizationExecuteService.executeFieldAnonymization(
+                scope, fieldConfigs, patternsByType, recordTypeDevNameById
+            );
+        recordsProcessed += result.recordsProcessed;
+        recordsFailed    += result.recordsFailed;
+        errors.addAll(result.errors);
     }
 
     public void finish(Database.BatchableContext bc) {
@@ -307,13 +217,6 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
     }
 
     private List<TEKCO_AnonymizationFieldConfig__mdt> popHistoryConfigsForObject(String obj) {
-        List<TEKCO_AnonymizationFieldConfig__mdt> forObj    = new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        List<TEKCO_AnonymizationFieldConfig__mdt> remaining = new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        for (TEKCO_AnonymizationFieldConfig__mdt fc : historyConfigs) {
-            if (fc.TEKCO_ObjectApiName__c == obj) forObj.add(fc);
-            else remaining.add(fc);
-        }
-        historyConfigs = remaining;
-        return forObj;
+        return TEKCO_AnonymizationBatchUtils.popConfigsForObject(obj, historyConfigs);
     }
 }

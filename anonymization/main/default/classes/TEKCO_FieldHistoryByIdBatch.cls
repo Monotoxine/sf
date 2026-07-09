@@ -8,7 +8,6 @@ public class TEKCO_FieldHistoryByIdBatch implements Database.Batchable<SObject>,
 
     public static final Integer DEFAULT_BATCH_SIZE   = 2000;
     private static final Integer MAX_CAPTURED_ERRORS = 50;
-    private static final String  CUSTOM_OBJECT_SUFFIX = '__c';
 
     private String                                       objectApiName;
     private List<TEKCO_AnonymizationFieldConfig__mdt>    objectHistoryConfigs;
@@ -121,26 +120,15 @@ public class TEKCO_FieldHistoryByIdBatch implements Database.Batchable<SObject>,
         }
     }
 
-    @TestVisible
     private static String computeHistoryObjectName(String objectApiName) {
-        return objectApiName.endsWith(CUSTOM_OBJECT_SUFFIX)
-            ? objectApiName.replace(CUSTOM_OBJECT_SUFFIX, '__History')
-            : objectApiName + 'History';
+        return TEKCO_AnonymizationBatchUtils.computeHistoryObjectName(objectApiName);
     }
 
-    @TestVisible
     private static String computeParentIdFieldName(String objectApiName) {
-        return objectApiName.endsWith(CUSTOM_OBJECT_SUFFIX) ? 'ParentId' : objectApiName + 'Id';
+        return TEKCO_AnonymizationBatchUtils.computeParentIdFieldName(objectApiName);
     }
 
     private List<TEKCO_AnonymizationFieldConfig__mdt> popConfigsForObject(String obj) {
-        List<TEKCO_AnonymizationFieldConfig__mdt> forObj    = new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        List<TEKCO_AnonymizationFieldConfig__mdt> remaining = new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        for (TEKCO_AnonymizationFieldConfig__mdt fc : remainingHistoryConfigs) {
-            if (fc.TEKCO_ObjectApiName__c == obj) forObj.add(fc);
-            else remaining.add(fc);
-        }
-        remainingHistoryConfigs = remaining;
-        return forObj;
+        return TEKCO_AnonymizationBatchUtils.popConfigsForObject(obj, remainingHistoryConfigs);
     }
 }

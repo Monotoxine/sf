@@ -55,7 +55,8 @@ public class TEKCO_AnonymizationPatternService {
                 return applyNameFirstLetter(currentValue, record, pattern);
             }
             when 'NAME_FIRST_LETTER_SFID' {
-                return applyNameFirstLetter(currentValue, record, pattern);
+                if (String.isBlank(currentValue)) return currentValue;
+                return currentValue.substring(0, 1).toUpperCase() + getSalesforceId(record);
             }
             when 'EMAIL_PLUS_EXTERNALID' {
                 return applyEmailPlusExternalId(currentValue, record, pattern, false);
@@ -260,9 +261,14 @@ public class TEKCO_AnonymizationPatternService {
 
     public class ProductionOrgException extends Exception {}
 
+    @TestVisible private static Boolean isSandboxCached = null;
+
     public static void assertIsSandbox() {
-        Organization org = [SELECT IsSandbox FROM Organization LIMIT 1];
-        if (!org.IsSandbox) {
+        if (isSandboxCached == null) {
+            Organization org = [SELECT IsSandbox FROM Organization LIMIT 1];
+            isSandboxCached = org.IsSandbox;
+        }
+        if (!isSandboxCached) {
             throw new ProductionOrgException(
                 'ABORT: Data anonymization is not allowed on Production orgs. ' +
                 'This operation has been blocked. No data was modified.'
@@ -270,9 +276,12 @@ public class TEKCO_AnonymizationPatternService {
         }
     }
 
+    @TestVisible private static Map<String, Schema.SObjectType> globalDescribeCache;
+
     public static Boolean hasField(String objectApiName, String fieldApiName) {
         if (String.isBlank(objectApiName) || String.isBlank(fieldApiName)) return false;
-        Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
+        if (globalDescribeCache == null) globalDescribeCache = Schema.getGlobalDescribe();
+        Schema.SObjectType sot = globalDescribeCache.get(objectApiName);
         return sot != null && sot.getDescribe().fields.getMap().containsKey(fieldApiName.toLowerCase());
     }
 
