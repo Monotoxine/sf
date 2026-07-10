@@ -175,7 +175,7 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
                         firstObj, contentDocIdsByObject.get(firstObj), auditLogId,
                         contentDocConfigs, contentDocIdsByObject,
                         historyConfigs, historyIdsByObject,
-                        bypassSnapshot, accumulatedErrors, totalProcessed
+                        bypassSnapshot, accumulatedErrors, totalProcessed, 0
                     ),
                     TEKCO_ContentDocumentByIdBatch.DEFAULT_BATCH_SIZE
                 );
@@ -187,14 +187,14 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
                     new TEKCO_FieldHistoryByIdBatch(
                         firstHistObj, firstHistConfigs, historyIdsByObject.get(firstHistObj),
                         auditLogId, historyConfigs, historyIdsByObject,
-                        bypassSnapshot, accumulatedErrors, totalProcessed
+                        bypassSnapshot, accumulatedErrors, totalProcessed, 0, 0
                     ),
                     TEKCO_FieldHistoryByIdBatch.DEFAULT_BATCH_SIZE
                 );
             } else {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
                 TEKCO_AnonymizationAuditService.finalize(
-                    auditLogId, totalProcessed, recordsFailed, accumulatedErrors
+                    auditLogId, totalProcessed, recordsFailed, 0, 0, accumulatedErrors
                 );
                 return;
             }
@@ -204,7 +204,7 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
         } catch (Exception e) {
             try { TEKCO_AnonymizationBypassService.restore(bypassSnapshot); } catch (Exception ex) {}
             TEKCO_AnonymizationAuditService.closeFailed(
-                auditLogId, totalProcessed, recordsFailed, accumulatedErrors, e.getMessage()
+                auditLogId, totalProcessed, recordsFailed, 0, 0, accumulatedErrors, e.getMessage()
             );
         }
     }

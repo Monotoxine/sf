@@ -239,6 +239,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         bypassSnapshot,
                         accumulatedErrors,
                         totalProcessed,
+                        0,
                         parentFiltersByObject,
                         additionalFiltersByObject
                     ),
@@ -258,6 +259,8 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         bypassSnapshot,
                         accumulatedErrors,
                         totalProcessed,
+                        0,
+                        0,
                         parentFiltersByObject,
                         additionalFiltersByObject
                     ),
@@ -265,7 +268,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 );
             } else {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-                TEKCO_AnonymizationAuditService.finalize(auditLogId, totalProcessed, recordsFailed, accumulatedErrors);
+                TEKCO_AnonymizationAuditService.finalize(auditLogId, totalProcessed, recordsFailed, 0, 0, accumulatedErrors);
                 return;
             }
             TEKCO_AnonymizationAuditService.markRunning(auditLogId, totalProcessed, recordsFailed, accumulatedErrors);
@@ -273,7 +276,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
             try {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
             } catch (Exception restoreEx) {  }
-            TEKCO_AnonymizationAuditService.closeFailed(auditLogId, totalProcessed, recordsFailed, accumulatedErrors, e.getMessage());
+            TEKCO_AnonymizationAuditService.closeFailed(auditLogId, totalProcessed, recordsFailed, 0, 0, accumulatedErrors, e.getMessage());
         }
     }
 

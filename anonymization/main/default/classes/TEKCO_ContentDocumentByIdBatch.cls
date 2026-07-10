@@ -21,6 +21,7 @@ public class TEKCO_ContentDocumentByIdBatch implements Database.Batchable<SObjec
     private Integer recordsDeleted               = 0;
     private Integer recordsFailed                = 0;
     private Integer accumulatedRecordsProcessed  = 0;
+    private Integer accumulatedDocumentsDeleted  = 0;
     private List<String> errors                  = new List<String>();
     private List<String> accumulatedErrors       = new List<String>();
 
@@ -34,18 +35,20 @@ public class TEKCO_ContentDocumentByIdBatch implements Database.Batchable<SObjec
         Map<String, List<Id>> historyIdsByObject,
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
         List<String> accumulatedErrors,
-        Integer accumulatedRecordsProcessed
+        Integer accumulatedRecordsProcessed,
+        Integer accumulatedDocumentsDeleted
     ) {
-        this.objectApiName              = objectApiName;
-        this.parentIds                  = parentIds                  != null ? parentIds                  : new List<Id>();
-        this.auditLogId                 = auditLogId;
-        this.remainingContentDocConfigs = remainingContentDocConfigs != null ? remainingContentDocConfigs : new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        this.contentDocIdsByObject      = contentDocIdsByObject      != null ? contentDocIdsByObject      : new Map<String, List<Id>>();
-        this.historyConfigs             = historyConfigs             != null ? historyConfigs             : new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        this.historyIdsByObject         = historyIdsByObject         != null ? historyIdsByObject         : new Map<String, List<Id>>();
-        this.bypassSnapshot             = bypassSnapshot;
-        this.accumulatedErrors          = accumulatedErrors          != null ? accumulatedErrors          : new List<String>();
+        this.objectApiName               = objectApiName;
+        this.parentIds                   = parentIds                   != null ? parentIds                   : new List<Id>();
+        this.auditLogId                  = auditLogId;
+        this.remainingContentDocConfigs  = remainingContentDocConfigs  != null ? remainingContentDocConfigs  : new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        this.contentDocIdsByObject       = contentDocIdsByObject       != null ? contentDocIdsByObject       : new Map<String, List<Id>>();
+        this.historyConfigs              = historyConfigs              != null ? historyConfigs              : new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        this.historyIdsByObject          = historyIdsByObject          != null ? historyIdsByObject          : new Map<String, List<Id>>();
+        this.bypassSnapshot              = bypassSnapshot;
+        this.accumulatedErrors           = accumulatedErrors           != null ? accumulatedErrors           : new List<String>();
         this.accumulatedRecordsProcessed = accumulatedRecordsProcessed != null ? accumulatedRecordsProcessed : 0;
+        this.accumulatedDocumentsDeleted = accumulatedDocumentsDeleted != null ? accumulatedDocumentsDeleted : 0;
     }
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
@@ -120,7 +123,7 @@ public class TEKCO_ContentDocumentByIdBatch implements Database.Batchable<SObjec
 
     public void finish(Database.BatchableContext bc) {
         accumulatedErrors.addAll(errors);
-        Integer totalProcessed = accumulatedRecordsProcessed + recordsDeleted;
+        Integer totalDocsDeleted = accumulatedDocumentsDeleted + recordsDeleted;
 
         try {
             if (!remainingContentDocConfigs.isEmpty()) {
@@ -131,7 +134,7 @@ public class TEKCO_ContentDocumentByIdBatch implements Database.Batchable<SObjec
                         nextObj, contentDocIdsByObject.get(nextObj), auditLogId,
                         remainingContentDocConfigs, contentDocIdsByObject,
                         historyConfigs, historyIdsByObject,
-                        bypassSnapshot, accumulatedErrors, totalProcessed
+                        bypassSnapshot, accumulatedErrors, accumulatedRecordsProcessed, totalDocsDeleted
                     ),
                     DEFAULT_BATCH_SIZE
                 );
@@ -143,20 +146,22 @@ public class TEKCO_ContentDocumentByIdBatch implements Database.Batchable<SObjec
                     new TEKCO_FieldHistoryByIdBatch(
                         firstHistObj, firstHistConfigs, historyIdsByObject.get(firstHistObj),
                         auditLogId, historyConfigs, historyIdsByObject,
-                        bypassSnapshot, accumulatedErrors, totalProcessed
+                        bypassSnapshot, accumulatedErrors, accumulatedRecordsProcessed, totalDocsDeleted, 0
                     ),
                     TEKCO_FieldHistoryByIdBatch.DEFAULT_BATCH_SIZE
                 );
             } else {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
                 TEKCO_AnonymizationAuditService.finalize(
-                    auditLogId, totalProcessed, recordsFailed, accumulatedErrors
+                    auditLogId, accumulatedRecordsProcessed, recordsFailed,
+                    totalDocsDeleted, 0, accumulatedErrors
                 );
             }
         } catch (Exception e) {
             try { TEKCO_AnonymizationBypassService.restore(bypassSnapshot); } catch (Exception ex) {}
             TEKCO_AnonymizationAuditService.closeFailed(
-                auditLogId, totalProcessed, recordsFailed, accumulatedErrors, e.getMessage()
+                auditLogId, accumulatedRecordsProcessed, recordsFailed,
+                totalDocsDeleted, 0, accumulatedErrors, e.getMessage()
             );
         }
     }

@@ -1,22 +1,28 @@
 public class TEKCO_AnonymizationAuditService {
 
     public static void finalize(
-        Id auditLogId, Integer recordsProcessed, Integer recordsFailed, List<String> errors
+        Id auditLogId, Integer recordsProcessed, Integer recordsFailed,
+        Integer documentsDeleted, Integer historyRecordsDeleted, List<String> errors
     ) {
         persist(auditLogId, recordsProcessed, recordsFailed,
+                documentsDeleted, historyRecordsDeleted,
                 recordsFailed > 0 ? 'Partial' : 'Success', Datetime.now(), errors);
     }
 
     public static void markRunning(
         Id auditLogId, Integer recordsProcessed, Integer recordsFailed, List<String> errors
     ) {
-        persist(auditLogId, recordsProcessed, recordsFailed, 'Running', null, errors);
+        persist(auditLogId, recordsProcessed, recordsFailed,
+                null, null, 'Running', null, errors);
     }
 
     public static void closeFailed(
-        Id auditLogId, Integer recordsProcessed, Integer recordsFailed, List<String> errors, String chainError
+        Id auditLogId, Integer recordsProcessed, Integer recordsFailed,
+        Integer documentsDeleted, Integer historyRecordsDeleted,
+        List<String> errors, String chainError
     ) {
         persist(auditLogId, recordsProcessed, recordsFailed,
+                documentsDeleted, historyRecordsDeleted,
                 'Failed', Datetime.now(), combined(errors, chainError));
     }
 
@@ -28,6 +34,7 @@ public class TEKCO_AnonymizationAuditService {
 
     private static void persist(
         Id auditLogId, Integer recordsProcessed, Integer recordsFailed,
+        Integer documentsDeleted, Integer historyRecordsDeleted,
         String status, Datetime endTime, List<String> errors
     ) {
         if (auditLogId == null) return;
@@ -38,8 +45,10 @@ public class TEKCO_AnonymizationAuditService {
                 TEKCO_EndTime__c      = endTime,
                 TEKCO_ErrorMessage__c = errors.isEmpty() ? null : String.join(errors, '\n')
             );
-            if (recordsProcessed != null) log.TEKCO_RecordsProcessed__c = recordsProcessed;
-            if (recordsFailed    != null) log.TEKCO_RecordsFailed__c    = recordsFailed;
+            if (recordsProcessed      != null) log.TEKCO_RecordsProcessed__c      = recordsProcessed;
+            if (recordsFailed         != null) log.TEKCO_RecordsFailed__c         = recordsFailed;
+            if (documentsDeleted      != null) log.TEKCO_DocumentsDeleted__c      = documentsDeleted;
+            if (historyRecordsDeleted != null) log.TEKCO_HistoryRecordsDeleted__c = historyRecordsDeleted;
             update log;
         } catch (Exception e) {}
     }
