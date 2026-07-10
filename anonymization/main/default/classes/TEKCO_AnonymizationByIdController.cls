@@ -291,9 +291,10 @@ public with sharing class TEKCO_AnonymizationByIdController {
     public static List<TEKCO_AnonymizationAuditLog__c> getAuditLogsByid() {
         return [
             SELECT Name, TEKCO_ObjectApiName__c, TEKCO_BrandFilter__c, TEKCO_Status__c,
-                   TEKCO_RecordsProcessed__c, TEKCO_RecordsFailed__c, TEKCO_StartTime__c,
-                   TEKCO_EndTime__c, TEKCO_JobId__c, TEKCO_TriggeredBy__r.Name,
-                   TEKCO_ErrorMessage__c
+                   TEKCO_RecordsProcessed__c, TEKCO_RecordsFailed__c,
+                   TEKCO_DocumentsDeleted__c, TEKCO_HistoryRecordsDeleted__c,
+                   TEKCO_StartTime__c, TEKCO_EndTime__c, TEKCO_JobId__c,
+                   TEKCO_TriggeredBy__r.Name, TEKCO_ErrorMessage__c
             FROM TEKCO_AnonymizationAuditLog__c
             WHERE TEKCO_BrandFilter__c LIKE 'BY_ID%'
             ORDER BY TEKCO_StartTime__c DESC

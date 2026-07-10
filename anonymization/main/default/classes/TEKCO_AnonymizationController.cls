@@ -318,6 +318,8 @@ public with sharing class TEKCO_AnonymizationController {
                 TEKCO_Status__c,
                 TEKCO_RecordsProcessed__c,
                 TEKCO_RecordsFailed__c,
+                TEKCO_DocumentsDeleted__c,
+                TEKCO_HistoryRecordsDeleted__c,
                 TEKCO_StartTime__c,
                 TEKCO_EndTime__c,
                 TEKCO_JobId__c,

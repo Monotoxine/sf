@@ -18,6 +18,13 @@ import getDirectObjects              from '@salesforce/apex/TEKCO_AnonymizationB
 
 const AUDIT_POLL_INTERVAL_MS = 5000;
 
+function buildDeleteStatsLine(docs, hist) {
+    const parts = [];
+    if (docs > 0)  parts.push(`${docs} docs`);
+    if (hist > 0)  parts.push(`${hist} hist.`);
+    return parts.length ? parts.join(' · ') + ' deleted' : null;
+}
+
 const RESOLVE_MODE_OPTIONS = [
     { label: 'Salesforce ID',  value: 'SF_ID' },
     { label: 'External ID',    value: 'EXTERNAL_ID' }
@@ -164,7 +171,9 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
                 this.auditLogs = logs.map(log => ({
                     ...log,
                     statusClass:    this.computeStatusBadgeClass(log.TEKCO_Status__c),
-                    startFormatted: log.TEKCO_StartTime__c ? new Date(log.TEKCO_StartTime__c).toLocaleString() : '—'
+                    startFormatted: log.TEKCO_StartTime__c ? new Date(log.TEKCO_StartTime__c).toLocaleString() : '—',
+                    statsLine1:     `${log.TEKCO_RecordsProcessed__c ?? 0} processed`,
+                    statsLine2:     buildDeleteStatsLine(log.TEKCO_DocumentsDeleted__c ?? 0, log.TEKCO_HistoryRecordsDeleted__c ?? 0)
                 }));
             })
             .catch(() => {});
@@ -462,7 +471,9 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
                 this.byIdAuditLogs = logs.map(log => ({
                     ...log,
                     statusClass:    this.computeStatusBadgeClass(log.TEKCO_Status__c),
-                    startFormatted: log.TEKCO_StartTime__c ? new Date(log.TEKCO_StartTime__c).toLocaleString() : '—'
+                    startFormatted: log.TEKCO_StartTime__c ? new Date(log.TEKCO_StartTime__c).toLocaleString() : '—',
+                    statsLine1:     `${log.TEKCO_RecordsProcessed__c ?? 0} processed`,
+                    statsLine2:     buildDeleteStatsLine(log.TEKCO_DocumentsDeleted__c ?? 0, log.TEKCO_HistoryRecordsDeleted__c ?? 0)
                 }));
             })
             .catch(() => {});

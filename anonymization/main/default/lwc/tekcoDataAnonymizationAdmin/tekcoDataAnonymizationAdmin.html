@@ -287,6 +287,7 @@
                 </div>
 
                 <template if:true={hasAuditLogs}>
+                    <div style="overflow-x:auto">
                     <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_col-bordered">
                         <thead>
                             <tr class="slds-line-height_reset">
@@ -294,7 +295,7 @@
                                 <th><div class="slds-truncate">Object(s)</div></th>
                                 <th><div class="slds-truncate">Brands</div></th>
                                 <th><div class="slds-truncate">Status</div></th>
-                                <th><div class="slds-truncate">Processed</div></th>
+                                <th><div class="slds-truncate">Stats</div></th>
                                 <th><div class="slds-truncate">Failed</div></th>
                                 <th><div class="slds-truncate">By</div></th>
                                 <th><div class="slds-truncate">Started</div></th>
@@ -307,7 +308,12 @@
                                     <td><div class="slds-truncate">{log.TEKCO_ObjectApiName__c}</div></td>
                                     <td><div class="slds-truncate">{log.TEKCO_BrandFilter__c}</div></td>
                                     <td><span class={log.statusClass}>{log.TEKCO_Status__c}</span></td>
-                                    <td><div class="slds-truncate">{log.TEKCO_RecordsProcessed__c}</div></td>
+                                    <td>
+                                        <div>{log.statsLine1}</div>
+                                        <template if:true={log.statsLine2}>
+                                            <div class="slds-text-color_weak slds-text-body_small">{log.statsLine2}</div>
+                                        </template>
+                                    </td>
                                     <td><div class="slds-truncate">{log.TEKCO_RecordsFailed__c}</div></td>
                                     <td><div class="slds-truncate">{log.TEKCO_TriggeredBy__r.Name}</div></td>
                                     <td><div class="slds-truncate">{log.startFormatted}</div></td>
@@ -315,6 +321,7 @@
                             </template>
                         </tbody>
                     </table>
+                    </div>
                 </template>
                 <template if:false={hasAuditLogs}>
                     <p class="slds-text-color_weak slds-m-top_small">No runs yet.</p>
@@ -581,6 +588,7 @@
                         <lightning-button-icon icon-name="utility:refresh" alternative-text="Refresh" onclick={handleByIdRefreshLogs}></lightning-button-icon>
                     </div>
                     <template if:true={hasByIdAuditLogs}>
+                        <div style="overflow-x:auto">
                         <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_col-bordered">
                             <thead>
                                 <tr class="slds-line-height_reset">
@@ -588,7 +596,7 @@
                                     <th><div class="slds-truncate">Object(s)</div></th>
                                     <th><div class="slds-truncate">Scope</div></th>
                                     <th><div class="slds-truncate">Status</div></th>
-                                    <th><div class="slds-truncate">Processed</div></th>
+                                    <th><div class="slds-truncate">Stats</div></th>
                                     <th><div class="slds-truncate">Failed</div></th>
                                     <th><div class="slds-truncate">By</div></th>
                                     <th><div class="slds-truncate">Started</div></th>
@@ -601,7 +609,12 @@
                                         <td><div class="slds-truncate">{log.TEKCO_ObjectApiName__c}</div></td>
                                         <td><div class="slds-truncate">{log.TEKCO_BrandFilter__c}</div></td>
                                         <td><span class={log.statusClass}>{log.TEKCO_Status__c}</span></td>
-                                        <td><div class="slds-truncate">{log.TEKCO_RecordsProcessed__c}</div></td>
+                                        <td>
+                                            <div>{log.statsLine1}</div>
+                                            <template if:true={log.statsLine2}>
+                                                <div class="slds-text-color_weak slds-text-body_small">{log.statsLine2}</div>
+                                            </template>
+                                        </td>
                                         <td><div class="slds-truncate">{log.TEKCO_RecordsFailed__c}</div></td>
                                         <td><div class="slds-truncate">{log.TEKCO_TriggeredBy__r.Name}</div></td>
                                         <td><div class="slds-truncate">{log.startFormatted}</div></td>
@@ -609,6 +622,7 @@
                                 </template>
                             </tbody>
                         </table>
+                        </div>
                     </template>
                     <template if:false={hasByIdAuditLogs}>
                         <p class="slds-text-color_weak slds-m-top_small">No BY_ID runs yet.</p>
