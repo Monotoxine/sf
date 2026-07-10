@@ -489,6 +489,7 @@ public with sharing class TEKCO_AnonymizationController {
                     bypassSnapshot,
                     new List<String>(),
                     0,
+                    0,
                     parentFiltersByObject,
                     additionalFiltersByObject
                 ),

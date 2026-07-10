@@ -267,7 +267,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
                     firstObj, contentDocIdsByObject.get(firstObj), auditLog.Id,
                     contentDocConfigs, contentDocIdsByObject,
                     historyConfigs, historyIdsByObject,
-                    bypassSnapshot, new List<String>(), 0
+                    bypassSnapshot, new List<String>(), 0, 0
                 ),
                 TEKCO_ContentDocumentByIdBatch.DEFAULT_BATCH_SIZE
             );
