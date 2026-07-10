@@ -94,7 +94,9 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
                 }
 
                 validFieldConfigs.add(fc);
-                fieldApiNames.add(fieldApiName);
+                if (String.isNotBlank(fieldApiName)) {
+                    fieldApiNames.add(fieldApiName);
+                }
 
                 if (patternType == PATTERN_EMAIL_LOREM) {
                     fieldApiNames.add('Status');

@@ -93,7 +93,9 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 }
 
                 validFieldConfigs.add(fieldConfig);
-                fieldApiNames.add(fieldApiName);
+                if (String.isNotBlank(fieldApiName)) {
+                    fieldApiNames.add(fieldApiName);
+                }
 
                 if (patternType == PATTERN_TYPE_EMAIL_MESSAGE_LOREM) {
                     hasEmailMessageLorem = true;
