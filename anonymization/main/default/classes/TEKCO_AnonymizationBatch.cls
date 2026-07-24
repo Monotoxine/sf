@@ -4,8 +4,9 @@
  */
 public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Database.Stateful {
 
-    public static final Integer DEFAULT_BATCH_SIZE    = 2000;
-    private static final Integer MAX_CAPTURED_ERRORS   = 50;
+    public static final Integer DEFAULT_BATCH_SIZE    = 200;
+    private static final Integer MAX_CAPTURED_ERRORS         = 50;
+    private static final Integer MAX_ACCUMULATED_ERRORS      = 200;
     private static final String  PATTERN_TYPE_DELETE_CONTENT_DOCUMENT = 'DELETE_CONTENT_DOCUMENT';
     private static final String  PATTERN_TYPE_EMAIL_MESSAGE_LOREM     = 'EMAIL_MESSAGE_LOREM';
 
@@ -291,7 +292,9 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     }
 
     public void finish(Database.BatchableContext bc) {
-        accumulatedErrors.addAll(errors);
+        for (String e : errors) {
+            if (accumulatedErrors.size() < MAX_ACCUMULATED_ERRORS) accumulatedErrors.add(e);
+        }
         Integer totalProcessed = accumulatedRecordsProcessed + recordsProcessed;
         try {
             if (!remainingObjects.isEmpty()) {
