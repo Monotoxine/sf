@@ -272,8 +272,12 @@ public class TEKCO_AnonymizationPatternService {
 
     public static Boolean hasField(String objectApiName, String fieldApiName) {
         if (String.isBlank(objectApiName) || String.isBlank(fieldApiName)) return false;
-        Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
-        return sot != null && sot.getDescribe().fields.getMap().containsKey(fieldApiName.toLowerCase());
+        try {
+            Schema.DescribeSObjectResult d = Schema.describeSObjects(new List<String>{ objectApiName })[0];
+            return d.fields.getMap().containsKey(fieldApiName.toLowerCase());
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public static List<String> getCountriesForBrands(List<String> brands) {

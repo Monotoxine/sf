@@ -69,8 +69,10 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     public Database.QueryLocator start(Database.BatchableContext bc) {
         TEKCO_AnonymizationPatternService.assertIsSandbox();
 
-        Schema.SObjectType sObjectType = Schema.getGlobalDescribe().get(objectApiName);
-        if (sObjectType == null) {
+        Schema.DescribeSObjectResult sObjectDescribe;
+        try {
+            sObjectDescribe = Schema.describeSObjects(new List<String>{ objectApiName })[0];
+        } catch (Exception e) {
             errors.add('Object not found in org, skipped: ' + objectApiName);
             return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
         }
@@ -80,8 +82,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
             Boolean needsRecordTypeId    = false;
             Boolean hasEmailMessageLorem = false;
 
-            Map<String, Schema.SObjectField> objectFieldMap =
-                sObjectType.getDescribe().fields.getMap();
+            Map<String, Schema.SObjectField> objectFieldMap = sObjectDescribe.fields.getMap();
             List<TEKCO_AnonymizationFieldConfig__mdt> validFieldConfigs =
                 new List<TEKCO_AnonymizationFieldConfig__mdt>();
 

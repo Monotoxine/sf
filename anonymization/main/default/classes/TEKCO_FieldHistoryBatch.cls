@@ -56,7 +56,8 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     public Database.QueryLocator start(Database.BatchableContext bc) {
         TEKCO_AnonymizationPatternService.assertIsSandbox();
 
-        if (Schema.getGlobalDescribe().get(objectApiName) == null) {
+        try { Schema.describeSObjects(new List<String>{ objectApiName }); }
+        catch (Exception e) {
             errors.add('Object not found in org, skipped: ' + objectApiName);
             return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
         }
@@ -64,7 +65,8 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         String historyObjectName = computeHistoryObjectName(objectApiName);
         String parentIdFieldName = computeParentIdFieldName(objectApiName);
 
-        if (Schema.getGlobalDescribe().get(historyObjectName) == null) {
+        try { Schema.describeSObjects(new List<String>{ historyObjectName }); }
+        catch (Exception e) {
             errors.add('Field history not enabled for object, skipped: ' + objectApiName);
             return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
         }
