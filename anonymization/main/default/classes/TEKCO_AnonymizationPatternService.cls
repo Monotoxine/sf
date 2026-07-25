@@ -234,7 +234,12 @@ public class TEKCO_AnonymizationPatternService {
         if (String.isBlank(currentValue)) return currentValue;
         Matcher numMatcher = Pattern.compile('(\\d+)').matcher(currentValue);
         if (!numMatcher.find()) return currentValue;
-        Integer streetNumber = Integer.valueOf(numMatcher.group(1));
+        Integer streetNumber;
+        try {
+            streetNumber = Integer.valueOf(numMatcher.group(1));
+        } catch (Exception e) {
+            return currentValue;
+        }
         Integer randomOffset = Integer.valueOf(Math.random() * ADDRESS_RANDOM_MAX) + 1;
         return currentValue.replaceFirst('\\d+', String.valueOf(streetNumber + randomOffset));
     }
