@@ -66,7 +66,8 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
 
         List<String> parentFilter = parentFiltersByObject.get(objectApiName);
 
-        if (Schema.getGlobalDescribe().get(objectApiName) == null) {
+        try { Schema.describeSObjects(new List<String>{ objectApiName }); }
+        catch (Exception e) {
             errors.add('Object not found in org, skipped: ' + objectApiName);
             return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
         }

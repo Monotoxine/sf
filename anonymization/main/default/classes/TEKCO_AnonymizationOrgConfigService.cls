@@ -104,13 +104,14 @@ public class TEKCO_AnonymizationOrgConfigService {
 
     // ─── Field utilities ─────────────────────────────────────────────────────
 
-    @TestVisible private static Map<String, Schema.SObjectType> globalDescribeCache;
-
     public static Boolean hasField(String objectApiName, String fieldApiName) {
         if (String.isBlank(objectApiName) || String.isBlank(fieldApiName)) return false;
-        if (globalDescribeCache == null) globalDescribeCache = Schema.getGlobalDescribe();
-        Schema.SObjectType sot = globalDescribeCache.get(objectApiName);
-        return sot != null && sot.getDescribe().fields.getMap().containsKey(fieldApiName.toLowerCase());
+        try {
+            Schema.DescribeSObjectResult d = Schema.describeSObjects(new List<String>{ objectApiName })[0];
+            return d.fields.getMap().containsKey(fieldApiName.toLowerCase());
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     // ─── Brand / country resolution ──────────────────────────────────────────
