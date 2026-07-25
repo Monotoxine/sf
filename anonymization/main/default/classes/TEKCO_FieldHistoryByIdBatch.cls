@@ -57,7 +57,8 @@ public class TEKCO_FieldHistoryByIdBatch implements Database.Batchable<SObject>,
         String historyObjectName = computeHistoryObjectName(objectApiName);
         String parentIdFieldName = computeParentIdFieldName(objectApiName);
 
-        if (Schema.getGlobalDescribe().get(historyObjectName) == null) {
+        try { Schema.describeSObjects(new List<String>{ historyObjectName }); }
+        catch (Exception e) {
             errors.add('Field history not enabled for object, skipped: ' + objectApiName);
             return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
         }

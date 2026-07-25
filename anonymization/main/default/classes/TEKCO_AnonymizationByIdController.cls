@@ -373,7 +373,8 @@ public with sharing class TEKCO_AnonymizationByIdController {
         List<String> invalidOut
     ) {
         Map<String, List<Id>> result = new Map<String, List<Id>>();
-        if (Schema.getGlobalDescribe().get(objectApiName) == null) {
+        try { Schema.describeSObjects(new List<String>{ objectApiName }); }
+        catch (Exception e) {
             if (invalidOut != null) invalidOut.add(objectApiName + ' — object not found in org');
             return result;
         }
@@ -453,7 +454,8 @@ public with sharing class TEKCO_AnonymizationByIdController {
     private static List<Id> resolveChildIds(
         String childObjectApiName, String parentLookupField, List<Id> parentIds
     ) {
-        if (Schema.getGlobalDescribe().get(childObjectApiName) == null) return new List<Id>();
+        try { Schema.describeSObjects(new List<String>{ childObjectApiName }); }
+        catch (Exception e) { return new List<Id>(); }
         List<Id> childIds = new List<Id>();
         try {
             List<SObject> children = Database.query(

@@ -9,7 +9,8 @@
  */
 public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>, Database.Stateful {
 
-    public static final Integer DEFAULT_BATCH_SIZE   = 2000;
+    public static final Integer DEFAULT_BATCH_SIZE   = 200;
+    private static final Integer MAX_ACCUMULATED_ERRORS = 200;
     private static final String  PATTERN_DELETE_CD   = 'DELETE_CONTENT_DOCUMENT';
     private static final String  PATTERN_EMAIL_LOREM = 'EMAIL_MESSAGE_LOREM';
 
@@ -65,8 +66,10 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
     public Database.QueryLocator start(Database.BatchableContext bc) {
         TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
 
-        Schema.SObjectType sObjectType = Schema.getGlobalDescribe().get(objectApiName);
-        if (sObjectType == null) {
+        Schema.DescribeSObjectResult sObjectDescribe;
+        try {
+            sObjectDescribe = Schema.describeSObjects(new List<String>{ objectApiName })[0];
+        } catch (Exception e) {
             errors.add('Object not found in org, skipped: ' + objectApiName);
             return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
         }
@@ -76,7 +79,7 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
             Boolean needsRecordTypeId    = false;
 
             Map<String, Schema.SObjectField> objectFieldMap =
-                sObjectType.getDescribe().fields.getMap();
+                sObjectDescribe.fields.getMap();
             List<TEKCO_AnonymizationFieldConfig__mdt> validFieldConfigs =
                 new List<TEKCO_AnonymizationFieldConfig__mdt>();
 
@@ -150,7 +153,9 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
     }
 
     public void finish(Database.BatchableContext bc) {
-        accumulatedErrors.addAll(errors);
+        for (String e : errors) {
+            if (accumulatedErrors.size() < MAX_ACCUMULATED_ERRORS) accumulatedErrors.add(e);
+        }
         Integer totalProcessed = accumulatedRecordsProcessed + recordsProcessed;
 
         try {
