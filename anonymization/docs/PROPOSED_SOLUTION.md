@@ -88,7 +88,7 @@ startAnonymization()
        │
        ▼
 ┌─────────────────────────────────────────────┐
-│  Phase 1 — TEKCO_AnonymizationBatch         │  Batch size: 2 000
+│  Phase 1 — TEKCO_AnonymizationBatch         │  Batch size: 200
 │  Field values anonymized per configured     │
 │  patterns. EmailMessage records without     │
 │  Draft status are deleted outright.         │
@@ -106,7 +106,7 @@ startAnonymization()
                      │
                      ▼
 ┌─────────────────────────────────────────────┐
-│  Phase 3 — TEKCO_FieldHistoryBatch          │  Batch size: 2 000
+│  Phase 3 — TEKCO_FieldHistoryBatch          │  Batch size: 2 000 (history records are lightweight)
 │  Deletes FieldHistory records for fields    │
 │  where TEKCO_DeleteHistory__c = true.       │
 │  Runs once per object with history rules.   │
@@ -169,7 +169,7 @@ startAnonymizationByIds()
        │
        ▼
 ┌────────────────────────────────────────────────┐
-│  Phase 1 — TEKCO_AnonymizationByIdBatch        │  Batch size: 2 000
+│  Phase 1 — TEKCO_AnonymizationByIdBatch        │  Batch size: 200
 │  Same logic as By Criteria Phase 1, but        │
 │  WHERE Id IN :recordIds instead of brand       │
 │  subquery. Runs once per resolved object.      │
@@ -201,8 +201,9 @@ startAnonymizationByIds()
 
 ### Batch size rationale
 
-- Phases 1 and 3 use size 2 000 (the Salesforce maximum): each `execute()` performs a single-object DML update or delete with no risk of hitting row limits.
+- Phase 1 uses size **200**: each `execute()` performs a single-object DML update. The size is deliberately kept conservative to stay within the 12 MB async Apex heap limit on large orgs (production copies with millions of records). Each `execute()` chunk deserializes the full stateful object state into heap before processing its scope — a larger chunk size risks exceeding the limit on objects with wide schemas.
 - Phase 2 uses size 500: each `execute()` queries ContentDocumentLinks for the parent records in scope. A larger batch size risks exceeding the 50 000 SOQL rows governor limit for objects with many linked files.
+- Phase 3 uses size 2 000: history records are lightweight (no field data, only metadata), making large chunk sizes safe.
 
 ### Automation bypass
 
@@ -218,7 +219,15 @@ All three batch classes implement `Database.Batchable` with `Database.getQueryLo
 
 ### Error handling
 
-The batch chain accumulates errors across phases. Up to 50 individual record errors are captured per batch execution; once the threshold is reached, the batch switches to `allOrNothing = false` mode and continues processing. If a query returns no records (e.g. object has no matching records or the IDs list is empty), the batch completes immediately with zero items processed and chains to the next phase normally.
+The batch chain accumulates errors across phases. Up to 50 individual record errors are captured per batch execution. The accumulated error list across all chained batches is capped at 200 entries to prevent the stateful serialization overhead from growing unbounded on runs with many failures. If a query returns no records (e.g. object has no matching records or the IDs list is empty), the batch completes immediately with zero items processed and chains to the next phase normally.
+
+### Schema inspection
+
+All batch `start()` methods use `Schema.describeSObjects(new List<String>{ objectApiName })` to verify object existence and load field maps. This method loads **only the requested object** into heap. The alternative `Schema.getGlobalDescribe()` — which loads all org objects — is explicitly avoided: on production orgs with 500+ custom objects it alone can consume 10–15 MB, pushing the transaction over the 12 MB async heap limit.
+
+### ADDRESS_STREET_RANDOM — integer overflow guard
+
+The `ADDRESS_STREET_RANDOM` pattern extracts the first numeric sequence from an address string and adds a random offset (1–20). If the extracted number exceeds Apex's `Integer` maximum (2 147 483 647) — for example a phone number incorrectly stored in an address field — `Integer.valueOf()` would throw. The implementation wraps this conversion in a try/catch and returns the original value unchanged if overflow is detected.
 
 ---
 

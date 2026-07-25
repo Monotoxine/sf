@@ -297,11 +297,25 @@ Uncheck `TEKCO_IsActive__c`. The rule disappears from the interface and is not p
 
 ### Processing order
 
-When multiple rules apply to the same field (different Record Types), they are processed independently, one per batch execution. The batch size is 2 000 records per chunk for Phase 1.
+When multiple rules apply to the same field (different Record Types), they are processed independently, one per batch execution. The batch size is **200 records per chunk** for Phase 1 (intentionally conservative — see section 1.12 for the heap size rationale).
 
 ---
 
 ## 1.12 Known Limitations
+
+### Heap size on large orgs — Phase 1 batch size
+
+**Context**: On production copies with millions of records and hundreds of custom objects, Phase 1 (`TEKCO_AnonymizationBatch`) can hit the Salesforce async Apex heap limit of 12 MB.
+
+**Why it happens**: `Database.Stateful` batches serialize all instance variables between every `execute()` chunk. On large objects (wide schemas, many field configs), the combined heap of the deserialized state + the current chunk's records can exceed the limit. Additionally, object schema loading via `Schema.getGlobalDescribe()` — which loads all org objects at once — was a known contributor and has been replaced with the targeted `Schema.describeSObjects()`.
+
+**How it is mitigated**: Phase 1 uses a batch size of **200** records per chunk (instead of the Salesforce maximum of 2 000). This keeps per-chunk heap well within the limit even on the largest orgs. Phase 3 retains 2 000 because history records are much lighter.
+
+**Resuming after a heap abort**: The anonymization is **idempotent** — Phase 1 only updates a record when the anonymized value differs from the current value. If a batch aborts mid-way, re-launching with the same parameters is safe: records already anonymized are detected and skipped automatically. Only the remaining records are processed.
+
+### ADDRESS_STREET_RANDOM — values with no valid street number
+
+If the field contains only a very large number (e.g. a phone number incorrectly stored in an address field), the pattern returns the value unchanged rather than raising an error. This is logged as a normal record with no modification.
 
 ### Asset Files cannot be deleted (Phase 2)
 
