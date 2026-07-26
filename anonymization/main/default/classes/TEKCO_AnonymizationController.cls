@@ -369,6 +369,7 @@ public with sharing class TEKCO_AnonymizationController {
 
         List<TEKCO_AnonymizationFieldConfig__mdt> allFieldConfigs = [
             SELECT
+                DeveloperName,
                 TEKCO_ObjectApiName__c,
                 TEKCO_FieldApiName__c,
                 TEKCO_PatternType__c,

@@ -18,6 +18,7 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
     private List<Id>                                     recordIds;
     private List<TEKCO_AnonymizationFieldConfig__mdt>    fieldConfigs;
     private Map<String, TEKCO_AnonymizationPattern__mdt> patternsByType;
+    private List<String>                                 validFieldConfigDevNames = new List<String>();
     private Id                                           auditLogId;
     private Map<String, List<Id>>                        remainingObjectIds;
     private List<TEKCO_AnonymizationFieldConfig__mdt>    contentDocConfigs;
@@ -83,7 +84,12 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
             List<TEKCO_AnonymizationFieldConfig__mdt> validFieldConfigs =
                 new List<TEKCO_AnonymizationFieldConfig__mdt>();
 
-            for (TEKCO_AnonymizationFieldConfig__mdt fc : fieldConfigs) {
+            List<TEKCO_AnonymizationFieldConfig__mdt> startConfigs =
+                this.fieldConfigs != null ? this.fieldConfigs : loadFieldConfigs(objectApiName);
+            Map<String, TEKCO_AnonymizationPattern__mdt> startPatterns =
+                this.patternsByType != null ? this.patternsByType : TEKCO_AnonymizationBatch.buildPatternMap();
+
+            for (TEKCO_AnonymizationFieldConfig__mdt fc : startConfigs) {
                 String patternType  = fc.TEKCO_PatternType__c;
                 String fieldApiName = fc.TEKCO_FieldApiName__c;
 
@@ -105,7 +111,7 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
                     fieldApiNames.add('Status');
                 }
 
-                TEKCO_AnonymizationPattern__mdt pattern = patternsByType.get(patternType);
+                TEKCO_AnonymizationPattern__mdt pattern = startPatterns.get(patternType);
                 if (pattern != null && String.isNotBlank(pattern.TEKCO_ExternalIdField__c)
                         && objectFieldMap.containsKey(pattern.TEKCO_ExternalIdField__c.toLowerCase())) {
                     fieldApiNames.add(pattern.TEKCO_ExternalIdField__c);
@@ -120,7 +126,13 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
                     needsRecordTypeId = true;
                 }
             }
-            fieldConfigs = validFieldConfigs;
+
+            validFieldConfigDevNames = new List<String>();
+            for (TEKCO_AnonymizationFieldConfig__mdt fc : validFieldConfigs) {
+                if (String.isNotBlank(fc.DeveloperName)) validFieldConfigDevNames.add(fc.DeveloperName);
+            }
+            this.fieldConfigs   = null;
+            this.patternsByType = null;
 
             if (needsRecordTypeId) {
                 fieldApiNames.add('RecordTypeId');
@@ -143,9 +155,14 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
     }
 
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
+        List<TEKCO_AnonymizationFieldConfig__mdt> localFieldConfigs =
+            TEKCO_AnonymizationBatch.loadFieldConfigsByDevNames(validFieldConfigDevNames);
+        Map<String, TEKCO_AnonymizationPattern__mdt> localPatterns =
+            TEKCO_AnonymizationBatch.buildPatternMap();
+
         TEKCO_AnonymizationExecuteService.ExecuteResult result =
             TEKCO_AnonymizationExecuteService.executeFieldAnonymization(
-                scope, fieldConfigs, patternsByType, recordTypeDevNameById
+                scope, localFieldConfigs, localPatterns, recordTypeDevNameById
             );
         recordsProcessed += result.recordsProcessed;
         recordsFailed    += result.recordsFailed;
@@ -216,8 +233,9 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
 
     private static List<TEKCO_AnonymizationFieldConfig__mdt> loadFieldConfigs(String objectApiName) {
         return [
-            SELECT TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c, TEKCO_PatternType__c,
-                   TEKCO_IsActive__c, TEKCO_RecordTypeDeveloperName__c, TEKCO_DeleteHistory__c
+            SELECT DeveloperName, TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c,
+                   TEKCO_PatternType__c, TEKCO_IsActive__c,
+                   TEKCO_RecordTypeDeveloperName__c, TEKCO_DeleteHistory__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
             WHERE TEKCO_ObjectApiName__c = :objectApiName AND TEKCO_IsActive__c = true
         ];
