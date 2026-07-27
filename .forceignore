@@ -10,3 +10,6 @@ package.xml
 
 # LWC Jest
 **/__tests__/**
+
+# SFDX local tooling (deploy responses, standard library stubs, debug logs)
+.sfdx/**
