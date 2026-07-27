@@ -248,7 +248,12 @@ public class TEKCO_AnonymizationPatternService {
         if (record == null || String.isBlank(pattern.TEKCO_ExternalIdField__c)) return '';
         try {
             Object fieldValue = record.get(pattern.TEKCO_ExternalIdField__c);
-            return fieldValue != null ? String.valueOf(fieldValue) : '';
+            if (fieldValue == null) return '';
+            String externalId = String.valueOf(fieldValue);
+            // Reject base64, BOM chars, slashes, equals — anything unsafe in name or email fields.
+            // Callers fall back to functional ID → Salesforce record Id when this returns ''.
+            if (!Pattern.compile('^[a-zA-Z0-9_\\-]+$').matcher(externalId).matches()) return '';
+            return externalId;
         } catch (Exception e) {
             return '';
         }
