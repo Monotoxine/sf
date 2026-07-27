@@ -252,7 +252,7 @@ public class TEKCO_AnonymizationPatternService {
             String externalId = String.valueOf(fieldValue);
             // Reject base64, BOM chars, slashes, equals — anything unsafe in name or email fields.
             // Callers fall back to functional ID → Salesforce record Id when this returns ''.
-            if (!Pattern.compile('^[a-zA-Z0-9_\\-]+$').matcher(externalId).matches()) return '';
+            if (!System.Pattern.compile('^[a-zA-Z0-9_\\-]+$').matcher(externalId).matches()) return '';
             return externalId;
         } catch (Exception e) {
             return '';
