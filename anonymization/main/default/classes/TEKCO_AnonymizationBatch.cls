@@ -31,6 +31,9 @@ public without sharing class TEKCO_AnonymizationBatch implements Database.Batcha
     private Integer recordsFailed           = 0;
     private Integer accumulatedRecordsProcessed = 0;
     private Integer accumulatedRecordsFailed    = 0;
+    /** Set when the sandbox guard trips in start(); finish() must not re-finalize
+     *  the audit log that assertSandboxOrClose() already closed as Failed. */
+    private Boolean aborted = false;
     private List<String> errors             = new List<String>();
     private List<String> accumulatedErrors  = new List<String>();
 
@@ -71,6 +74,7 @@ public without sharing class TEKCO_AnonymizationBatch implements Database.Batcha
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
         if (!TEKCO_AnonymizationBatchUtils.assertSandboxOrClose(auditLogId, bypassSnapshot)) {
+            aborted = true;
             return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
         }
 
@@ -229,6 +233,9 @@ public without sharing class TEKCO_AnonymizationBatch implements Database.Batcha
     }
 
     public void finish(Database.BatchableContext bc) {
+        // The sandbox guard already closed the audit log as Failed — do not overwrite it.
+        if (aborted) return;
+
         for (String e : errors) {
             if (accumulatedErrors.size() < MAX_ACCUMULATED_ERRORS) {
                 accumulatedErrors.add(TEKCO_AnonymizationBatchUtils.cap(e));

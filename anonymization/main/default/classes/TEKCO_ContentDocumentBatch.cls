@@ -31,6 +31,9 @@ public without sharing class TEKCO_ContentDocumentBatch implements Database.Batc
     private Integer accumulatedRecordsProcessed  = 0;
     private Integer accumulatedRecordsFailed     = 0;
     private Integer accumulatedDocumentsDeleted  = 0;
+    /** Set when the sandbox guard trips in start(); finish() must not re-finalize
+     *  the audit log that assertSandboxOrClose() already closed as Failed. */
+    private Boolean aborted = false;
     private List<String> errors                  = new List<String>();
     private List<String> accumulatedErrors       = new List<String>();
 
@@ -69,6 +72,7 @@ public without sharing class TEKCO_ContentDocumentBatch implements Database.Batc
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
         if (!TEKCO_AnonymizationBatchUtils.assertSandboxOrClose(auditLogId, bypassSnapshot)) {
+            aborted = true;
             return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
         }
 
@@ -169,6 +173,9 @@ public without sharing class TEKCO_ContentDocumentBatch implements Database.Batc
     }
 
     public void finish(Database.BatchableContext bc) {
+        // The sandbox guard already closed the audit log as Failed — do not overwrite it.
+        if (aborted) return;
+
         for (String e : errors) {
             if (accumulatedErrors.size() < TEKCO_AnonymizationBatch.MAX_ACCUMULATED_ERRORS) {
                 accumulatedErrors.add(e);
