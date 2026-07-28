@@ -21,9 +21,11 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
     private List<String>                                 validFieldConfigDevNames = new List<String>();
     private Id                                           auditLogId;
     private Map<String, List<Id>>                        remainingObjectIds;
-    private List<TEKCO_AnonymizationFieldConfig__mdt>    contentDocConfigs;
+    // Stored as DeveloperNames only — full CMDT objects are re-queried in finish() before chaining.
+    // Keeps the serialized batch state small; mirrors TEKCO_AnonymizationBatch.
+    private List<String>                                 contentDocConfigDevNames;
     private Map<String, List<Id>>                        contentDocIdsByObject;
-    private List<TEKCO_AnonymizationFieldConfig__mdt>    historyConfigs;
+    private List<String>                                 historyConfigDevNames;
     private Map<String, List<Id>>                        historyIdsByObject;
     private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
 
@@ -55,9 +57,9 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
         this.patternsByType             = patternsByType;
         this.auditLogId                 = auditLogId;
         this.remainingObjectIds         = remainingObjectIds    != null ? remainingObjectIds    : new Map<String, List<Id>>();
-        this.contentDocConfigs          = contentDocConfigs     != null ? contentDocConfigs     : new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        this.contentDocConfigDevNames   = TEKCO_AnonymizationBatchUtils.toDevNames(contentDocConfigs);
         this.contentDocIdsByObject      = contentDocIdsByObject != null ? contentDocIdsByObject : new Map<String, List<Id>>();
-        this.historyConfigs             = historyConfigs        != null ? historyConfigs        : new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        this.historyConfigDevNames      = TEKCO_AnonymizationBatchUtils.toDevNames(historyConfigs);
         this.historyIdsByObject         = historyIdsByObject    != null ? historyIdsByObject    : new Map<String, List<Id>>();
         this.bypassSnapshot             = bypassSnapshot;
         this.accumulatedErrors          = accumulatedErrors     != null ? accumulatedErrors     : new List<String>();
@@ -176,12 +178,19 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
             }
         }
         Integer totalProcessed = accumulatedRecordsProcessed + recordsProcessed;
+        // Re-query CMDT lists here — only devNames were carried through execute() chunks.
+        List<TEKCO_AnonymizationFieldConfig__mdt> contentDocConfigs =
+            TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(contentDocConfigDevNames);
+        List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs =
+            TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(historyConfigDevNames);
 
         try {
             if (!remainingObjectIds.isEmpty()) {
                 String nextObj = new List<String>(remainingObjectIds.keySet())[0];
                 List<Id> nextIds = remainingObjectIds.remove(nextObj);
                 List<TEKCO_AnonymizationFieldConfig__mdt> nextConfigs = TEKCO_AnonymizationBatchUtils.loadFieldConfigs(nextObj);
+                // patternsByType is null by now (nulled in start()); the next instance
+                // falls back to TEKCO_AnonymizationBatchUtils.buildPatternMap() in its own start().
                 Database.executeBatch(
                     new TEKCO_AnonymizationByIdBatch(
                         nextObj, nextIds, nextConfigs, patternsByType, auditLogId,

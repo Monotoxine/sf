@@ -313,6 +313,8 @@ When multiple rules apply to the same field (different Record Types), they are p
 
 **Impact on behavior**: None. The CMDT data returned by a re-query within the same batch run is identical to what would have been deserialized from state. Chaining, filtering, and error handling are unchanged.
 
+**Applies to both chains**: the same pattern is used in the By Criteria chain (`TEKCO_AnonymizationBatch` → `TEKCO_ContentDocumentBatch` → `TEKCO_FieldHistoryBatch`) and the By ID chain (`TEKCO_AnonymizationByIdBatch` → `TEKCO_ContentDocumentByIdBatch` → `TEKCO_FieldHistoryByIdBatch`). Constructors still accept full `List<TEKCO_AnonymizationFieldConfig__mdt>` parameters and convert to DeveloperNames on entry, so callers are unaffected. Error strings are likewise truncated via `TEKCO_AnonymizationBatchUtils.cap()` and the accumulated error list is capped at `TEKCO_AnonymizationBatch.MAX_ACCUMULATED_ERRORS` in both chains. Keep the two chains symmetric when modifying either.
+
 **Resuming after a heap abort**: The anonymization is **idempotent** — Phase 1 only updates a record when the anonymized value differs from the current value. If a batch aborts mid-way, re-launching with the same parameters is safe: records already anonymized are detected and skipped automatically. Only the remaining records are processed.
 
 ### ADDRESS_STREET_RANDOM — values with no valid street number

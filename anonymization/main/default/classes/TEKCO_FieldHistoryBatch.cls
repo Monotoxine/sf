@@ -64,8 +64,8 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
             return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
         }
 
-        String historyObjectName = computeHistoryObjectName(objectApiName);
-        String parentIdFieldName = computeParentIdFieldName(objectApiName);
+        String historyObjectName = TEKCO_AnonymizationBatchUtils.computeHistoryObjectName(objectApiName);
+        String parentIdFieldName = TEKCO_AnonymizationBatchUtils.computeParentIdFieldName(objectApiName);
 
         try { Schema.describeSObjects(new List<String>{ historyObjectName }); }
         catch (Exception e) {
@@ -228,13 +228,5 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         }
     }
 
-
-    private static String computeHistoryObjectName(String objectApiName) {
-        return TEKCO_AnonymizationBatchUtils.computeHistoryObjectName(objectApiName);
-    }
-
-    private static String computeParentIdFieldName(String objectApiName) {
-        return TEKCO_AnonymizationBatchUtils.computeParentIdFieldName(objectApiName);
-    }
 
 }

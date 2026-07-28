@@ -10,10 +10,11 @@ public class TEKCO_FieldHistoryByIdBatch implements Database.Batchable<SObject>,
     private static final Integer MAX_CAPTURED_ERRORS = 50;
 
     private String                                       objectApiName;
-    private List<TEKCO_AnonymizationFieldConfig__mdt>    objectHistoryConfigs;
+    // DeveloperNames only — re-queried locally in start() and finish() to keep serialized state small.
+    private List<String>                                 objectHistoryConfigDevNames;
     private List<Id>                                     recordIds;
     private Id                                           auditLogId;
-    private List<TEKCO_AnonymizationFieldConfig__mdt>    remainingHistoryConfigs;
+    private List<String>                                 remainingHistoryConfigDevNames;
     private Map<String, List<Id>>                        historyIdsByObject;
     private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
 
@@ -39,10 +40,10 @@ public class TEKCO_FieldHistoryByIdBatch implements Database.Batchable<SObject>,
         Integer accumulatedHistoryRecordsDeleted
     ) {
         this.objectApiName                    = objectApiName;
-        this.objectHistoryConfigs             = objectHistoryConfigs   != null ? objectHistoryConfigs   : new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        this.objectHistoryConfigDevNames      = TEKCO_AnonymizationBatchUtils.toDevNames(objectHistoryConfigs);
         this.recordIds                        = recordIds              != null ? recordIds              : new List<Id>();
         this.auditLogId                       = auditLogId;
-        this.remainingHistoryConfigs          = remainingHistoryConfigs != null ? remainingHistoryConfigs : new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        this.remainingHistoryConfigDevNames   = TEKCO_AnonymizationBatchUtils.toDevNames(remainingHistoryConfigs);
         this.historyIdsByObject               = historyIdsByObject     != null ? historyIdsByObject     : new Map<String, List<Id>>();
         this.bypassSnapshot                   = bypassSnapshot;
         this.accumulatedErrors                = accumulatedErrors                != null ? accumulatedErrors                : new List<String>();
@@ -54,8 +55,8 @@ public class TEKCO_FieldHistoryByIdBatch implements Database.Batchable<SObject>,
     public Database.QueryLocator start(Database.BatchableContext bc) {
         TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
 
-        String historyObjectName = computeHistoryObjectName(objectApiName);
-        String parentIdFieldName = computeParentIdFieldName(objectApiName);
+        String historyObjectName = TEKCO_AnonymizationBatchUtils.computeHistoryObjectName(objectApiName);
+        String parentIdFieldName = TEKCO_AnonymizationBatchUtils.computeParentIdFieldName(objectApiName);
 
         try { Schema.describeSObjects(new List<String>{ historyObjectName }); }
         catch (Exception e) {
@@ -63,21 +64,36 @@ public class TEKCO_FieldHistoryByIdBatch implements Database.Batchable<SObject>,
             return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
         }
 
-        Set<String> fieldApiNames = new Set<String>();
-        for (TEKCO_AnonymizationFieldConfig__mdt fc : objectHistoryConfigs) {
-            if (String.isNotBlank(fc.TEKCO_FieldApiName__c)) fieldApiNames.add(fc.TEKCO_FieldApiName__c);
-        }
+        try {
+            // Re-query locally — only devNames were carried through serialization.
+            List<TEKCO_AnonymizationFieldConfig__mdt> objectHistoryConfigs =
+                TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(objectHistoryConfigDevNames);
 
-        List<String> escapedFields = new List<String>();
-        for (String fn : fieldApiNames) {
-            escapedFields.add('\'' + String.escapeSingleQuotes(fn) + '\'');
-        }
+            Set<String> fieldApiNames = new Set<String>();
+            for (TEKCO_AnonymizationFieldConfig__mdt fc : objectHistoryConfigs) {
+                if (String.isNotBlank(fc.TEKCO_FieldApiName__c)) fieldApiNames.add(fc.TEKCO_FieldApiName__c);
+            }
 
-        return Database.getQueryLocator(
-            'SELECT Id FROM ' + historyObjectName
-            + ' WHERE Field IN (' + String.join(escapedFields, ', ') + ')'
-            + ' AND ' + parentIdFieldName + ' IN :recordIds'
-        );
+            // No fields to target would produce 'Field IN ()' — invalid SOQL. Skip instead.
+            if (fieldApiNames.isEmpty()) {
+                errors.add('No history fields configured for object, skipped: ' + objectApiName);
+                return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+            }
+
+            List<String> escapedFields = new List<String>();
+            for (String fn : fieldApiNames) {
+                escapedFields.add('\'' + String.escapeSingleQuotes(fn) + '\'');
+            }
+
+            return Database.getQueryLocator(
+                'SELECT Id FROM ' + historyObjectName
+                + ' WHERE Field IN (' + String.join(escapedFields, ', ') + ')'
+                + ' AND ' + parentIdFieldName + ' IN :recordIds'
+            );
+        } catch (Exception e) {
+            errors.add('Failed to build query for ' + objectApiName + ': ' + e.getMessage());
+            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+        }
     }
 
     // Identical to TEKCO_FieldHistoryBatch.execute()
@@ -91,20 +107,28 @@ public class TEKCO_FieldHistoryByIdBatch implements Database.Batchable<SObject>,
                 if (errors.size() < MAX_CAPTURED_ERRORS) {
                     List<String> msgs = new List<String>();
                     for (Database.Error e : dr.getErrors()) msgs.add(e.getMessage());
-                    errors.add(String.join(msgs, '; '));
+                    errors.add(TEKCO_AnonymizationBatchUtils.cap(String.join(msgs, '; ')));
                 }
             }
         }
     }
 
     public void finish(Database.BatchableContext bc) {
-        accumulatedErrors.addAll(errors);
+        for (String e : errors) {
+            if (accumulatedErrors.size() < TEKCO_AnonymizationBatch.MAX_ACCUMULATED_ERRORS) {
+                accumulatedErrors.add(e);
+            }
+        }
         Integer totalHistoryDeleted = accumulatedHistoryRecordsDeleted + recordsDeleted;
+        // Re-query CMDT list here — only devNames were carried through execute() chunks.
+        List<TEKCO_AnonymizationFieldConfig__mdt> remainingHistoryConfigs =
+            TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(remainingHistoryConfigDevNames);
 
         try {
             if (!remainingHistoryConfigs.isEmpty()) {
                 String nextObj = remainingHistoryConfigs[0].TEKCO_ObjectApiName__c;
-                List<TEKCO_AnonymizationFieldConfig__mdt> nextConfigs = popConfigsForObject(nextObj);
+                List<TEKCO_AnonymizationFieldConfig__mdt> nextConfigs =
+                    TEKCO_AnonymizationBatchUtils.popConfigsForObject(nextObj, remainingHistoryConfigs);
                 Database.executeBatch(
                     new TEKCO_FieldHistoryByIdBatch(
                         nextObj, nextConfigs, historyIdsByObject.get(nextObj),
@@ -130,15 +154,4 @@ public class TEKCO_FieldHistoryByIdBatch implements Database.Batchable<SObject>,
         }
     }
 
-    private static String computeHistoryObjectName(String objectApiName) {
-        return TEKCO_AnonymizationBatchUtils.computeHistoryObjectName(objectApiName);
-    }
-
-    private static String computeParentIdFieldName(String objectApiName) {
-        return TEKCO_AnonymizationBatchUtils.computeParentIdFieldName(objectApiName);
-    }
-
-    private List<TEKCO_AnonymizationFieldConfig__mdt> popConfigsForObject(String obj) {
-        return TEKCO_AnonymizationBatchUtils.popConfigsForObject(obj, remainingHistoryConfigs);
-    }
 }
