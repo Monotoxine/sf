@@ -76,7 +76,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         try {
 
         List<TEKCO_AnonymizationFieldConfig__mdt> objectHistoryConfigs =
-            TEKCO_AnonymizationBatch.loadFieldConfigsByDevNames(objectHistoryConfigDevNames);
+            TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(objectHistoryConfigDevNames);
 
         Set<String> fieldApiNames = new Set<String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : objectHistoryConfigs) {
@@ -187,7 +187,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         }
         Integer totalHistoryDeleted = accumulatedHistoryRecordsDeleted + recordsDeleted;
         List<TEKCO_AnonymizationFieldConfig__mdt> remainingHistoryConfigs =
-            TEKCO_AnonymizationBatch.loadFieldConfigsByDevNames(remainingHistoryConfigDevNames);
+            TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(remainingHistoryConfigDevNames);
         try {
             if (!remainingHistoryConfigs.isEmpty()) {
                 String nextObjectApiName = remainingHistoryConfigs[0].TEKCO_ObjectApiName__c;

@@ -39,6 +39,40 @@ public class TEKCO_AnonymizationBatchUtils {
         return objectApiName.endsWith(CUSTOM_OBJECT_SUFFIX) ? 'ParentId' : objectApiName + 'Id';
     }
 
+    public static List<TEKCO_AnonymizationFieldConfig__mdt> loadFieldConfigs(String objectApiName) {
+        return [
+            SELECT DeveloperName, TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c,
+                   TEKCO_PatternType__c, TEKCO_IsActive__c,
+                   TEKCO_RecordTypeDeveloperName__c, TEKCO_DeleteHistory__c
+            FROM TEKCO_AnonymizationFieldConfig__mdt
+            WHERE TEKCO_ObjectApiName__c = :objectApiName AND TEKCO_IsActive__c = true
+        ];
+    }
+
+    public static List<TEKCO_AnonymizationFieldConfig__mdt> loadFieldConfigsByDevNames(List<String> devNames) {
+        if (devNames == null || devNames.isEmpty()) return new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        return [
+            SELECT DeveloperName, TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c,
+                   TEKCO_PatternType__c, TEKCO_IsActive__c,
+                   TEKCO_RecordTypeDeveloperName__c, TEKCO_DeleteHistory__c
+            FROM TEKCO_AnonymizationFieldConfig__mdt
+            WHERE DeveloperName IN :devNames
+        ];
+    }
+
+    public static Map<String, TEKCO_AnonymizationPattern__mdt> buildPatternMap() {
+        Map<String, TEKCO_AnonymizationPattern__mdt> result = new Map<String, TEKCO_AnonymizationPattern__mdt>();
+        for (TEKCO_AnonymizationPattern__mdt p : [
+            SELECT DeveloperName, TEKCO_Description__c, TEKCO_ExternalIdField__c,
+                   TEKCO_BaseEmail__c, TEKCO_SsnLength__c, TEKCO_IsActive__c,
+                   TEKCO_RegexFind__c, TEKCO_RegexReplace__c
+            FROM TEKCO_AnonymizationPattern__mdt WHERE TEKCO_IsActive__c = true
+        ]) {
+            result.put(p.DeveloperName, p);
+        }
+        return result;
+    }
+
     /**
      * Removes and returns all configs for objectApiName from the supplied list (mutated in place).
      */

@@ -468,18 +468,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
     }
 
     private static Map<String, TEKCO_AnonymizationPattern__mdt> buildPatternMap() {
-        Map<String, TEKCO_AnonymizationPattern__mdt> result =
-            new Map<String, TEKCO_AnonymizationPattern__mdt>();
-        for (TEKCO_AnonymizationPattern__mdt p : [
-            SELECT DeveloperName, TEKCO_Description__c, TEKCO_BaseEmail__c,
-                   TEKCO_ExternalIdField__c, TEKCO_SsnLength__c, TEKCO_IsActive__c,
-                   TEKCO_RegexFind__c, TEKCO_RegexReplace__c
-            FROM TEKCO_AnonymizationPattern__mdt
-            WHERE TEKCO_IsActive__c = true
-        ]) {
-            result.put(p.DeveloperName, p);
-        }
-        return result;
+        return TEKCO_AnonymizationBatchUtils.buildPatternMap();
     }
 
     private class ChildRelationInfo {

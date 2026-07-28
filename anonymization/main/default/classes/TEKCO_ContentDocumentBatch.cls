@@ -222,9 +222,9 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         }
         Integer totalDocsDeleted = accumulatedDocumentsDeleted + recordsDeleted;
         List<TEKCO_AnonymizationFieldConfig__mdt> remainingContentDocConfigs =
-            TEKCO_AnonymizationBatch.loadFieldConfigsByDevNames(remainingContentDocConfigDevNames);
+            TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(remainingContentDocConfigDevNames);
         List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs =
-            TEKCO_AnonymizationBatch.loadFieldConfigsByDevNames(historyConfigDevNames);
+            TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(historyConfigDevNames);
         try {
             if (!remainingContentDocConfigs.isEmpty()) {
                 TEKCO_AnonymizationFieldConfig__mdt nextConfig = remainingContentDocConfigs.remove(0);

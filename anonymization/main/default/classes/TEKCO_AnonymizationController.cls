@@ -514,24 +514,7 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     private static Map<String, TEKCO_AnonymizationPattern__mdt> buildPatternMap() {
-        Map<String, TEKCO_AnonymizationPattern__mdt> patternsByType =
-            new Map<String, TEKCO_AnonymizationPattern__mdt>();
-        for (TEKCO_AnonymizationPattern__mdt patternRecord : [
-            SELECT
-                DeveloperName,
-                TEKCO_Description__c,
-                TEKCO_BaseEmail__c,
-                TEKCO_ExternalIdField__c,
-                TEKCO_SsnLength__c,
-                TEKCO_IsActive__c,
-                TEKCO_RegexFind__c,
-                TEKCO_RegexReplace__c
-            FROM TEKCO_AnonymizationPattern__mdt
-            WHERE TEKCO_IsActive__c = true
-        ]) {
-            patternsByType.put(patternRecord.DeveloperName, patternRecord);
-        }
-        return patternsByType;
+        return TEKCO_AnonymizationBatchUtils.buildPatternMap();
     }
 
       public class PreviewCountDTO {

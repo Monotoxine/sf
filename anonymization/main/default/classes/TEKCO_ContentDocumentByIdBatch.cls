@@ -141,7 +141,7 @@ public class TEKCO_ContentDocumentByIdBatch implements Database.Batchable<SObjec
             } else if (!historyConfigs.isEmpty()) {
                 String firstHistObj = historyConfigs[0].TEKCO_ObjectApiName__c;
                 List<TEKCO_AnonymizationFieldConfig__mdt> firstHistConfigs =
-                    popHistoryConfigsForObject(firstHistObj);
+                    TEKCO_AnonymizationBatchUtils.popConfigsForObject(firstHistObj, historyConfigs);
                 Database.executeBatch(
                     new TEKCO_FieldHistoryByIdBatch(
                         firstHistObj, firstHistConfigs, historyIdsByObject.get(firstHistObj),
@@ -166,7 +166,4 @@ public class TEKCO_ContentDocumentByIdBatch implements Database.Batchable<SObjec
         }
     }
 
-    private List<TEKCO_AnonymizationFieldConfig__mdt> popHistoryConfigsForObject(String obj) {
-        return TEKCO_AnonymizationBatchUtils.popConfigsForObject(obj, historyConfigs);
-    }
 }
