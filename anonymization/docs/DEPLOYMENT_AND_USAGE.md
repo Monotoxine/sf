@@ -209,6 +209,27 @@ The **Recent Runs** table shows execution history. In the By Criteria tab, only 
 
 **How the Processed count is calculated:** a record is counted only when at least one field value was actually changed. Records that were already anonymized, did not match any rule, or had all target fields blank are not counted. Phase 2 and 3 deletions are also excluded from the count.
 
+### ⚠️ Aborting a run — you must restore the bypass settings by hand
+
+**Read this before aborting a job from Setup → Apex Jobs.**
+
+When you click **Launch Anonymization**, the tool switches **every** bypass checkbox on the `TEKCO_BypassSettings__c` hierarchy custom setting to `true` for **the user who launched the run**. This is deliberate: validation rules, triggers and flows would otherwise block the anonymization DML. The original values are captured first and put back automatically when the batch chain finishes — successfully or with errors.
+
+**That automatic restore only happens in the batch's `finish()` method.** If you abort the job from **Setup → Apex Jobs → Abort**, `finish()` never runs, so **the bypass flags stay switched on indefinitely**.
+
+**Why this matters:** the flags are scoped to your user, not to the batch. Until you clear them, *every* subsequent action you take in that sandbox — manual record edits, data loads, other tooling — runs with all automation bypassed. Nothing warns you, and the effect persists across sessions.
+
+**To restore them after an abort:**
+
+1. Go to **Setup → Custom Settings → TEKCO Bypass Settings → Manage**.
+2. Find the record whose owner is **your user**.
+3. Either uncheck every checkbox to match what it was before the run, or **delete the user-level record** entirely if you did not have one before — the hierarchy then falls back to the org default.
+4. Confirm by editing any record that should fire a trigger, and check that it does.
+
+**When this does not apply:** if the org's `TEKCO_AnonymizationOrgConfig__mdt` record has `TEKCO_BypassEnabled__c = false` (currently the case for the Portugal / ALH org), the tool never touches the bypass settings at all, and aborting has no side effect on them. See section 1.14 for the per-org configuration.
+
+**Preferred alternative to aborting:** let the chain finish. Anonymization is idempotent — Phase 1 only writes a field when the anonymized value differs from the current one — so a run that completes with errors is safe, and re-launching afterwards processes only what remains. Abort only when you genuinely need to stop immediately, and clear the flags straight afterwards.
+
 ---
 
 ## 1.11 Configuring Anonymization Rules
@@ -316,6 +337,12 @@ When multiple rules apply to the same field (different Record Types), they are p
 **Applies to both chains**: the same pattern is used in the By Criteria chain (`TEKCO_AnonymizationBatch` → `TEKCO_ContentDocumentBatch` → `TEKCO_FieldHistoryBatch`) and the By ID chain (`TEKCO_AnonymizationByIdBatch` → `TEKCO_ContentDocumentByIdBatch` → `TEKCO_FieldHistoryByIdBatch`). Constructors still accept full `List<TEKCO_AnonymizationFieldConfig__mdt>` parameters and convert to DeveloperNames on entry, so callers are unaffected. Error strings are likewise truncated via `TEKCO_AnonymizationBatchUtils.cap()` and the accumulated error list is capped at `TEKCO_AnonymizationBatch.MAX_ACCUMULATED_ERRORS` in both chains. Keep the two chains symmetric when modifying either.
 
 **Resuming after a heap abort**: The anonymization is **idempotent** — Phase 1 only updates a record when the anonymized value differs from the current value. If a batch aborts mid-way, re-launching with the same parameters is safe: records already anonymized are detected and skipped automatically. Only the remaining records are processed.
+
+### Aborting a job leaves the bypass flags enabled
+
+The bypass settings are restored in the batch's `finish()` method. Aborting from **Setup → Apex Jobs** skips `finish()`, so all bypass checkboxes remain `true` for the launching user until cleared by hand — meaning that user's later work in the sandbox also runs with automation bypassed. Full instructions in section 1.10, *Aborting a run*.
+
+The same applies to any failure severe enough that `finish()` never executes at all. Failures the batch handles internally do restore the flags — both the terminal branch and the chain-error handler call `restore()`.
 
 ### ADDRESS_STREET_RANDOM — values with no valid street number
 
