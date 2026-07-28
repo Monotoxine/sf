@@ -13,6 +13,8 @@ public with sharing class TEKCO_AnonymizationByIdController {
         String targetObject,
         String externalIdField
     ) {
+        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
+
         ResolveResultDTO result = new ResolveResultDTO();
         result.directObjects   = new List<ObjectScopeDTO>();
         result.childObjects    = new List<ObjectScopeDTO>();
@@ -114,11 +116,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
         List<String> excludedFields,
         List<String> noHistoryFields
     ) {
-        if (!FeatureManagement.checkPermission('TEKCO_AnonymizeData')) {
-            throw new AuraHandledException(
-                'Permission denied: the "TEKCO Anonymize Data" custom permission is required.'
-            );
-        }
+        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
         TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
 
         if (rawIds == null || rawIds.isEmpty()) {
@@ -289,6 +287,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
 
     @AuraEnabled(cacheable=false)
     public static List<TEKCO_AnonymizationAuditLog__c> getAuditLogsByid() {
+        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
         return [
             SELECT Name, TEKCO_ObjectApiName__c, TEKCO_BrandFilter__c, TEKCO_Status__c,
                    TEKCO_RecordsProcessed__c, TEKCO_RecordsFailed__c,
@@ -304,6 +303,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
 
     @AuraEnabled(cacheable=true)
     public static List<Map<String, String>> getDirectObjects() {
+        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
         Set<String> seen = new Set<String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fc : [
             SELECT TEKCO_ObjectApiName__c
@@ -325,6 +325,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
 
     @AuraEnabled(cacheable=true)
     public static List<String> getExternalIdFieldsForObject(String objectApiName) {
+        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
         if (String.isBlank(objectApiName)) return new List<String>();
 
         Set<String> patternTypesForObj = new Set<String>();
@@ -373,19 +374,25 @@ public with sharing class TEKCO_AnonymizationByIdController {
         List<String> invalidOut
     ) {
         Map<String, List<Id>> result = new Map<String, List<Id>>();
-        try { Schema.describeSObjects(new List<String>{ objectApiName }); }
-        catch (Exception e) {
-            if (invalidOut != null) invalidOut.add(objectApiName + ' — object not found in org');
+        // Both names are client-supplied and go straight into dynamic SOQL — validate first.
+        String safeObject;
+        String safeField;
+        try {
+            safeObject = TEKCO_AnonymizationBatchUtils.requireConfiguredObject(objectApiName);
+            safeField  = TEKCO_AnonymizationBatchUtils.requireFieldOnObject(safeObject, fieldApiName);
+        } catch (Exception e) {
+            if (invalidOut != null) invalidOut.add(objectApiName + '.' + fieldApiName + ' — ' + e.getMessage());
             return result;
         }
         try {
             List<SObject> records = Database.query(
-                'SELECT Id FROM ' + objectApiName
-                + ' WHERE ' + fieldApiName + ' IN :rawValues'
+                'SELECT Id FROM ' + safeObject
+                + ' WHERE ' + safeField + ' IN :rawValues'
             );
             List<Id> ids = new List<Id>();
             for (SObject r : records) ids.add(r.Id);
-            if (!ids.isEmpty()) result.put(objectApiName, ids);
+            // Key by the canonical configured name so downstream comparisons line up.
+            if (!ids.isEmpty()) result.put(safeObject, ids);
         } catch (Exception e) {
             if (invalidOut != null) {
                 invalidOut.add(objectApiName + '.' + fieldApiName + ' — ' + e.getMessage());
@@ -454,8 +461,11 @@ public with sharing class TEKCO_AnonymizationByIdController {
     private static List<Id> resolveChildIds(
         String childObjectApiName, String parentLookupField, List<Id> parentIds
     ) {
-        try { Schema.describeSObjects(new List<String>{ childObjectApiName }); }
-        catch (Exception e) { return new List<Id>(); }
+        // Names come from CMDT (admin-managed) but still reach dynamic SOQL — validate,
+        // so a typo surfaces as a skipped object rather than a QueryException.
+        if (!TEKCO_AnonymizationOrgConfigService.hasField(childObjectApiName, parentLookupField)) {
+            return new List<Id>();
+        }
         List<Id> childIds = new List<Id>();
         try {
             List<SObject> children = Database.query(

@@ -1,4 +1,4 @@
-public class TEKCO_AnonymizationAuditService {
+public inherited sharing class TEKCO_AnonymizationAuditService {
 
     public static void finalize(
         Id auditLogId, Integer recordsProcessed, Integer recordsFailed,

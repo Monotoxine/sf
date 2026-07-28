@@ -3,7 +3,7 @@
  *              Both TEKCO_AnonymizationBatch and TEKCO_AnonymizationByIdBatch apply the same
  *              record-level patterns — only the QueryLocator scope differs between them.
  */
-public class TEKCO_AnonymizationExecuteService {
+public inherited sharing class TEKCO_AnonymizationExecuteService {
 
     private static final String  PATTERN_EMAIL_LOREM = 'EMAIL_MESSAGE_LOREM';
     private static final Integer MAX_CAPTURED_ERRORS = 50;

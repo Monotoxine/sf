@@ -4,7 +4,10 @@
  *              explicit parent IDs. Mirrors TEKCO_ContentDocumentBatch.execute() exactly;
  *              only start() differs — it filters by explicit parent IDs instead of brand/RT.
  */
-public class TEKCO_ContentDocumentByIdBatch implements Database.Batchable<SObject>, Database.Stateful {
+// Deliberately 'without sharing': anonymization must reach every record matching the
+// configured scope. Running with sharing would silently skip records the launching
+// user cannot see, leaving PII in place with no error.
+public without sharing class TEKCO_ContentDocumentByIdBatch implements Database.Batchable<SObject>, Database.Stateful {
 
     public static final Integer DEFAULT_BATCH_SIZE   = 500;
     private static final Integer MAX_CAPTURED_ERRORS = 50;

@@ -3,7 +3,10 @@
  * @description Phase 3 of the anonymization chain: deletes field history records for
  *              fields where TEKCO_AnonymizationFieldConfig__mdt.TEKCO_DeleteHistory__c = true
  */
-public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Database.Stateful {
+// Deliberately 'without sharing': anonymization must reach every record matching the
+// configured scope. Running with sharing would silently skip records the launching
+// user cannot see, leaving PII in place with no error.
+public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Database.Stateful {
 
     public static final Integer DEFAULT_BATCH_SIZE   = 2000;
     private static final Integer MAX_CAPTURED_ERRORS  = 50;

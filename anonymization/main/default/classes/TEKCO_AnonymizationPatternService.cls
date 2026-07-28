@@ -17,7 +17,7 @@
  *   DELETE_CONTENT_DOCUMENT         - Handled by dedicated batch (Phase 2)
  *   EMAIL_MESSAGE_LOREM             - Draft → lorem ipsum on the field; non-Draft → record deleted (handled in batch)
  */
-public class TEKCO_AnonymizationPatternService {
+public inherited sharing class TEKCO_AnonymizationPatternService {
 
     public static final String LOREM_TEXT =
         'Lorem ipsum dolor sit amet, consectetur adipiscing elit. ' +

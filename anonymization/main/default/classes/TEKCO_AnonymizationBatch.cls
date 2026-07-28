@@ -2,7 +2,10 @@
  * @author
  * @description Chain order: TEKCO_AnonymizationBatch → TEKCO_ContentDocumentBatch → TEKCO_FieldHistoryBatch
  */
-public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Database.Stateful {
+// Deliberately 'without sharing': anonymization must reach every record matching the
+// configured scope. Running with sharing would silently skip records the launching
+// user cannot see, leaving PII in place with no error.
+public without sharing class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Database.Stateful {
 
     public static final Integer DEFAULT_BATCH_SIZE      = 200;
     public static final Integer MAX_ACCUMULATED_ERRORS  = 200;

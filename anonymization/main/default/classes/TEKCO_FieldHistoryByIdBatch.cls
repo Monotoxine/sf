@@ -4,7 +4,10 @@
  *              TEKCO_AnonymizationFieldConfig__mdt.TEKCO_DeleteHistory__c = true.
  *              Mirrors TEKCO_FieldHistoryBatch but filters by explicit parent IDs.
  */
-public class TEKCO_FieldHistoryByIdBatch implements Database.Batchable<SObject>, Database.Stateful {
+// Deliberately 'without sharing': anonymization must reach every record matching the
+// configured scope. Running with sharing would silently skip records the launching
+// user cannot see, leaving PII in place with no error.
+public without sharing class TEKCO_FieldHistoryByIdBatch implements Database.Batchable<SObject>, Database.Stateful {
 
     public static final Integer DEFAULT_BATCH_SIZE   = 2000;
     private static final Integer MAX_CAPTURED_ERRORS = 50;

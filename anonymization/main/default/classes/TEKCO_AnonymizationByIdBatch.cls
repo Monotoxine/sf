@@ -7,7 +7,10 @@
  *                  → TEKCO_ContentDocumentByIdBatch (per object with DELETE_CONTENT_DOCUMENT)
  *                  → TEKCO_FieldHistoryByIdBatch (per object with TEKCO_DeleteHistory__c)
  */
-public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>, Database.Stateful {
+// Deliberately 'without sharing': anonymization must reach every record matching the
+// configured scope. Running with sharing would silently skip records the launching
+// user cannot see, leaving PII in place with no error.
+public without sharing class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>, Database.Stateful {
 
     public static final Integer DEFAULT_BATCH_SIZE   = 200;
     private static final Integer MAX_ACCUMULATED_ERRORS = 200;

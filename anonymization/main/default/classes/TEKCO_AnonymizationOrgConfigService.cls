@@ -3,7 +3,7 @@
  *              Falls back to a default "TEKCO mode" config when no record matches,
  *              so existing orgs need no CMDT record
  */
-public class TEKCO_AnonymizationOrgConfigService {
+public inherited sharing class TEKCO_AnonymizationOrgConfigService {
 
     public class OrgConfig {
         public String  orgDomain;

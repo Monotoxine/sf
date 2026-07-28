@@ -4,7 +4,7 @@
  *              for the running user before the anonymization batch starts, then restores the original
  *              state once the entire batch chain is complete.
  */
-public class TEKCO_AnonymizationBypassService {
+public inherited sharing class TEKCO_AnonymizationBypassService {
 
     public class BypassSnapshot {
         public Boolean              hasPreExistingRecord;

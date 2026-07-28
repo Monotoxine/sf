@@ -3,9 +3,71 @@
  *              Eliminates duplication of history-object helpers, popConfigsForObject,
  *              toDevNames, and cap across the batch classes and their By-ID mirrors.
  */
-public class TEKCO_AnonymizationBatchUtils {
+public inherited sharing class TEKCO_AnonymizationBatchUtils {
 
     private static final Integer MAX_ERROR_MSG_LENGTH = 200;
+    private static final String  ANONYMIZE_PERMISSION = 'TEKCO_AnonymizeData';
+
+    /**
+     * Gate for every @AuraEnabled entry point. The anonymization UI reads and destroys PII
+     * across arbitrary objects, so read-only endpoints are gated too — not just the ones
+     * that launch a batch.
+     */
+    public static void assertCanAnonymize() {
+        if (!FeatureManagement.checkPermission(ANONYMIZE_PERMISSION)) {
+            throw new AuraHandledException(
+                'Permission denied: the "TEKCO Anonymize Data" custom permission is required.'
+            );
+        }
+    }
+
+    /**
+     * Object API names reaching dynamic SOQL must be one the tool is configured for.
+     * Client-supplied names are otherwise concatenated straight into a query.
+     * Returns the canonical configured name, or throws.
+     */
+    private static Map<String, String> configuredObjectsByLower;
+
+    public static String requireConfiguredObject(String objectApiName) {
+        if (String.isBlank(objectApiName)) {
+            throw new AuraHandledException('Object API name is required.');
+        }
+        if (configuredObjectsByLower == null) {
+            configuredObjectsByLower = new Map<String, String>();
+            for (TEKCO_AnonymizationFieldConfig__mdt fc : [
+                SELECT TEKCO_ObjectApiName__c
+                FROM TEKCO_AnonymizationFieldConfig__mdt
+                WHERE TEKCO_IsActive__c = true AND TEKCO_ObjectApiName__c != null
+            ]) {
+                configuredObjectsByLower.put(
+                    fc.TEKCO_ObjectApiName__c.toLowerCase(), fc.TEKCO_ObjectApiName__c
+                );
+            }
+        }
+        String canonical = configuredObjectsByLower.get(objectApiName.toLowerCase());
+        if (canonical == null) {
+            throw new AuraHandledException(
+                'Object is not configured for anonymization: ' + objectApiName
+            );
+        }
+        return canonical;
+    }
+
+    /**
+     * Field API names reaching dynamic SOQL must exist on the object.
+     * Returns the supplied name when valid, otherwise throws.
+     */
+    public static String requireFieldOnObject(String objectApiName, String fieldApiName) {
+        if (String.isBlank(fieldApiName)) {
+            throw new AuraHandledException('Field API name is required.');
+        }
+        if (!TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, fieldApiName)) {
+            throw new AuraHandledException(
+                'Field does not exist on ' + objectApiName + ': ' + fieldApiName
+            );
+        }
+        return fieldApiName;
+    }
 
     /**
      * Extracts DeveloperNames from a CMDT list so callers store only lightweight strings

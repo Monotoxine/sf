@@ -7,6 +7,7 @@ public with sharing class TEKCO_AnonymizationController {
 
     @AuraEnabled(cacheable=false)
     public static List<Map<String, String>> getBrands() {
+        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
         TEKCO_AnonymizationOrgConfigService.OrgConfig cfg = TEKCO_AnonymizationOrgConfigService.getConfig();
         List<Map<String, String>> brandOptions = new List<Map<String, String>>();
 
@@ -61,6 +62,7 @@ public with sharing class TEKCO_AnonymizationController {
 
     @AuraEnabled(cacheable=true)
     public static List<Map<String, String>> getObjects() {
+        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
         Set<String> objectNames = new Set<String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fc : [
             SELECT TEKCO_ObjectApiName__c
@@ -91,6 +93,7 @@ public with sharing class TEKCO_AnonymizationController {
 
     @AuraEnabled(cacheable=true)
     public static List<Map<String, String>> getRecordTypes(List<String> selectedObjects) {
+        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
         if (selectedObjects == null || selectedObjects.isEmpty()) return new List<Map<String, String>>();
         Map<String, String> lowerToOriginal = new Map<String, String>();
         Map<String, Set<String>> rtsByObject = new Map<String, Set<String>>();
@@ -127,6 +130,7 @@ public with sharing class TEKCO_AnonymizationController {
 
     @AuraEnabled(cacheable=true)
     public static List<FieldConfigDTO> getFieldConfigs(List<String> selectedObjects) {
+        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
         // Empty selection means "all objects" — bind every configured name so a single
         // query covers both cases instead of duplicating the projection.
         List<String> objectFilter = (selectedObjects == null || selectedObjects.isEmpty())
@@ -183,9 +187,18 @@ public with sharing class TEKCO_AnonymizationController {
         List<String> selectedObjects,
         List<String> selectedRecordTypes
     ) {
-        List<String> objectsToCount = (selectedObjects != null && !selectedObjects.isEmpty())
-            ? selectedObjects
-            : getObjectApiNames();
+        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
+
+        // selectedObjects is client-supplied and reaches Database.countQuery below —
+        // resolve each against the configured set rather than concatenating it raw.
+        List<String> objectsToCount = new List<String>();
+        if (selectedObjects != null && !selectedObjects.isEmpty()) {
+            for (String obj : selectedObjects) {
+                objectsToCount.add(TEKCO_AnonymizationBatchUtils.requireConfiguredObject(obj));
+            }
+        } else {
+            objectsToCount = getObjectApiNames();
+        }
 
         List<String> countryValues = (selectedBrands != null && !selectedBrands.isEmpty())
             ? TEKCO_AnonymizationOrgConfigService.getCountriesForBrands(selectedBrands)
@@ -296,6 +309,7 @@ public with sharing class TEKCO_AnonymizationController {
 
     @AuraEnabled(cacheable=false)
     public static List<TEKCO_AnonymizationAuditLog__c> getAuditLogs() {
+        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
         return [
             SELECT
                 Name,
@@ -325,11 +339,7 @@ public with sharing class TEKCO_AnonymizationController {
         List<String> selectedRecordTypes,
         List<String> disabledHistoryFields
     ) {
-        if (!FeatureManagement.checkPermission('TEKCO_AnonymizeData')) {
-            throw new AuraHandledException(
-                'Permission denied: the "TEKCO Anonymize Data" custom permission is required.'
-            );
-        }
+        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
 
         TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
 
