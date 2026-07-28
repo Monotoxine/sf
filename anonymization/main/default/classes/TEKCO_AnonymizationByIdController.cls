@@ -98,7 +98,10 @@ public with sharing class TEKCO_AnonymizationByIdController {
                         brandSet.add((String) r.get('TEKCO_Brand__c'));
                     }
                 }
-            } catch (Exception e) {  }
+            } catch (Exception e) {
+                System.debug(LoggingLevel.WARN,
+                    'Brand collection failed for ' + obj + ': ' + e.getMessage());
+            }
         }
         List<String> brandList = new List<String>(brandSet);
         brandList.sort();
@@ -219,6 +222,11 @@ public with sharing class TEKCO_AnonymizationByIdController {
             }
         }
 
+        // Surface configs whose pattern type resolves to nothing — they would otherwise
+        // be skipped silently at execute() time.
+        List<String> startupWarnings =
+            TEKCO_AnonymizationBatchUtils.validatePatternTypes(scopedConfigs);
+
         Map<String, TEKCO_AnonymizationPattern__mdt> patternsByType = TEKCO_AnonymizationBatchUtils.buildPatternMap();
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot =
             TEKCO_AnonymizationBypassService.activate();
@@ -253,7 +261,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
                     patternsByType, auditLog.Id, remainingObjectIds,
                     contentDocConfigs, contentDocIdsByObject,
                     historyConfigs, historyIdsByObject,
-                    bypassSnapshot, new List<String>(), 0, 0
+                    bypassSnapshot, startupWarnings, 0, 0
                 ),
                 TEKCO_AnonymizationByIdBatch.DEFAULT_BATCH_SIZE
             );
@@ -265,7 +273,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
                     firstObj, contentDocIdsByObject.get(firstObj), auditLog.Id,
                     contentDocConfigs, contentDocIdsByObject,
                     historyConfigs, historyIdsByObject,
-                    bypassSnapshot, new List<String>(), 0, 0, 0
+                    bypassSnapshot, startupWarnings, 0, 0, 0
                 ),
                 TEKCO_ContentDocumentByIdBatch.DEFAULT_BATCH_SIZE
             );
@@ -473,7 +481,10 @@ public with sharing class TEKCO_AnonymizationByIdController {
                 + ' WHERE ' + parentLookupField + ' IN :parentIds'
             );
             for (SObject child : children) childIds.add(child.Id);
-        } catch (Exception e) { }
+        } catch (Exception e) {
+            System.debug(LoggingLevel.WARN, 'Child resolution failed for '
+                + childObjectApiName + '.' + parentLookupField + ': ' + e.getMessage());
+        }
         return childIds;
     }
 

@@ -244,7 +244,11 @@ public without sharing class TEKCO_AnonymizationByIdBatch implements Database.Ba
                 auditLogId, totalProcessed, totalFailed, accumulatedErrors
             );
         } catch (Exception e) {
-            try { TEKCO_AnonymizationBypassService.restore(bypassSnapshot); } catch (Exception ex) {}
+            try {
+                TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
+            } catch (Exception ex) {
+                System.debug(LoggingLevel.ERROR, 'Bypass restore failed; flags may remain enabled: ' + ex.getMessage());
+            }
             TEKCO_AnonymizationAuditService.closeFailed(
                 auditLogId, totalProcessed, totalFailed, 0, 0, accumulatedErrors, e.getMessage()
             );

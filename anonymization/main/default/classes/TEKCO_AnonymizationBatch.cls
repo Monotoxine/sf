@@ -314,7 +314,9 @@ public without sharing class TEKCO_AnonymizationBatch implements Database.Batcha
         } catch (Exception e) {
             try {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-            } catch (Exception restoreEx) {  }
+            } catch (Exception restoreEx) {
+                System.debug(LoggingLevel.ERROR, 'Bypass restore failed; flags may remain enabled: ' + restoreEx.getMessage());
+            }
             TEKCO_AnonymizationAuditService.closeFailed(auditLogId, totalProcessed, totalFailed, 0, 0, accumulatedErrors, e.getMessage());
         }
     }

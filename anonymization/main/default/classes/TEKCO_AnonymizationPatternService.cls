@@ -120,7 +120,10 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
                 if (functionalId != null && String.isNotBlank(String.valueOf(functionalId))) {
                     return String.valueOf(functionalId);
                 }
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                System.debug(LoggingLevel.WARN,
+                    'Functional ID field unreadable on record: ' + e.getMessage());
+            }
         }
 
         return getSalesforceId(record);

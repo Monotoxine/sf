@@ -170,20 +170,13 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
     }
 
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
-        Database.DeleteResult[] deleteResults = Database.delete(scope, false);
-        for (Database.DeleteResult deleteResult : deleteResults) {
-            if (deleteResult.isSuccess()) {
-                recordsDeleted++;
-            } else {
-                recordsFailed++;
-                if (errors.size() < MAX_CAPTURED_ERRORS) {
-                    List<String> errorMessages = new List<String>();
-                    for (Database.Error dmlError : deleteResult.getErrors()) {
-                        errorMessages.add(dmlError.getMessage());
-                    }
-                    errors.add(TEKCO_AnonymizationBatchUtils.cap(String.join(errorMessages, '; ')));
-                }
-            }
+        TEKCO_FieldHistoryDeleteService.DeleteOutcome outcome =
+            TEKCO_FieldHistoryDeleteService.deleteHistoryRecords(scope);
+
+        recordsDeleted += outcome.recordsDeleted;
+        recordsFailed  += outcome.recordsFailed;
+        for (String e : outcome.errors) {
+            if (errors.size() < MAX_CAPTURED_ERRORS) errors.add(e);
         }
     }
 
@@ -234,7 +227,9 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
         } catch (Exception e) {
             try {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-            } catch (Exception restoreEx) { }
+            } catch (Exception restoreEx) {
+                System.debug(LoggingLevel.ERROR, 'Bypass restore failed; flags may remain enabled: ' + restoreEx.getMessage());
+            }
             TEKCO_AnonymizationAuditService.closeFailed(
                 auditLogId, accumulatedRecordsProcessed, totalFailed,
                 accumulatedDocumentsDeleted, totalHistoryDeleted, accumulatedErrors, e.getMessage()

@@ -70,6 +70,42 @@ public inherited sharing class TEKCO_AnonymizationBatchUtils {
     }
 
     /**
+     * Field configs whose TEKCO_PatternType__c has no matching active
+     * TEKCO_AnonymizationPattern__mdt are skipped silently by
+     * TEKCO_AnonymizationExecuteService (the `pattern == null` continue) — the field is
+     * never anonymized and nothing reports it. Surfaced at launch instead, as warnings
+     * seeded into the audit log so the run still processes the valid configs.
+     *
+     * DELETE_CONTENT_DOCUMENT and EMAIL_MESSAGE_LOREM are handled by dedicated batches and
+     * need no pattern record.
+     */
+    public static List<String> validatePatternTypes(
+        List<TEKCO_AnonymizationFieldConfig__mdt> configs
+    ) {
+        List<String> warnings = new List<String>();
+        if (configs == null || configs.isEmpty()) return warnings;
+
+        Set<String> handledElsewhere = new Set<String>{
+            'DELETE_CONTENT_DOCUMENT', 'EMAIL_MESSAGE_LOREM'
+        };
+        Map<String, TEKCO_AnonymizationPattern__mdt> active = buildPatternMap();
+
+        Set<String> reported = new Set<String>();
+        for (TEKCO_AnonymizationFieldConfig__mdt fc : configs) {
+            String patternType = fc.TEKCO_PatternType__c;
+            if (String.isBlank(patternType) || handledElsewhere.contains(patternType)) continue;
+            if (active.containsKey(patternType)) continue;
+            if (!reported.add(patternType)) continue;
+            warnings.add(cap(
+                'Config warning: pattern type "' + patternType + '" has no active '
+                + 'TEKCO_AnonymizationPattern__mdt record. Fields using it will be left unchanged '
+                + '(e.g. ' + fc.TEKCO_ObjectApiName__c + '.' + fc.TEKCO_FieldApiName__c + ').'
+            ));
+        }
+        return warnings;
+    }
+
+    /**
      * Extracts DeveloperNames from a CMDT list so callers store only lightweight strings
      * in stateful batch fields instead of full SObjects.
      */
@@ -114,7 +150,11 @@ public inherited sharing class TEKCO_AnonymizationBatchUtils {
             TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
             return true;
         } catch (Exception e) {
-            try { TEKCO_AnonymizationBypassService.restore(bypassSnapshot); } catch (Exception ex) {}
+            try {
+                TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
+            } catch (Exception ex) {
+                System.debug(LoggingLevel.ERROR, 'Bypass restore failed; flags may remain enabled: ' + ex.getMessage());
+            }
             TEKCO_AnonymizationAuditService.closeFailed(
                 auditLogId, 0, 0, 0, 0, new List<String>(), e.getMessage()
             );

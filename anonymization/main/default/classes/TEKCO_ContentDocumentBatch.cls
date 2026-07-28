@@ -10,7 +10,9 @@
 // user cannot see, leaving PII in place with no error.
 public without sharing class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, Database.Stateful {
 
-    public static final Integer DEFAULT_BATCH_SIZE   = 500;
+    // Kept low deliberately: each parent can own many ContentDocuments/Attachments,
+    // and every one of them counts against the 10 000-row DML ceiling for the chunk.
+    public static final Integer DEFAULT_BATCH_SIZE   = 100;
     private static final Integer MAX_CAPTURED_ERRORS  = 50;
 
     private String                                        objectApiName;
@@ -154,83 +156,15 @@ public without sharing class TEKCO_ContentDocumentBatch implements Database.Batc
 
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
         Set<Id> parentIds = new Set<Id>();
-        for (SObject record : scope) {
-            parentIds.add(record.Id);
-        }
-        if (parentIds.isEmpty()) return;
+        for (SObject record : scope) parentIds.add(record.Id);
 
-        // ServiceReports (must be deleted before ContentDocument) 
-        try {
-            List<SObject> serviceReports = Database.query(
-                'SELECT Id FROM ServiceReport WHERE ParentId IN :parentIds'
-            );
-            if (!serviceReports.isEmpty()) {
-                for (Database.DeleteResult dr : Database.delete(serviceReports, false)) {
-                    if (dr.isSuccess()) {
-                        recordsDeleted++;
-                    } else {
-                        recordsFailed++;
-                        if (errors.size() < MAX_CAPTURED_ERRORS) {
-                            List<String> msgs = new List<String>();
-                            for (Database.Error e : dr.getErrors()) msgs.add(e.getMessage());
-                            errors.add(TEKCO_AnonymizationBatchUtils.cap(
-                                'ServiceReport ' + dr.getId() + ': ' + String.join(msgs, '; ')));
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            // ServiceReport not available in this org — skip
-        }
+        TEKCO_ContentDocumentDeleteService.DeleteOutcome outcome =
+            TEKCO_ContentDocumentDeleteService.deleteForParentIds(parentIds);
 
-        // ContentDocuments 
-        List<ContentDocumentLink> cdLinks = [
-            SELECT ContentDocumentId
-            FROM ContentDocumentLink
-            WHERE LinkedEntityId IN :parentIds
-        ];
-        if (!cdLinks.isEmpty()) {
-            Set<Id> contentDocumentIds = new Set<Id>();
-            for (ContentDocumentLink cdl : cdLinks) {
-                contentDocumentIds.add(cdl.ContentDocumentId);
-            }
-            List<ContentDocument> toDelete = new List<ContentDocument>();
-            for (Id cdId : contentDocumentIds) {
-                toDelete.add(new ContentDocument(Id = cdId));
-            }
-            Database.DeleteResult[] deleteResults = Database.delete(toDelete, false);
-            for (Database.DeleteResult dr : deleteResults) {
-                if (dr.isSuccess()) {
-                    recordsDeleted++;
-                } else {
-                    recordsFailed++;
-                    if (errors.size() < MAX_CAPTURED_ERRORS) {
-                        List<String> msgs = new List<String>();
-                        for (Database.Error e : dr.getErrors()) msgs.add(e.getMessage());
-                        errors.add(TEKCO_AnonymizationBatchUtils.cap(String.join(msgs, '; ')));
-                    }
-                }
-            }
-        }
-
-        // Attachments 
-        List<Attachment> attachments = [
-            SELECT Id FROM Attachment WHERE ParentId IN :parentIds
-        ];
-        if (!attachments.isEmpty()) {
-            Database.DeleteResult[] deleteResults = Database.delete(attachments, false);
-            for (Database.DeleteResult dr : deleteResults) {
-                if (dr.isSuccess()) {
-                    recordsDeleted++;
-                } else {
-                    recordsFailed++;
-                    if (errors.size() < MAX_CAPTURED_ERRORS) {
-                        List<String> msgs = new List<String>();
-                        for (Database.Error e : dr.getErrors()) msgs.add(e.getMessage());
-                        errors.add(TEKCO_AnonymizationBatchUtils.cap(String.join(msgs, '; ')));
-                    }
-                }
-            }
+        recordsDeleted += outcome.recordsDeleted;
+        recordsFailed  += outcome.recordsFailed;
+        for (String e : outcome.errors) {
+            if (errors.size() < MAX_CAPTURED_ERRORS) errors.add(e);
         }
     }
 
@@ -302,7 +236,9 @@ public without sharing class TEKCO_ContentDocumentBatch implements Database.Batc
         } catch (Exception e) {
             try {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-            } catch (Exception restoreEx) {}
+            } catch (Exception restoreEx) {
+                System.debug(LoggingLevel.ERROR, 'Bypass restore failed; flags may remain enabled: ' + restoreEx.getMessage());
+            }
             TEKCO_AnonymizationAuditService.closeFailed(
                 auditLogId, accumulatedRecordsProcessed, totalFailed,
                 totalDocsDeleted, 0, accumulatedErrors, e.getMessage()

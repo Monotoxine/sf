@@ -104,20 +104,14 @@ public without sharing class TEKCO_FieldHistoryByIdBatch implements Database.Bat
         }
     }
 
-    // Identical to TEKCO_FieldHistoryBatch.execute()
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
-        Database.DeleteResult[] deleteResults = Database.delete(scope, false);
-        for (Database.DeleteResult dr : deleteResults) {
-            if (dr.isSuccess()) {
-                recordsDeleted++;
-            } else {
-                recordsFailed++;
-                if (errors.size() < MAX_CAPTURED_ERRORS) {
-                    List<String> msgs = new List<String>();
-                    for (Database.Error e : dr.getErrors()) msgs.add(e.getMessage());
-                    errors.add(TEKCO_AnonymizationBatchUtils.cap(String.join(msgs, '; ')));
-                }
-            }
+        TEKCO_FieldHistoryDeleteService.DeleteOutcome outcome =
+            TEKCO_FieldHistoryDeleteService.deleteHistoryRecords(scope);
+
+        recordsDeleted += outcome.recordsDeleted;
+        recordsFailed  += outcome.recordsFailed;
+        for (String e : outcome.errors) {
+            if (errors.size() < MAX_CAPTURED_ERRORS) errors.add(e);
         }
     }
 
@@ -159,7 +153,11 @@ public without sharing class TEKCO_FieldHistoryByIdBatch implements Database.Bat
                 auditLogId, accumulatedRecordsProcessed, totalFailed, accumulatedErrors
             );
         } catch (Exception e) {
-            try { TEKCO_AnonymizationBypassService.restore(bypassSnapshot); } catch (Exception ex) {}
+            try {
+                TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
+            } catch (Exception ex) {
+                System.debug(LoggingLevel.ERROR, 'Bypass restore failed; flags may remain enabled: ' + ex.getMessage());
+            }
             TEKCO_AnonymizationAuditService.closeFailed(
                 auditLogId, accumulatedRecordsProcessed, totalFailed,
                 accumulatedDocumentsDeleted, totalHistoryDeleted, accumulatedErrors, e.getMessage()

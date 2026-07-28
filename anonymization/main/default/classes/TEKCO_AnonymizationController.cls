@@ -431,6 +431,11 @@ public with sharing class TEKCO_AnonymizationController {
             }
         }
 
+        // Surface configs whose pattern type resolves to nothing — they would otherwise
+        // be skipped silently at execute() time.
+        List<String> startupWarnings =
+            TEKCO_AnonymizationBatchUtils.validatePatternTypes(allFieldConfigs);
+
         List<String> objectsToProcess = new List<String>();
         for (String objectApiName : selectedObjects) {
             if (configsByObject.containsKey(objectApiName)) objectsToProcess.add(objectApiName);
@@ -467,7 +472,7 @@ public with sharing class TEKCO_AnonymizationController {
                     contentDocConfigs,
                     historyConfigs,
                     bypassSnapshot,
-                    new List<String>(),
+                    startupWarnings,
                     0,
                     0,
                     parentFiltersByObject,
@@ -485,7 +490,7 @@ public with sharing class TEKCO_AnonymizationController {
                     contentDocConfigs,
                     historyConfigs,
                     bypassSnapshot,
-                    new List<String>(),
+                    startupWarnings,
                     0,
                     0,
                     0,
