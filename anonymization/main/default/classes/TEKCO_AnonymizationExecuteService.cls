@@ -5,8 +5,9 @@
  */
 public class TEKCO_AnonymizationExecuteService {
 
-    private static final String  PATTERN_EMAIL_LOREM = 'EMAIL_MESSAGE_LOREM';
-    private static final Integer MAX_CAPTURED_ERRORS = 50;
+    private static final String  PATTERN_EMAIL_LOREM  = 'EMAIL_MESSAGE_LOREM';
+    private static final Integer MAX_CAPTURED_ERRORS  = 50;
+    private static final Integer MAX_ERROR_MSG_LENGTH = 200;
 
     public class ExecuteResult {
         public Integer      recordsProcessed = 0;
@@ -83,7 +84,7 @@ public class TEKCO_AnonymizationExecuteService {
                     if (result.errors.size() < MAX_CAPTURED_ERRORS) {
                         List<String> msgs = new List<String>();
                         for (Database.Error e : sr.getErrors()) msgs.add(e.getMessage());
-                        result.errors.add(sr.getId() + ': ' + String.join(msgs, '; '));
+                        result.errors.add(cap(sr.getId() + ': ' + String.join(msgs, '; ')));
                     }
                 }
             }
@@ -98,12 +99,18 @@ public class TEKCO_AnonymizationExecuteService {
                     if (result.errors.size() < MAX_CAPTURED_ERRORS) {
                         List<String> msgs = new List<String>();
                         for (Database.Error e : dr.getErrors()) msgs.add(e.getMessage());
-                        result.errors.add('Delete ' + dr.getId() + ': ' + String.join(msgs, '; '));
+                        result.errors.add(cap('Delete ' + dr.getId() + ': ' + String.join(msgs, '; ')));
                     }
                 }
             }
         }
 
         return result;
+    }
+
+    private static String cap(String s) {
+        return (s != null && s.length() > MAX_ERROR_MSG_LENGTH)
+            ? s.substring(0, MAX_ERROR_MSG_LENGTH)
+            : s;
     }
 }

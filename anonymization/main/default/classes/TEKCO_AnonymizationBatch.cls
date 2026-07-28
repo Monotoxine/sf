@@ -4,8 +4,8 @@
  */
 public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Database.Stateful {
 
-    public static final Integer DEFAULT_BATCH_SIZE = 200;
-    private static final Integer MAX_ACCUMULATED_ERRORS = 200;
+    public static final Integer DEFAULT_BATCH_SIZE      = 200;
+    public static final Integer MAX_ACCUMULATED_ERRORS  = 200;
     private static final String PATTERN_TYPE_EMAIL_MESSAGE_LOREM = 'EMAIL_MESSAGE_LOREM';
 
     private String                                        objectApiName;
@@ -222,7 +222,9 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
 
     public void finish(Database.BatchableContext bc) {
         for (String e : errors) {
-            if (accumulatedErrors.size() < MAX_ACCUMULATED_ERRORS) accumulatedErrors.add(e);
+            if (accumulatedErrors.size() < MAX_ACCUMULATED_ERRORS) {
+                accumulatedErrors.add(e.length() > 200 ? e.substring(0, 200) : e);
+            }
         }
         Integer totalProcessed = accumulatedRecordsProcessed + recordsProcessed;
         List<TEKCO_AnonymizationFieldConfig__mdt> contentDocConfigs =

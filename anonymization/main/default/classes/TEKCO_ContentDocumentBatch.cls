@@ -7,8 +7,9 @@
  */
 public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, Database.Stateful {
 
-    public static final Integer DEFAULT_BATCH_SIZE  = 500;
-    private static final Integer MAX_CAPTURED_ERRORS = 50;
+    public static final Integer DEFAULT_BATCH_SIZE   = 500;
+    private static final Integer MAX_CAPTURED_ERRORS  = 50;
+    private static final Integer MAX_ERROR_MSG_LENGTH = 200;
 
     private String                                        objectApiName;
     private String                                        recordTypeDvName;
@@ -187,7 +188,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                     if (errors.size() < MAX_CAPTURED_ERRORS) {
                         List<String> msgs = new List<String>();
                         for (Database.Error e : dr.getErrors()) msgs.add(e.getMessage());
-                        errors.add(String.join(msgs, '; '));
+                        errors.add(cap(String.join(msgs, '; ')));
                     }
                 }
             }
@@ -207,7 +208,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                     if (errors.size() < MAX_CAPTURED_ERRORS) {
                         List<String> msgs = new List<String>();
                         for (Database.Error e : dr.getErrors()) msgs.add(e.getMessage());
-                        errors.add(String.join(msgs, '; '));
+                        errors.add(cap(String.join(msgs, '; ')));
                     }
                 }
             }
@@ -215,7 +216,11 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
     }
 
     public void finish(Database.BatchableContext bc) {
-        accumulatedErrors.addAll(errors);
+        for (String e : errors) {
+            if (accumulatedErrors.size() < TEKCO_AnonymizationBatch.MAX_ACCUMULATED_ERRORS) {
+                accumulatedErrors.add(e);
+            }
+        }
         Integer totalDocsDeleted = accumulatedDocumentsDeleted + recordsDeleted;
         List<TEKCO_AnonymizationFieldConfig__mdt> remainingContentDocConfigs =
             TEKCO_AnonymizationBatch.loadFieldConfigsByDevNames(remainingContentDocConfigDevNames);
@@ -280,6 +285,12 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
     }
 
 
+
+    private static String cap(String s) {
+        return (s != null && s.length() > MAX_ERROR_MSG_LENGTH)
+            ? s.substring(0, MAX_ERROR_MSG_LENGTH)
+            : s;
+    }
 
     private static List<String> toDevNames(List<TEKCO_AnonymizationFieldConfig__mdt> configs) {
         List<String> names = new List<String>();

@@ -5,8 +5,9 @@
  */
 public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Database.Stateful {
 
-    public static final Integer DEFAULT_BATCH_SIZE  = 2000;
-    private static final Integer MAX_CAPTURED_ERRORS = 50;
+    public static final Integer DEFAULT_BATCH_SIZE   = 2000;
+    private static final Integer MAX_CAPTURED_ERRORS  = 50;
+    private static final Integer MAX_ERROR_MSG_LENGTH = 200;
 
     private String                                        objectApiName;
     private List<String>                                  objectHistoryConfigDevNames;
@@ -173,14 +174,18 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
                     for (Database.Error dmlError : deleteResult.getErrors()) {
                         errorMessages.add(dmlError.getMessage());
                     }
-                    errors.add(String.join(errorMessages, '; '));
+                    errors.add(cap(String.join(errorMessages, '; ')));
                 }
             }
         }
     }
 
     public void finish(Database.BatchableContext bc) {
-        accumulatedErrors.addAll(errors);
+        for (String e : errors) {
+            if (accumulatedErrors.size() < TEKCO_AnonymizationBatch.MAX_ACCUMULATED_ERRORS) {
+                accumulatedErrors.add(e);
+            }
+        }
         Integer totalHistoryDeleted = accumulatedHistoryRecordsDeleted + recordsDeleted;
         List<TEKCO_AnonymizationFieldConfig__mdt> remainingHistoryConfigs =
             TEKCO_AnonymizationBatch.loadFieldConfigsByDevNames(remainingHistoryConfigDevNames);
@@ -231,6 +236,12 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
 
     private static String computeParentIdFieldName(String objectApiName) {
         return TEKCO_AnonymizationBatchUtils.computeParentIdFieldName(objectApiName);
+    }
+
+    private static String cap(String s) {
+        return (s != null && s.length() > MAX_ERROR_MSG_LENGTH)
+            ? s.substring(0, MAX_ERROR_MSG_LENGTH)
+            : s;
     }
 
     private static List<String> toDevNames(List<TEKCO_AnonymizationFieldConfig__mdt> configs) {
