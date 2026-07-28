@@ -177,8 +177,13 @@ public with sharing class TEKCO_AnonymizationByIdController {
 
         List<String> objectsToProcess = new List<String>(allIdsByObject.keySet());
 
+        // DeveloperName is required: these configs are handed to the batch constructors, which
+        // reduce them to DeveloperNames for stateful storage (TEKCO_AnonymizationBatchUtils
+        // .toDevNames) and re-query the full records later. Omitting it here throws
+        // "SObject row was retrieved via SOQL without querying the requested field" in start().
         List<TEKCO_AnonymizationFieldConfig__mdt> scopedConfigs = [
-            SELECT TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c, TEKCO_PatternType__c,
+            SELECT DeveloperName,
+                   TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c, TEKCO_PatternType__c,
                    TEKCO_IsActive__c, TEKCO_RecordTypeDeveloperName__c, TEKCO_DeleteHistory__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
             WHERE TEKCO_IsActive__c = true
