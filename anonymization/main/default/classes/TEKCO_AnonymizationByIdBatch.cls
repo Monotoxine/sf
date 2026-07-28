@@ -172,7 +172,7 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
     public void finish(Database.BatchableContext bc) {
         for (String e : errors) {
             if (accumulatedErrors.size() < MAX_ACCUMULATED_ERRORS) {
-                accumulatedErrors.add(e.length() > 200 ? e.substring(0, 200) : e);
+                accumulatedErrors.add(TEKCO_AnonymizationBatchUtils.cap(e));
             }
         }
         Integer totalProcessed = accumulatedRecordsProcessed + recordsProcessed;

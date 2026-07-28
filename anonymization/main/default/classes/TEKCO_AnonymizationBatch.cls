@@ -52,8 +52,8 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         this.selectedBrands       = selectedBrands    != null ? selectedBrands    : new List<String>();
         this.auditLogId           = auditLogId;
         this.remainingObjects  = remainingObjects  != null ? remainingObjects  : new List<String>();
-        this.contentDocConfigDevNames = toDevNames(contentDocConfigs);
-        this.historyConfigDevNames    = toDevNames(historyConfigs);
+        this.contentDocConfigDevNames = TEKCO_AnonymizationBatchUtils.toDevNames(contentDocConfigs);
+        this.historyConfigDevNames    = TEKCO_AnonymizationBatchUtils.toDevNames(historyConfigs);
         this.bypassSnapshot             = bypassSnapshot;
         this.accumulatedErrors          = accumulatedErrors != null ? accumulatedErrors : new List<String>();
         this.accumulatedRecordsProcessed = accumulatedRecordsProcessed != null ? accumulatedRecordsProcessed : 0;
@@ -223,7 +223,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     public void finish(Database.BatchableContext bc) {
         for (String e : errors) {
             if (accumulatedErrors.size() < MAX_ACCUMULATED_ERRORS) {
-                accumulatedErrors.add(e.length() > 200 ? e.substring(0, 200) : e);
+                accumulatedErrors.add(TEKCO_AnonymizationBatchUtils.cap(e));
             }
         }
         Integer totalProcessed = accumulatedRecordsProcessed + recordsProcessed;
@@ -275,7 +275,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
             } else if (!historyConfigs.isEmpty()) {
                 String firstHistoryObject = historyConfigs[0].TEKCO_ObjectApiName__c;
                 List<TEKCO_AnonymizationFieldConfig__mdt> firstObjectHistoryConfigs =
-                    popConfigsForObject(firstHistoryObject, historyConfigs);
+                    TEKCO_AnonymizationBatchUtils.popConfigsForObject(firstHistoryObject, historyConfigs);
                 Database.executeBatch(
                     new TEKCO_FieldHistoryBatch(
                         firstHistoryObject,
@@ -365,22 +365,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
             result.put(p.DeveloperName, p);
         }
         return result;
-    }
-
-    private static List<TEKCO_AnonymizationFieldConfig__mdt> popConfigsForObject(
-        String objectApiName,
-        List<TEKCO_AnonymizationFieldConfig__mdt> configs
-    ) {
-        return TEKCO_AnonymizationBatchUtils.popConfigsForObject(objectApiName, configs);
-    }
-
-    private static List<String> toDevNames(List<TEKCO_AnonymizationFieldConfig__mdt> configs) {
-        List<String> names = new List<String>();
-        if (configs == null) return names;
-        for (TEKCO_AnonymizationFieldConfig__mdt c : configs) {
-            if (String.isNotBlank(c.DeveloperName)) names.add(c.DeveloperName);
-        }
-        return names;
     }
 
 }

@@ -9,7 +9,6 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
 
     public static final Integer DEFAULT_BATCH_SIZE   = 500;
     private static final Integer MAX_CAPTURED_ERRORS  = 50;
-    private static final Integer MAX_ERROR_MSG_LENGTH = 200;
 
     private String                                        objectApiName;
     private String                                        recordTypeDvName;
@@ -47,8 +46,8 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         this.selectedBrands             = selectedBrands             != null
             ? selectedBrands : new List<String>();
         this.auditLogId                 = auditLogId;
-        this.remainingContentDocConfigDevNames = toDevNames(remainingContentDocConfigs);
-        this.historyConfigDevNames             = toDevNames(historyConfigs);
+        this.remainingContentDocConfigDevNames = TEKCO_AnonymizationBatchUtils.toDevNames(remainingContentDocConfigs);
+        this.historyConfigDevNames             = TEKCO_AnonymizationBatchUtils.toDevNames(historyConfigs);
         this.bypassSnapshot              = bypassSnapshot;
         this.accumulatedErrors           = accumulatedErrors           != null ? accumulatedErrors           : new List<String>();
         this.accumulatedRecordsProcessed = accumulatedRecordsProcessed != null ? accumulatedRecordsProcessed : 0;
@@ -188,7 +187,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                     if (errors.size() < MAX_CAPTURED_ERRORS) {
                         List<String> msgs = new List<String>();
                         for (Database.Error e : dr.getErrors()) msgs.add(e.getMessage());
-                        errors.add(cap(String.join(msgs, '; ')));
+                        errors.add(TEKCO_AnonymizationBatchUtils.cap(String.join(msgs, '; ')));
                     }
                 }
             }
@@ -208,7 +207,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                     if (errors.size() < MAX_CAPTURED_ERRORS) {
                         List<String> msgs = new List<String>();
                         for (Database.Error e : dr.getErrors()) msgs.add(e.getMessage());
-                        errors.add(cap(String.join(msgs, '; ')));
+                        errors.add(TEKCO_AnonymizationBatchUtils.cap(String.join(msgs, '; ')));
                     }
                 }
             }
@@ -285,20 +284,5 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
     }
 
 
-
-    private static String cap(String s) {
-        return (s != null && s.length() > MAX_ERROR_MSG_LENGTH)
-            ? s.substring(0, MAX_ERROR_MSG_LENGTH)
-            : s;
-    }
-
-    private static List<String> toDevNames(List<TEKCO_AnonymizationFieldConfig__mdt> configs) {
-        List<String> names = new List<String>();
-        if (configs == null) return names;
-        for (TEKCO_AnonymizationFieldConfig__mdt c : configs) {
-            if (String.isNotBlank(c.DeveloperName)) names.add(c.DeveloperName);
-        }
-        return names;
-    }
 
 }

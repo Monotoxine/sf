@@ -7,7 +7,6 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
 
     public static final Integer DEFAULT_BATCH_SIZE   = 2000;
     private static final Integer MAX_CAPTURED_ERRORS  = 50;
-    private static final Integer MAX_ERROR_MSG_LENGTH = 200;
 
     private String                                        objectApiName;
     private List<String>                                  objectHistoryConfigDevNames;
@@ -41,10 +40,10 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         Map<String, String> additionalFiltersByObject
     ) {
         this.objectApiName                = objectApiName;
-        this.objectHistoryConfigDevNames  = toDevNames(objectHistoryConfigs);
-        this.selectedBrands               = selectedBrands != null ? selectedBrands : new List<String>();
-        this.auditLogId                   = auditLogId;
-        this.remainingHistoryConfigDevNames = toDevNames(remainingHistoryConfigs);
+        this.objectHistoryConfigDevNames    = TEKCO_AnonymizationBatchUtils.toDevNames(objectHistoryConfigs);
+        this.selectedBrands                 = selectedBrands != null ? selectedBrands : new List<String>();
+        this.auditLogId                     = auditLogId;
+        this.remainingHistoryConfigDevNames = TEKCO_AnonymizationBatchUtils.toDevNames(remainingHistoryConfigs);
         this.bypassSnapshot                   = bypassSnapshot;
         this.accumulatedErrors                = accumulatedErrors                != null ? accumulatedErrors                : new List<String>();
         this.accumulatedRecordsProcessed      = accumulatedRecordsProcessed      != null ? accumulatedRecordsProcessed      : 0;
@@ -174,7 +173,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
                     for (Database.Error dmlError : deleteResult.getErrors()) {
                         errorMessages.add(dmlError.getMessage());
                     }
-                    errors.add(cap(String.join(errorMessages, '; ')));
+                    errors.add(TEKCO_AnonymizationBatchUtils.cap(String.join(errorMessages, '; ')));
                 }
             }
         }
@@ -236,21 +235,6 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
 
     private static String computeParentIdFieldName(String objectApiName) {
         return TEKCO_AnonymizationBatchUtils.computeParentIdFieldName(objectApiName);
-    }
-
-    private static String cap(String s) {
-        return (s != null && s.length() > MAX_ERROR_MSG_LENGTH)
-            ? s.substring(0, MAX_ERROR_MSG_LENGTH)
-            : s;
-    }
-
-    private static List<String> toDevNames(List<TEKCO_AnonymizationFieldConfig__mdt> configs) {
-        List<String> names = new List<String>();
-        if (configs == null) return names;
-        for (TEKCO_AnonymizationFieldConfig__mdt c : configs) {
-            if (String.isNotBlank(c.DeveloperName)) names.add(c.DeveloperName);
-        }
-        return names;
     }
 
 }
