@@ -194,11 +194,13 @@ public class TEKCO_AnonymizationPatternService {
             : (pattern.TEKCO_SsnLength__c != null
                 ? Integer.valueOf(pattern.TEKCO_SsnLength__c)
                 : SSN_DEFAULT_LENGTH);
+        // Repeat the 1-9 cycle then trim, rather than concatenating in a loop.
+        String cycle = '123456789';
         String result = '';
-        for (Integer index = 0; index < targetLength; index++) {
-            result += String.valueOf(Math.mod(index, 9) + 1);
+        while (result.length() < targetLength) {
+            result += cycle;
         }
-        return result;
+        return result.substring(0, targetLength);
     }
 
     /**

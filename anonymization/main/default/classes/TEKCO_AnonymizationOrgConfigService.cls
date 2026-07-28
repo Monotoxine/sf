@@ -81,6 +81,7 @@ public class TEKCO_AnonymizationOrgConfigService {
     @TestVisible
     private static void resetCache() {
         cachedConfig = null;
+        fieldMapCache = new Map<String, Map<String, Schema.SObjectField>>();
     }
 
     // ─── Sandbox guard ───────────────────────────────────────────────────────
@@ -104,14 +105,31 @@ public class TEKCO_AnonymizationOrgConfigService {
 
     // ─── Field utilities ─────────────────────────────────────────────────────
 
+    /**
+     * Cache of field maps by lowercase object API name. hasField() is called in loops
+     * (preview counts, external ID resolution, every batch start()), and each miss costs
+     * a full describe. Null value = object does not exist in this org.
+     */
+    private static Map<String, Map<String, Schema.SObjectField>> fieldMapCache =
+        new Map<String, Map<String, Schema.SObjectField>>();
+
     public static Boolean hasField(String objectApiName, String fieldApiName) {
         if (String.isBlank(objectApiName) || String.isBlank(fieldApiName)) return false;
+        Map<String, Schema.SObjectField> fields = getFieldMap(objectApiName);
+        return fields != null && fields.containsKey(fieldApiName.toLowerCase());
+    }
+
+    private static Map<String, Schema.SObjectField> getFieldMap(String objectApiName) {
+        String key = objectApiName.toLowerCase();
+        if (fieldMapCache.containsKey(key)) return fieldMapCache.get(key);
+        Map<String, Schema.SObjectField> fields = null;
         try {
-            Schema.DescribeSObjectResult d = Schema.describeSObjects(new List<String>{ objectApiName })[0];
-            return d.fields.getMap().containsKey(fieldApiName.toLowerCase());
+            fields = Schema.describeSObjects(new List<String>{ objectApiName })[0].fields.getMap();
         } catch (Exception e) {
-            return false;
+            fields = null;
         }
+        fieldMapCache.put(key, fields);
+        return fields;
     }
 
     // ─── Brand / country resolution ──────────────────────────────────────────

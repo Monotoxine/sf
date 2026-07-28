@@ -11,6 +11,23 @@ public class TEKCO_AnonymizationBypassService {
         public Map<String, Boolean> preExistingFieldValues;
     }
 
+    /** Updateable boolean field names on TEKCO_BypassSettings__c, described once per transaction. */
+    private static List<String> bypassFieldNames;
+
+    private static List<String> getBypassFieldNames() {
+        if (bypassFieldNames != null) return bypassFieldNames;
+        bypassFieldNames = new List<String>();
+        Map<String, Schema.SObjectField> fieldMap =
+            Schema.SObjectType.TEKCO_BypassSettings__c.fields.getMap();
+        for (String fieldName : fieldMap.keySet()) {
+            Schema.DescribeFieldResult fd = fieldMap.get(fieldName).getDescribe();
+            if (fd.getType() == Schema.DisplayType.BOOLEAN && fd.isUpdateable()) {
+                bypassFieldNames.add(fieldName);
+            }
+        }
+        return bypassFieldNames;
+    }
+
     public static BypassSnapshot activate() {
         BypassSnapshot snapshot = new BypassSnapshot();
         snapshot.preExistingFieldValues = new Map<String, Boolean>();
@@ -29,22 +46,14 @@ public class TEKCO_AnonymizationBypassService {
             ? existingUserRecord
             : new TEKCO_BypassSettings__c(SetupOwnerId = userId);
 
-        Map<String, Schema.SObjectField> fieldMap =
-            Schema.SObjectType.TEKCO_BypassSettings__c.fields.getMap();
-
-        for (String fieldName : fieldMap.keySet()) {
-            Schema.DescribeFieldResult fieldDescriptor = fieldMap.get(fieldName).getDescribe();
-
-            if (fieldDescriptor.getType() == Schema.DisplayType.BOOLEAN
-                    && fieldDescriptor.isUpdateable()) {
-                if (snapshot.hasPreExistingRecord) {
-                    snapshot.preExistingFieldValues.put(
-                        fieldName,
-                        existingUserRecord.get(fieldName) == true
-                    );
-                }
-                bypassRecord.put(fieldName, true);
+        for (String fieldName : getBypassFieldNames()) {
+            if (snapshot.hasPreExistingRecord) {
+                snapshot.preExistingFieldValues.put(
+                    fieldName,
+                    existingUserRecord.get(fieldName) == true
+                );
             }
+            bypassRecord.put(fieldName, true);
         }
 
         upsert bypassRecord;
@@ -67,15 +76,9 @@ public class TEKCO_AnonymizationBypassService {
             ? new TEKCO_BypassSettings__c(SetupOwnerId = userId)
             : existingRecords[0];
 
-        Map<String, Schema.SObjectField> fieldMap =
-            Schema.SObjectType.TEKCO_BypassSettings__c.fields.getMap();
-
         if (!snapshot.hasPreExistingRecord) {
-            for (String fieldName : fieldMap.keySet()) {
-                Schema.DescribeFieldResult fd = fieldMap.get(fieldName).getDescribe();
-                if (fd.getType() == Schema.DisplayType.BOOLEAN && fd.isUpdateable()) {
-                    recordToRestore.put(fieldName, false);
-                }
+            for (String fieldName : getBypassFieldNames()) {
+                recordToRestore.put(fieldName, false);
             }
         } else {
             for (String fieldName : snapshot.preExistingFieldValues.keySet()) {

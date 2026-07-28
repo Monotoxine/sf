@@ -221,7 +221,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
             }
         }
 
-        Map<String, TEKCO_AnonymizationPattern__mdt> patternsByType = buildPatternMap();
+        Map<String, TEKCO_AnonymizationPattern__mdt> patternsByType = TEKCO_AnonymizationBatchUtils.buildPatternMap();
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot =
             TEKCO_AnonymizationBypassService.activate();
 
@@ -255,7 +255,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
                     patternsByType, auditLog.Id, remainingObjectIds,
                     contentDocConfigs, contentDocIdsByObject,
                     historyConfigs, historyIdsByObject,
-                    bypassSnapshot, new List<String>(), 0
+                    bypassSnapshot, new List<String>(), 0, 0
                 ),
                 TEKCO_AnonymizationByIdBatch.DEFAULT_BATCH_SIZE
             );
@@ -267,7 +267,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
                     firstObj, contentDocIdsByObject.get(firstObj), auditLog.Id,
                     contentDocConfigs, contentDocIdsByObject,
                     historyConfigs, historyIdsByObject,
-                    bypassSnapshot, new List<String>(), 0, 0
+                    bypassSnapshot, new List<String>(), 0, 0, 0
                 ),
                 TEKCO_ContentDocumentByIdBatch.DEFAULT_BATCH_SIZE
             );
@@ -465,10 +465,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
             for (SObject child : children) childIds.add(child.Id);
         } catch (Exception e) { }
         return childIds;
-    }
-
-    private static Map<String, TEKCO_AnonymizationPattern__mdt> buildPatternMap() {
-        return TEKCO_AnonymizationBatchUtils.buildPatternMap();
     }
 
     private class ChildRelationInfo {

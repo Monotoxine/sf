@@ -20,6 +20,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     private Integer recordsDeleted                   = 0;
     private Integer recordsFailed                    = 0;
     private Integer accumulatedRecordsProcessed      = 0;
+    private Integer accumulatedRecordsFailed         = 0;
     private Integer accumulatedDocumentsDeleted      = 0;
     private Integer accumulatedHistoryRecordsDeleted = 0;
     private List<String> errors                      = new List<String>();
@@ -34,6 +35,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
         List<String> accumulatedErrors,
         Integer accumulatedRecordsProcessed,
+        Integer accumulatedRecordsFailed,
         Integer accumulatedDocumentsDeleted,
         Integer accumulatedHistoryRecordsDeleted,
         Map<String, List<String>> parentFiltersByObject,
@@ -47,6 +49,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         this.bypassSnapshot                   = bypassSnapshot;
         this.accumulatedErrors                = accumulatedErrors                != null ? accumulatedErrors                : new List<String>();
         this.accumulatedRecordsProcessed      = accumulatedRecordsProcessed      != null ? accumulatedRecordsProcessed      : 0;
+        this.accumulatedRecordsFailed         = accumulatedRecordsFailed         != null ? accumulatedRecordsFailed         : 0;
         this.accumulatedDocumentsDeleted      = accumulatedDocumentsDeleted      != null ? accumulatedDocumentsDeleted      : 0;
         this.accumulatedHistoryRecordsDeleted = accumulatedHistoryRecordsDeleted != null ? accumulatedHistoryRecordsDeleted : 0;
         this.parentFiltersByObject            = parentFiltersByObject != null
@@ -56,7 +59,9 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     }
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
-        TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
+        if (!TEKCO_AnonymizationBatchUtils.assertSandboxOrClose(auditLogId, bypassSnapshot)) {
+            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+        }
 
         try { Schema.describeSObjects(new List<String>{ objectApiName }); }
         catch (Exception e) {
@@ -186,6 +191,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
             }
         }
         Integer totalHistoryDeleted = accumulatedHistoryRecordsDeleted + recordsDeleted;
+        Integer totalFailed         = accumulatedRecordsFailed         + recordsFailed;
         List<TEKCO_AnonymizationFieldConfig__mdt> remainingHistoryConfigs =
             TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(remainingHistoryConfigDevNames);
         try {
@@ -203,6 +209,7 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
                         bypassSnapshot,
                         accumulatedErrors,
                         accumulatedRecordsProcessed,
+                        totalFailed,
                         accumulatedDocumentsDeleted,
                         totalHistoryDeleted,
                         parentFiltersByObject,
@@ -213,16 +220,20 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
             } else {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
                 TEKCO_AnonymizationAuditService.finalize(
-                    auditLogId, accumulatedRecordsProcessed, recordsFailed,
+                    auditLogId, accumulatedRecordsProcessed, totalFailed,
                     accumulatedDocumentsDeleted, totalHistoryDeleted, accumulatedErrors
                 );
+                return;
             }
+            TEKCO_AnonymizationAuditService.markRunning(
+                auditLogId, accumulatedRecordsProcessed, totalFailed, accumulatedErrors
+            );
         } catch (Exception e) {
             try {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
             } catch (Exception restoreEx) { }
             TEKCO_AnonymizationAuditService.closeFailed(
-                auditLogId, accumulatedRecordsProcessed, recordsFailed,
+                auditLogId, accumulatedRecordsProcessed, totalFailed,
                 accumulatedDocumentsDeleted, totalHistoryDeleted, accumulatedErrors, e.getMessage()
             );
         }

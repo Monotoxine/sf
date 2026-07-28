@@ -24,6 +24,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
     private Integer recordsDeleted               = 0;
     private Integer recordsFailed                = 0;
     private Integer accumulatedRecordsProcessed  = 0;
+    private Integer accumulatedRecordsFailed     = 0;
     private Integer accumulatedDocumentsDeleted  = 0;
     private List<String> errors                  = new List<String>();
     private List<String> accumulatedErrors       = new List<String>();
@@ -37,6 +38,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
         List<String> accumulatedErrors,
         Integer accumulatedRecordsProcessed,
+        Integer accumulatedRecordsFailed,
         Integer accumulatedDocumentsDeleted,
         Map<String, List<String>> parentFiltersByObject,
         Map<String, String> additionalFiltersByObject
@@ -51,6 +53,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         this.bypassSnapshot              = bypassSnapshot;
         this.accumulatedErrors           = accumulatedErrors           != null ? accumulatedErrors           : new List<String>();
         this.accumulatedRecordsProcessed = accumulatedRecordsProcessed != null ? accumulatedRecordsProcessed : 0;
+        this.accumulatedRecordsFailed    = accumulatedRecordsFailed    != null ? accumulatedRecordsFailed    : 0;
         this.accumulatedDocumentsDeleted = accumulatedDocumentsDeleted != null ? accumulatedDocumentsDeleted : 0;
         this.parentFiltersByObject       = parentFiltersByObject != null
             ? parentFiltersByObject : new Map<String, List<String>>();
@@ -60,7 +63,9 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
 
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
-        TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
+        if (!TEKCO_AnonymizationBatchUtils.assertSandboxOrClose(auditLogId, bypassSnapshot)) {
+            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+        }
 
         List<String> parentFilter = parentFiltersByObject.get(objectApiName);
 
@@ -157,7 +162,19 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                 'SELECT Id FROM ServiceReport WHERE ParentId IN :parentIds'
             );
             if (!serviceReports.isEmpty()) {
-                Database.delete(serviceReports, false);
+                for (Database.DeleteResult dr : Database.delete(serviceReports, false)) {
+                    if (dr.isSuccess()) {
+                        recordsDeleted++;
+                    } else {
+                        recordsFailed++;
+                        if (errors.size() < MAX_CAPTURED_ERRORS) {
+                            List<String> msgs = new List<String>();
+                            for (Database.Error e : dr.getErrors()) msgs.add(e.getMessage());
+                            errors.add(TEKCO_AnonymizationBatchUtils.cap(
+                                'ServiceReport ' + dr.getId() + ': ' + String.join(msgs, '; ')));
+                        }
+                    }
+                }
             }
         } catch (Exception e) {
             // ServiceReport not available in this org — skip
@@ -221,6 +238,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
             }
         }
         Integer totalDocsDeleted = accumulatedDocumentsDeleted + recordsDeleted;
+        Integer totalFailed      = accumulatedRecordsFailed    + recordsFailed;
         List<TEKCO_AnonymizationFieldConfig__mdt> remainingContentDocConfigs =
             TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(remainingContentDocConfigDevNames);
         List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs =
@@ -238,6 +256,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                         bypassSnapshot,
                         accumulatedErrors,
                         accumulatedRecordsProcessed,
+                        totalFailed,
                         totalDocsDeleted,
                         parentFiltersByObject,
                         additionalFiltersByObject
@@ -258,6 +277,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
                         bypassSnapshot,
                         accumulatedErrors,
                         accumulatedRecordsProcessed,
+                        totalFailed,
                         totalDocsDeleted,
                         0,
                         parentFiltersByObject,
@@ -268,16 +288,20 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
             } else {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
                 TEKCO_AnonymizationAuditService.finalize(
-                    auditLogId, accumulatedRecordsProcessed, recordsFailed,
+                    auditLogId, accumulatedRecordsProcessed, totalFailed,
                     totalDocsDeleted, 0, accumulatedErrors
                 );
+                return;
             }
+            TEKCO_AnonymizationAuditService.markRunning(
+                auditLogId, accumulatedRecordsProcessed, totalFailed, accumulatedErrors
+            );
         } catch (Exception e) {
             try {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
             } catch (Exception restoreEx) {}
             TEKCO_AnonymizationAuditService.closeFailed(
-                auditLogId, accumulatedRecordsProcessed, recordsFailed,
+                auditLogId, accumulatedRecordsProcessed, totalFailed,
                 totalDocsDeleted, 0, accumulatedErrors, e.getMessage()
             );
         }

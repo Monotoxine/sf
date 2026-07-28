@@ -39,6 +39,27 @@ public class TEKCO_AnonymizationBatchUtils {
         return objectApiName.endsWith(CUSTOM_OBJECT_SUFFIX) ? 'ParentId' : objectApiName + 'Id';
     }
 
+    /**
+     * Sandbox guard for batch start(). assertIsSandbox() throwing out of start() would abort the
+     * job with the audit log stuck on "Running" and every bypass flag left enabled for the running
+     * user. Returns false when the guard trips, having already closed the log and restored bypass.
+     */
+    public static Boolean assertSandboxOrClose(
+        Id auditLogId,
+        TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot
+    ) {
+        try {
+            TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
+            return true;
+        } catch (Exception e) {
+            try { TEKCO_AnonymizationBypassService.restore(bypassSnapshot); } catch (Exception ex) {}
+            TEKCO_AnonymizationAuditService.closeFailed(
+                auditLogId, 0, 0, 0, 0, new List<String>(), e.getMessage()
+            );
+            return false;
+        }
+    }
+
     public static List<TEKCO_AnonymizationFieldConfig__mdt> loadFieldConfigs(String objectApiName) {
         return [
             SELECT DeveloperName, TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c,
