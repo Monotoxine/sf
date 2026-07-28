@@ -15,8 +15,9 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
 
     private List<String>                                  selectedBrands;
     private Id                                            auditLogId;
-    private List<TEKCO_AnonymizationFieldConfig__mdt>     remainingContentDocConfigs;
-    private List<TEKCO_AnonymizationFieldConfig__mdt>     historyConfigs;
+    // DeveloperNames only — re-queried in finish() before chaining to avoid stateful CMDT heap cost.
+    private List<String>                                  remainingContentDocConfigDevNames;
+    private List<String>                                  historyConfigDevNames;
     private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
     private Map<String, List<String>>                     parentFiltersByObject;
     private Map<String, String>                           additionalFiltersByObject;
@@ -46,10 +47,8 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         this.selectedBrands             = selectedBrands             != null
             ? selectedBrands : new List<String>();
         this.auditLogId                 = auditLogId;
-        this.remainingContentDocConfigs = remainingContentDocConfigs != null
-            ? remainingContentDocConfigs : new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        this.historyConfigs             = historyConfigs             != null
-            ? historyConfigs : new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        this.remainingContentDocConfigDevNames = toDevNames(remainingContentDocConfigs);
+        this.historyConfigDevNames             = toDevNames(historyConfigs);
         this.bypassSnapshot              = bypassSnapshot;
         this.accumulatedErrors           = accumulatedErrors           != null ? accumulatedErrors           : new List<String>();
         this.accumulatedRecordsProcessed = accumulatedRecordsProcessed != null ? accumulatedRecordsProcessed : 0;
@@ -219,6 +218,11 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
     public void finish(Database.BatchableContext bc) {
         accumulatedErrors.addAll(errors);
         Integer totalDocsDeleted = accumulatedDocumentsDeleted + recordsDeleted;
+        // Re-query CMDT lists here — stored as devNames only to keep serialized state small.
+        List<TEKCO_AnonymizationFieldConfig__mdt> remainingContentDocConfigs =
+            TEKCO_AnonymizationBatch.loadFieldConfigsByDevNames(remainingContentDocConfigDevNames);
+        List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs =
+            TEKCO_AnonymizationBatch.loadFieldConfigsByDevNames(historyConfigDevNames);
         try {
             if (!remainingContentDocConfigs.isEmpty()) {
                 TEKCO_AnonymizationFieldConfig__mdt nextConfig = remainingContentDocConfigs.remove(0);
@@ -241,7 +245,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
             } else if (!historyConfigs.isEmpty()) {
                 String firstHistoryObject = historyConfigs[0].TEKCO_ObjectApiName__c;
                 List<TEKCO_AnonymizationFieldConfig__mdt> firstObjectHistoryConfigs =
-                    popHistoryConfigsForObject(firstHistoryObject);
+                    TEKCO_AnonymizationBatchUtils.popConfigsForObject(firstHistoryObject, historyConfigs);
                 Database.executeBatch(
                     new TEKCO_FieldHistoryBatch(
                         firstHistoryObject,
@@ -279,8 +283,13 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
 
 
 
-    private List<TEKCO_AnonymizationFieldConfig__mdt> popHistoryConfigsForObject(String objectApiName) {
-        return TEKCO_AnonymizationBatchUtils.popConfigsForObject(objectApiName, historyConfigs);
+    private static List<String> toDevNames(List<TEKCO_AnonymizationFieldConfig__mdt> configs) {
+        List<String> names = new List<String>();
+        if (configs == null) return names;
+        for (TEKCO_AnonymizationFieldConfig__mdt c : configs) {
+            if (String.isNotBlank(c.DeveloperName)) names.add(c.DeveloperName);
+        }
+        return names;
     }
 
 }

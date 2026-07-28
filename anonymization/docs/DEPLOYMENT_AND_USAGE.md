@@ -303,13 +303,15 @@ When multiple rules apply to the same field (different Record Types), they are p
 
 ## 1.12 Known Limitations
 
-### Heap size on large orgs — Phase 1 batch size
+### Heap size and stateful serialization — why CMDT configs are not kept in batch state
 
-**Context**: On production copies with millions of records and hundreds of custom objects, Phase 1 (`TEKCO_AnonymizationBatch`) can hit the Salesforce async Apex heap limit of 12 MB.
+**Context**: The batch chain (`TEKCO_AnonymizationBatch` → `TEKCO_ContentDocumentBatch` → `TEKCO_FieldHistoryBatch`) uses `Database.Stateful`, which means Salesforce serializes the entire batch instance — all instance variables — between every `execute()` chunk. This serialized payload counts against two separate platform limits: the **12 MB async heap limit** (memory consumed when deserializing state at the start of each chunk) and the **"Batchable instance is too big"** limit (the serialized byte size itself, evaluated after each chunk completes).
 
-**Why it happens**: `Database.Stateful` batches serialize all instance variables between every `execute()` chunk. On large objects (wide schemas, many field configs), the combined heap of the deserialized state + the current chunk's records can exceed the limit. Additionally, object schema loading via `Schema.getGlobalDescribe()` — which loads all org objects at once — was a known contributor and has been replaced with the targeted `Schema.describeSObjects()`.
+**Why CMDT SObjects cannot be kept as stateful fields**: Each `TEKCO_AnonymizationFieldConfig__mdt` or `TEKCO_AnonymizationPattern__mdt` object is a full Salesforce SObject carrying many fields. Lists of 50+ such records, multiplied by the number of phases that need them (`fieldConfigs`, `contentDocConfigs`, `historyConfigs`), produce a serialized batch state that is large enough to trigger the "Batchable instance is too big" `LimitException` mid-run — even before any data errors accumulate. When this happens, the batch aborts at the current chunk, remaining records are not processed, and the chain (Phase 2, Phase 3) never runs.
 
-**How it is mitigated**: Phase 1 uses a batch size of **200** records per chunk (instead of the Salesforce maximum of 2 000). This keeps per-chunk heap well within the limit even on the largest orgs. Phase 3 retains 2 000 because history records are much lighter.
+**The design choice**: CMDT records (Custom Metadata Types) are cached by the Salesforce platform and re-queried at near-zero cost within the same transaction context. The batch classes therefore store only the `DeveloperName` strings of the relevant configs as stateful fields — a handful of short strings — and re-query the full CMDT objects locally in `execute()` and `finish()` only when needed. This eliminates the serialization overhead entirely while keeping the same filtering logic.
+
+**Impact on behavior**: None. The CMDT data returned by a re-query within the same batch run is identical to what would have been deserialized from state. Chaining, filtering, and error handling are unchanged.
 
 **Resuming after a heap abort**: The anonymization is **idempotent** — Phase 1 only updates a record when the anonymized value differs from the current value. If a batch aborts mid-way, re-launching with the same parameters is safe: records already anonymized are detected and skipped automatically. Only the remaining records are processed.
 

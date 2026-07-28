@@ -9,10 +9,11 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     private static final Integer MAX_CAPTURED_ERRORS = 50;
 
     private String                                        objectApiName;
-    private List<TEKCO_AnonymizationFieldConfig__mdt>     objectHistoryConfigs;
+    // DeveloperNames only — re-queried locally in start() and finish() to avoid stateful CMDT heap cost.
+    private List<String>                                  objectHistoryConfigDevNames;
     private List<String>                                  selectedBrands;
     private Id                                            auditLogId;
-    private List<TEKCO_AnonymizationFieldConfig__mdt>     remainingHistoryConfigs;
+    private List<String>                                  remainingHistoryConfigDevNames;
     private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
     private Map<String, List<String>>                     parentFiltersByObject;
     private Map<String, String>                           additionalFiltersByObject;
@@ -39,14 +40,11 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         Map<String, List<String>> parentFiltersByObject,
         Map<String, String> additionalFiltersByObject
     ) {
-        this.objectApiName           = objectApiName;
-        this.objectHistoryConfigs    = objectHistoryConfigs    != null
-            ? objectHistoryConfigs : new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        this.selectedBrands          = selectedBrands          != null
-            ? selectedBrands : new List<String>();
-        this.auditLogId              = auditLogId;
-        this.remainingHistoryConfigs = remainingHistoryConfigs != null
-            ? remainingHistoryConfigs : new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        this.objectApiName                = objectApiName;
+        this.objectHistoryConfigDevNames  = toDevNames(objectHistoryConfigs);
+        this.selectedBrands               = selectedBrands != null ? selectedBrands : new List<String>();
+        this.auditLogId                   = auditLogId;
+        this.remainingHistoryConfigDevNames = toDevNames(remainingHistoryConfigs);
         this.bypassSnapshot                   = bypassSnapshot;
         this.accumulatedErrors                = accumulatedErrors                != null ? accumulatedErrors                : new List<String>();
         this.accumulatedRecordsProcessed      = accumulatedRecordsProcessed      != null ? accumulatedRecordsProcessed      : 0;
@@ -77,6 +75,10 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         }
 
         try {
+
+        // Re-query locally — stored as devNames only to avoid serializing CMDT SObjects.
+        List<TEKCO_AnonymizationFieldConfig__mdt> objectHistoryConfigs =
+            TEKCO_AnonymizationBatch.loadFieldConfigsByDevNames(objectHistoryConfigDevNames);
 
         Set<String> fieldApiNames = new Set<String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : objectHistoryConfigs) {
@@ -182,11 +184,14 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     public void finish(Database.BatchableContext bc) {
         accumulatedErrors.addAll(errors);
         Integer totalHistoryDeleted = accumulatedHistoryRecordsDeleted + recordsDeleted;
+        // Re-query CMDT list here — stored as devNames only to keep serialized state small.
+        List<TEKCO_AnonymizationFieldConfig__mdt> remainingHistoryConfigs =
+            TEKCO_AnonymizationBatch.loadFieldConfigsByDevNames(remainingHistoryConfigDevNames);
         try {
             if (!remainingHistoryConfigs.isEmpty()) {
                 String nextObjectApiName = remainingHistoryConfigs[0].TEKCO_ObjectApiName__c;
                 List<TEKCO_AnonymizationFieldConfig__mdt> nextObjectConfigs =
-                    popConfigsForObject(nextObjectApiName);
+                    TEKCO_AnonymizationBatchUtils.popConfigsForObject(nextObjectApiName, remainingHistoryConfigs);
                 Database.executeBatch(
                     new TEKCO_FieldHistoryBatch(
                         nextObjectApiName,
@@ -231,8 +236,13 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
         return TEKCO_AnonymizationBatchUtils.computeParentIdFieldName(objectApiName);
     }
 
-    private List<TEKCO_AnonymizationFieldConfig__mdt> popConfigsForObject(String objectApiName) {
-        return TEKCO_AnonymizationBatchUtils.popConfigsForObject(objectApiName, remainingHistoryConfigs);
+    private static List<String> toDevNames(List<TEKCO_AnonymizationFieldConfig__mdt> configs) {
+        List<String> names = new List<String>();
+        if (configs == null) return names;
+        for (TEKCO_AnonymizationFieldConfig__mdt c : configs) {
+            if (String.isNotBlank(c.DeveloperName)) names.add(c.DeveloperName);
+        }
+        return names;
     }
 
 }
