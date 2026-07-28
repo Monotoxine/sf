@@ -15,7 +15,6 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
 
     private List<String>                                  selectedBrands;
     private Id                                            auditLogId;
-    // DeveloperNames only — re-queried in finish() before chaining to avoid stateful CMDT heap cost.
     private List<String>                                  remainingContentDocConfigDevNames;
     private List<String>                                  historyConfigDevNames;
     private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
@@ -152,7 +151,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
         }
         if (parentIds.isEmpty()) return;
 
-        // ServiceReports (must be deleted before ContentDocument) ──────────
+        // ServiceReports (must be deleted before ContentDocument) 
         try {
             List<SObject> serviceReports = Database.query(
                 'SELECT Id FROM ServiceReport WHERE ParentId IN :parentIds'
@@ -164,7 +163,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
             // ServiceReport not available in this org — skip
         }
 
-        // ContentDocuments ─────────────────────────────────────────────────
+        // ContentDocuments 
         List<ContentDocumentLink> cdLinks = [
             SELECT ContentDocumentId
             FROM ContentDocumentLink
@@ -194,7 +193,7 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
             }
         }
 
-        // Attachments ───────────
+        // Attachments 
         List<Attachment> attachments = [
             SELECT Id FROM Attachment WHERE ParentId IN :parentIds
         ];
@@ -218,7 +217,6 @@ public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, 
     public void finish(Database.BatchableContext bc) {
         accumulatedErrors.addAll(errors);
         Integer totalDocsDeleted = accumulatedDocumentsDeleted + recordsDeleted;
-        // Re-query CMDT lists here — stored as devNames only to keep serialized state small.
         List<TEKCO_AnonymizationFieldConfig__mdt> remainingContentDocConfigs =
             TEKCO_AnonymizationBatch.loadFieldConfigsByDevNames(remainingContentDocConfigDevNames);
         List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs =

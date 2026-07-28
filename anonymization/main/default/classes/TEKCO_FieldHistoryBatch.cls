@@ -9,7 +9,6 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     private static final Integer MAX_CAPTURED_ERRORS = 50;
 
     private String                                        objectApiName;
-    // DeveloperNames only — re-queried locally in start() and finish() to avoid stateful CMDT heap cost.
     private List<String>                                  objectHistoryConfigDevNames;
     private List<String>                                  selectedBrands;
     private Id                                            auditLogId;
@@ -76,7 +75,6 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
 
         try {
 
-        // Re-query locally — stored as devNames only to avoid serializing CMDT SObjects.
         List<TEKCO_AnonymizationFieldConfig__mdt> objectHistoryConfigs =
             TEKCO_AnonymizationBatch.loadFieldConfigsByDevNames(objectHistoryConfigDevNames);
 
@@ -184,7 +182,6 @@ public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Dat
     public void finish(Database.BatchableContext bc) {
         accumulatedErrors.addAll(errors);
         Integer totalHistoryDeleted = accumulatedHistoryRecordsDeleted + recordsDeleted;
-        // Re-query CMDT list here — stored as devNames only to keep serialized state small.
         List<TEKCO_AnonymizationFieldConfig__mdt> remainingHistoryConfigs =
             TEKCO_AnonymizationBatch.loadFieldConfigsByDevNames(remainingHistoryConfigDevNames);
         try {

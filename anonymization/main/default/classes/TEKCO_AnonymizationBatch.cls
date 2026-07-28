@@ -9,19 +9,12 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     private static final String PATTERN_TYPE_EMAIL_MESSAGE_LOREM = 'EMAIL_MESSAGE_LOREM';
 
     private String                                        objectApiName;
-    // fieldConfigs and patternsByType are received in the constructor and used in start(),
-    // then nulled out so they are not serialized between execute() chunks (heap/stateful fix).
-    // execute() re-queries them locally via loadFieldConfigsByDevNames() and buildPatternMap().
     private List<TEKCO_AnonymizationFieldConfig__mdt>     fieldConfigs;
     private Map<String, TEKCO_AnonymizationPattern__mdt>  patternsByType;
-    // DeveloperNames of the valid field configs determined in start(); replaces fieldConfigs in execute().
     private List<String>                                  validFieldConfigDevNames = new List<String>();
     private List<String>                                  selectedBrands;
     private Id                                            auditLogId;
     private List<String>                                  remainingObjects;
-    // Stored as DeveloperNames only — full CMDT objects are re-queried in finish() before chaining.
-    // Carrying full CMDT SObject lists statefully inflates the serialized batch state and triggers
-    // "Batchable instance is too big" on large runs. These lists are only needed in finish().
     private List<String>                                  contentDocConfigDevNames;
     private List<String>                                  historyConfigDevNames;
     private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
@@ -91,7 +84,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
             List<TEKCO_AnonymizationFieldConfig__mdt> validFieldConfigs =
                 new List<TEKCO_AnonymizationFieldConfig__mdt>();
 
-            // Use constructor-provided configs (first run) or fall back to a fresh query.
             List<TEKCO_AnonymizationFieldConfig__mdt> startConfigs =
                 this.fieldConfigs != null ? this.fieldConfigs : loadFieldConfigs(objectApiName);
             Map<String, TEKCO_AnonymizationPattern__mdt> startPatterns =
@@ -133,14 +125,12 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 }
             }
 
-            // Store only DeveloperNames — lightweight strings survive serialization cheaply.
             validFieldConfigDevNames = new List<String>();
             for (TEKCO_AnonymizationFieldConfig__mdt fc : validFieldConfigs) {
                 if (String.isNotBlank(fc.DeveloperName)) {
                     validFieldConfigDevNames.add(fc.DeveloperName);
                 }
             }
-            // Null out heavy CMDT objects so they are not serialized between execute() chunks.
             this.fieldConfigs  = null;
             this.patternsByType = null;
 
@@ -217,8 +207,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     }
 
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
-        // Re-query CMDT each chunk — they are cached by the platform, cost is negligible.
-        // fieldConfigs and patternsByType were nulled in start() to avoid stateful serialization cost.
         List<TEKCO_AnonymizationFieldConfig__mdt> localFieldConfigs =
             loadFieldConfigsByDevNames(validFieldConfigDevNames);
         Map<String, TEKCO_AnonymizationPattern__mdt> localPatterns = buildPatternMap();
@@ -237,7 +225,6 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
             if (accumulatedErrors.size() < MAX_ACCUMULATED_ERRORS) accumulatedErrors.add(e);
         }
         Integer totalProcessed = accumulatedRecordsProcessed + recordsProcessed;
-        // Re-query CMDT lists here — they were never serialized as full SObjects (only devNames stored).
         List<TEKCO_AnonymizationFieldConfig__mdt> contentDocConfigs =
             loadFieldConfigsByDevNames(contentDocConfigDevNames);
         List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs =
