@@ -81,7 +81,13 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
     @TestVisible
     private static void resetCache() {
         cachedConfig = null;
-        fieldMapCache = new Map<String, Map<String, Schema.SObjectField>>();
+        describeCache = new Map<String, Schema.DescribeSObjectResult>();
+    }
+
+    /** Forces the config for the current transaction so tests can exercise both org modes. */
+    @TestVisible
+    private static void setConfigForTest(OrgConfig cfg) {
+        cachedConfig = cfg;
     }
 
     // ─── Sandbox guard ───────────────────────────────────────────────────────
@@ -103,66 +109,113 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
         }
     }
 
-    // ─── Field utilities ─────────────────────────────────────────────────────
+    // ─── Describe utilities ──────────────────────────────────────────────────
 
     /**
-     * Cache of field maps by lowercase object API name. hasField() is called in loops
+     * Cache of object describes by lowercase API name. hasField() is called in loops
      * (preview counts, external ID resolution, every batch start()), and each miss costs
      * a full describe. Null value = object does not exist in this org.
+     *
+     * Single describe entry point for the whole package: hasObject(), hasField() and
+     * getSObjectType() all read from here, so no caller opens its own describe path.
      */
-    private static Map<String, Map<String, Schema.SObjectField>> fieldMapCache =
-        new Map<String, Map<String, Schema.SObjectField>>();
+    private static Map<String, Schema.DescribeSObjectResult> describeCache =
+        new Map<String, Schema.DescribeSObjectResult>();
+
+    private static Schema.DescribeSObjectResult getDescribe(String objectApiName) {
+        if (String.isBlank(objectApiName)) return null;
+        String key = objectApiName.toLowerCase();
+        if (describeCache.containsKey(key)) return describeCache.get(key);
+        Schema.DescribeSObjectResult describeResult = null;
+        try {
+            describeResult = Schema.describeSObjects(new List<String>{ objectApiName })[0];
+        } catch (Exception e) {
+            describeResult = null;
+        }
+        describeCache.put(key, describeResult);
+        return describeResult;
+    }
+
+    /**
+     * True when the object exists in this org. Lets callers reach objects that are absent
+     * from some orgs (e.g. Portugal has neither TEKCO_BypassSettings__c nor
+     * TEKCO_CountryBrandSetting__mdt) without a compile-time reference that would make the
+     * package undeployable there.
+     */
+    public static Boolean hasObject(String objectApiName) {
+        return getDescribe(objectApiName) != null;
+    }
+
+    /** SObjectType for dynamic instantiation, or null when the object is absent. */
+    public static Schema.SObjectType getSObjectType(String objectApiName) {
+        Schema.DescribeSObjectResult describeResult = getDescribe(objectApiName);
+        return describeResult == null ? null : describeResult.getSObjectType();
+    }
+
+    /** Field map for the object, or null when the object is absent. */
+    public static Map<String, Schema.SObjectField> getFieldMap(String objectApiName) {
+        Schema.DescribeSObjectResult describeResult = getDescribe(objectApiName);
+        return describeResult == null ? null : describeResult.fields.getMap();
+    }
 
     public static Boolean hasField(String objectApiName, String fieldApiName) {
-        if (String.isBlank(objectApiName) || String.isBlank(fieldApiName)) return false;
+        if (String.isBlank(fieldApiName)) return false;
         Map<String, Schema.SObjectField> fields = getFieldMap(objectApiName);
         return fields != null && fields.containsKey(fieldApiName.toLowerCase());
     }
 
-    private static Map<String, Schema.SObjectField> getFieldMap(String objectApiName) {
-        String key = objectApiName.toLowerCase();
-        if (fieldMapCache.containsKey(key)) return fieldMapCache.get(key);
-        Map<String, Schema.SObjectField> fields = null;
-        try {
-            fields = Schema.describeSObjects(new List<String>{ objectApiName })[0].fields.getMap();
-        } catch (Exception e) {
-            fields = null;
-        }
-        fieldMapCache.put(key, fields);
-        return fields;
-    }
-
     // ─── Brand / country resolution ──────────────────────────────────────────
 
+    /**
+     * Brand-to-country mapping CMDT used by orgs that do not model brands as a lookup
+     * object. Absent from the Portugal org, hence reached dynamically.
+     */
+    @TestVisible
+    private static final String COUNTRY_BRAND_OBJECT        = 'TEKCO_CountryBrandSetting__mdt';
+    @TestVisible
+    private static final String COUNTRY_BRAND_COUNTRY_FIELD = 'TEKCO_Country__c';
+    @TestVisible
+    private static final String COUNTRY_BRAND_BRAND_FIELD   = 'TEKCO_Brand__c';
+
     public static List<String> getCountriesForBrands(List<String> brands) {
-        List<String> countries = new List<String>();
-        if (brands == null || brands.isEmpty()) return countries;
+        if (brands == null || brands.isEmpty()) return new List<String>();
 
         OrgConfig cfg = getConfig();
 
         if (cfg.usesBrandObject()) {
-            if (String.isBlank(cfg.brandObjectApiName)
-                    || String.isBlank(cfg.brandCodeField)
-                    || String.isBlank(cfg.brandCountryField)) {
-                return countries;
+            if (String.isBlank(cfg.brandCodeField) || String.isBlank(cfg.brandCountryField)) {
+                return new List<String>();
             }
-            String soql = 'SELECT ' + cfg.brandCountryField
-                + ' FROM ' + cfg.brandObjectApiName
-                + ' WHERE ' + cfg.brandCodeField + ' IN :brands'
-                + ' AND ' + cfg.brandCountryField + ' != null';
-            for (SObject rec : Database.query(soql)) {
-                Object country = rec.get(cfg.brandCountryField);
-                if (country != null) countries.add(String.valueOf(country));
-            }
-        } else {
-            for (TEKCO_CountryBrandSetting__mdt mapping : [
-                SELECT TEKCO_Country__c
-                FROM TEKCO_CountryBrandSetting__mdt
-                WHERE TEKCO_Brand__c IN :brands
-                  AND TEKCO_Country__c != null
-            ]) {
-                countries.add(mapping.TEKCO_Country__c);
-            }
+            return queryCountryColumn(
+                cfg.brandObjectApiName, cfg.brandCodeField, cfg.brandCountryField, brands
+            );
+        }
+
+        if (!hasObject(COUNTRY_BRAND_OBJECT)) return new List<String>();
+        return queryCountryColumn(
+            COUNTRY_BRAND_OBJECT, COUNTRY_BRAND_BRAND_FIELD, COUNTRY_BRAND_COUNTRY_FIELD, brands
+        );
+    }
+
+    /**
+     * Both brand modes resolve countries the same way — filter a source object on the brand
+     * values, collect one text column — so they share this query rather than each carrying
+     * their own loop.
+     */
+    private static List<String> queryCountryColumn(
+        String sourceObject, String brandField, String countryField, List<String> brands
+    ) {
+        List<String> countries = new List<String>();
+        String soql = 'SELECT ' + countryField
+            + ' FROM ' + sourceObject
+            + ' WHERE ' + brandField + ' IN :brands'
+            + ' AND ' + countryField + ' != null';
+        for (SObject record : Database.queryWithBinds(
+                soql,
+                new Map<String, Object>{ 'brands' => brands },
+                AccessLevel.SYSTEM_MODE)) {
+            Object country = record.get(countryField);
+            if (country != null) countries.add(String.valueOf(country));
         }
         return countries;
     }

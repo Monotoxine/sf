@@ -1,21 +1,45 @@
 @isTest
 private class TEKCO_AnonymizationBypassServiceTest {
 
+    private static TEKCO_AnonymizationOrgConfigService.OrgConfig configWithBypass(Boolean enabled) {
+        TEKCO_AnonymizationOrgConfigService.OrgConfig cfg =
+            new TEKCO_AnonymizationOrgConfigService.OrgConfig();
+        cfg.functionalIdField = 'TEKCO_FunctionalId__c';
+        cfg.bypassEnabled     = enabled;
+        return cfg;
+    }
+
     @isTest
-    static void activate_whenBypassDisabled_returnsSnapshotWithNoRecord() {
-        // Force bypassEnabled = false via a fake org config
-        TEKCO_AnonymizationOrgConfigService.resetCache();
-        // We can't inject a custom OrgConfig directly, but we can validate the snapshot shape.
-        // If the org has no CMDT record for the current domain and default config has bypassEnabled=true,
-        // the real activate() will attempt the upsert. In @isTest DML is allowed.
-        // This test just validates that activate() returns a non-null snapshot.
+    static void activate_whenBypassDisabled_isNoOp() {
+        // Portugal-like org: the bypass setting is not used at all.
+        TEKCO_AnonymizationOrgConfigService.setConfigForTest(configWithBypass(false));
+
         Test.startTest();
         TEKCO_AnonymizationBypassService.BypassSnapshot snapshot =
             TEKCO_AnonymizationBypassService.activate();
         Test.stopTest();
 
         System.assertNotEquals(null, snapshot, 'Snapshot must never be null');
-        System.assertNotEquals(null, snapshot.preExistingFieldValues, 'Field values map must be initialized');
+        System.assertEquals(false, snapshot.hasPreExistingRecord,
+            'Nothing was read, so no pre-existing record can be reported');
+        System.assertEquals(0, snapshot.preExistingFieldValues.size(),
+            'No field value must be captured when the bypass is disabled');
+    }
+
+    @isTest
+    static void restore_whenBypassDisabled_isNoOp() {
+        TEKCO_AnonymizationOrgConfigService.setConfigForTest(configWithBypass(false));
+
+        TEKCO_AnonymizationBypassService.BypassSnapshot snapshot =
+            new TEKCO_AnonymizationBypassService.BypassSnapshot();
+        snapshot.hasPreExistingRecord   = false;
+        snapshot.preExistingFieldValues = new Map<String, Boolean>();
+
+        Test.startTest();
+        TEKCO_AnonymizationBypassService.restore(snapshot);
+        Test.stopTest();
+
+        System.assert(true, 'restore() must not throw when the bypass is disabled');
     }
 
     @isTest
@@ -27,6 +51,11 @@ private class TEKCO_AnonymizationBypassServiceTest {
         System.assert(true, 'No exception thrown for null snapshot');
     }
 
+    /**
+     * Runs against the org's real config. Where the bypass setting exists the flags are
+     * raised then put back; where it does not, both calls are inert. Either way the pair
+     * must complete without error.
+     */
     @isTest
     static void activateAndRestore_roundTrip() {
         TEKCO_AnonymizationOrgConfigService.resetCache();
@@ -38,5 +67,6 @@ private class TEKCO_AnonymizationBypassServiceTest {
         Test.stopTest();
 
         System.assertNotEquals(null, snapshot, 'Snapshot from activate() must not be null');
+        System.assertNotEquals(null, snapshot.preExistingFieldValues, 'Field values map must be initialized');
     }
 }

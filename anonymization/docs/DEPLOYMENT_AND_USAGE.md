@@ -44,6 +44,17 @@ Deployment is performed using the Salesforce CLI (`sf`) with the `package.xml` m
 | **PermissionSet** | `TEKCO_AnonymizationAdmin` |
 | **CustomTab** | `TEKCO_Data_Anonymization` |
 
+### Objects the package expects but does not require
+
+Two objects belong to the wider TEKCO configuration rather than to this package, and are **not** deployed by it:
+
+| Object | Used for | When absent |
+|---|---|---|
+| `TEKCO_BypassSettings__c` (Hierarchy Custom Setting) | Raising the automation bypass flags for the duration of a run | The bypass step is skipped entirely |
+| `TEKCO_CountryBrandSetting__mdt` | Mapping brands to countries in picklist brand mode | Brand-to-country resolution returns nothing |
+
+Both are reached **dynamically** (by API name, guarded by a describe check), so the package compiles and deploys in orgs that do not own them — this is what makes it deployable on Portugal (ALH), where neither exists. Do not reintroduce a typed reference to either object: Apex resolves those at compile time, so a branch that never runs is still enough to break the deployment.
+
 ### Deploy command
 
 From the root of the repository, run:
