@@ -36,7 +36,7 @@
     </values>
     <values>
         <field>TEKCO_PatternType__c</field>
-        <value xsi:type="xsd:string">EMAIL_PLUS_EXTERNALID</value>
+        <value xsi:type="xsd:string">ALH_EMAIL_PLUS_EXTERNALID</value>
     </values>
     <values>
         <field>TEKCO_RecordTypeDeveloperName__c</field>

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <!-- Portugal (ALH) org deployment package.
      Before deploying, replace TEKCO_OrgDomain__c in:
-     anonymization/main/default/customMetadata/TEKCO_AnonymizationOrgConfig.Portugal_ALH.md-meta.xml
+     anonymization/main/default/customMetadata/TEKCO_AnonymizationOrgConfig.ALH_Portugal.md-meta.xml
      Run in Execute Anonymous to find the correct value:
        System.debug(URL.getOrgDomainUrl().getHost().substringBefore('.'));
 -->
@@ -69,8 +69,8 @@
         <members>TEKCO_AnonymizationPattern.CLEAR</members>
         <members>TEKCO_AnonymizationPattern.DELETE_CONTENT_DOCUMENT</members>
         <members>TEKCO_AnonymizationPattern.EMAIL_MESSAGE_LOREM</members>
-        <members>TEKCO_AnonymizationPattern.EMAIL_PLUS_EXTERNALID</members>
-        <members>TEKCO_AnonymizationPattern.EMAIL_PLUS_EXTERNALID_SUBDOMAIN</members>
+        <members>TEKCO_AnonymizationPattern.ALH_EMAIL_PLUS_EXTERNALID</members>
+        <members>TEKCO_AnonymizationPattern.ALH_EMAIL_PLUS_EXTERNALID_SUBDOMAIN</members>
         <members>TEKCO_AnonymizationPattern.EMAIL_PLUS_SFID</members>
         <members>TEKCO_AnonymizationPattern.EMAIL_PLUS_SFID_SUBDOMAIN</members>
         <members>TEKCO_AnonymizationPattern.LOREM_IPSUM</members>
