@@ -493,70 +493,17 @@ Verify that `TEKCO_ParentObjectApiName__c` on the child's CMDT row matches the e
 
 ---
 
-## 1.15 Additional Deployment — Portugal (ALH) Org Only
+## 1.15 Non-Standard Orgs (Portugal / ALH and others)
 
-> **This section applies exclusively to the Portugal (ALH) org.** Skip it for all other orgs.
+> This section previously described a Portugal-only add-on package. That approach is gone:
+> `package-portugal-alh.xml` no longer exists, and the `Portugal_ALH` config record has been
+> superseded by `ALH_Portugal`. Following the old instructions would fail.
 
-The Portugal org uses a non-standard naming convention (brand as a lookup object, custom functional ID field) that requires a dedicated org configuration record. This is deployed separately from the main package using a targeted manifest.
+An org that does not follow the TEKCO schema conventions — brand as a lookup object rather
+than a picklist, its own functional and external ID fields, no `TEKCO_BypassSettings__c` —
+is deployed from its own standalone manifest, driven by a
+`TEKCO_AnonymizationOrgConfig__mdt` record matched on the org domain.
 
-### Step 1 — Find the org domain prefix
-
-Run the following in **Developer Console → Execute Anonymous** on the Portugal org:
-
-```apex
-System.debug(URL.getOrgDomainUrl().getHost().substringBefore('.'));
-```
-
-Note the returned value (e.g. `airliquide-pt--sandbox`).
-
-### Step 2 — Update the CMDT record file
-
-Open the file:
-
-```
-anonymization/main/default/customMetadata/TEKCO_AnonymizationOrgConfig.Portugal_ALH.md-meta.xml
-```
-
-Replace the placeholder value:
-
-```xml
-<!-- Before -->
-<value>REPLACE_WITH_PORTUGAL_ORG_DOMAIN</value>
-
-<!-- After -->
-<value>airliquide-pt--sandbox</value>  <!-- use the value from Step 1 -->
-```
-
-### Step 3 — Deploy the Portugal-specific package
-
-After the main package has been deployed (section 1.2), run:
-
-```bash
-sf project deploy start --manifest anonymization/manifest/package-portugal-alh.xml --target-org <portugal-org-alias>
-```
-
-This package deploys only:
-- The `TEKCO_AnonymizationOrgConfig__mdt` Custom Metadata Type and its 8 fields
-- The `Portugal_ALH` configuration record
-
-> **Do not deploy this package to other orgs.** It is scoped to Portugal and will have no effect on orgs that do not match the configured domain, but it is not necessary elsewhere.
-
-### What this configures
-
-| Setting | Value |
-|---------|-------|
-| Org domain match | Value from Step 1 |
-| Functional ID field | `ALH_FunctionalId__c` |
-| Automation bypass | Disabled (`false`) — `TEKCO_BypassSettings__c` is not used in this org |
-| Brand mode | Object-based — brands are records of `ALH_Brand__c` |
-| Brand code field | `Name` |
-| Brand country field | `ALH_Country__c` |
-| Brand lookup on record | `ALH_Brand__r` |
-| External ID fields (By ID tab) | `ALH_ExternalSystemID__c` |
-
-### Step 4 — Verify
-
-1. Open the **TEKCO Data Anonymization** tab in the Portugal org.
-2. Confirm the **Brands** list in the By Criteria tab shows brands from `ALH_Brand__c`.
-3. Confirm the external ID selector in the By ID tab shows `ALH_ExternalSystemID__c`.
-4. Run a **Preview Scope** with a known record ID to confirm scope resolution is correct.
+**See [`DEPLOYMENT_NON_STANDARD_ORG.md`](DEPLOYMENT_NON_STANDARD_ORG.md)** for the full
+procedure, the org config field reference, the Portugal worked example, and the
+troubleshooting specific to these orgs.
