@@ -127,6 +127,12 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
                 }
             }
 
+            // Same reason as the By Criteria batch: the org's own external ID fields must be
+            // selected, or getExternalId()'s fallback has nothing to read.
+            fieldApiNames.addAll(
+                TEKCO_AnonymizationOrgConfigService.getExternalIdFieldsOn(objectApiName)
+            );
+
             validFieldConfigDevNames = new List<String>();
             for (TEKCO_AnonymizationFieldConfig__mdt fc : validFieldConfigs) {
                 if (String.isNotBlank(fc.DeveloperName)) validFieldConfigDevNames.add(fc.DeveloperName);

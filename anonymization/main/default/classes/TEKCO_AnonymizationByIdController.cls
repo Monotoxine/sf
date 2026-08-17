@@ -350,16 +350,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
             }
         }
 
-        String extraFields = TEKCO_AnonymizationOrgConfigService.getConfig().externalIdFields;
-        if (String.isNotBlank(extraFields)) {
-            for (String f : extraFields.split(',')) {
-                String trimmed = f.trim();
-                if (String.isNotBlank(trimmed)
-                        && TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, trimmed.toLowerCase())) {
-                    fields.add(trimmed);
-                }
-            }
-        }
+        fields.addAll(TEKCO_AnonymizationOrgConfigService.getExternalIdFieldsOn(objectApiName));
 
         List<String> result = new List<String>(fields);
         result.sort();

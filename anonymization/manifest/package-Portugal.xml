@@ -69,8 +69,8 @@
         <members>TEKCO_AnonymizationPattern.CLEAR</members>
         <members>TEKCO_AnonymizationPattern.DELETE_CONTENT_DOCUMENT</members>
         <members>TEKCO_AnonymizationPattern.EMAIL_MESSAGE_LOREM</members>
-        <members>TEKCO_AnonymizationPattern.ALH_EMAIL_PLUS_EXTERNALID</members>
-        <members>TEKCO_AnonymizationPattern.ALH_EMAIL_PLUS_EXTERNALID_SUBDOMAIN</members>
+        <members>TEKCO_AnonymizationPattern.EMAIL_PLUS_EXTERNALID</members>
+        <members>TEKCO_AnonymizationPattern.EMAIL_PLUS_EXTERNALID_SUBDOMAIN</members>
         <members>TEKCO_AnonymizationPattern.EMAIL_PLUS_SFID</members>
         <members>TEKCO_AnonymizationPattern.EMAIL_PLUS_SFID_SUBDOMAIN</members>
         <members>TEKCO_AnonymizationPattern.LOREM_IPSUM</members>

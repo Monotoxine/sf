@@ -125,6 +125,13 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 }
             }
 
+            // The external ID field named on a pattern record is absent from some orgs, which
+            // then key on their own field (see OrgConfigService.getExternalIdFieldsOn). Those
+            // have to be in the SELECT or the fallback finds nothing at execute() time.
+            fieldApiNames.addAll(
+                TEKCO_AnonymizationOrgConfigService.getExternalIdFieldsOn(objectApiName)
+            );
+
             validFieldConfigDevNames = new List<String>();
             for (TEKCO_AnonymizationFieldConfig__mdt fc : validFieldConfigs) {
                 if (String.isNotBlank(fc.DeveloperName)) {

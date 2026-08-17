@@ -88,6 +88,108 @@ private class TEKCO_AnonymizationPatternServiceTest {
         System.assert(result.contains('@example.com'), 'Domain must be preserved: ' + result);
     }
 
+    // ─── External ID resolution via OrgConfig ──────────────────────────────────
+    //
+    // AccountNumber stands in for the org's own external ID field: it is a standard
+    // Account field, so these tests behave identically in every org.
+
+    private static void useOrgExternalIdField(String fieldApiName) {
+        TEKCO_AnonymizationOrgConfigService.OrgConfig cfg =
+            new TEKCO_AnonymizationOrgConfigService.OrgConfig();
+        cfg.functionalIdField = 'TEKCO_FunctionalId__c';
+        cfg.bypassEnabled     = false;
+        cfg.externalIdFields  = fieldApiName;
+        TEKCO_AnonymizationOrgConfigService.setConfigForTest(cfg);
+    }
+
+    @isTest
+    static void externalId_fallsBackToOrgConfigFieldWhenPatternFieldAbsent() {
+        TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
+        useOrgExternalIdField('AccountNumber');
+
+        Account acc = new Account(Name = 'Test', AccountNumber = 'EXT12345');
+        insert acc;
+
+        TEKCO_AnonymizationPattern__mdt pattern = activePattern('EMAIL_PLUS_EXTERNALID');
+        pattern.TEKCO_BaseEmail__c        = 'anon@example.com';
+        // Standard TEKCO field, absent from orgs that key on their own — this is the case
+        // the fallback exists for.
+        pattern.TEKCO_ExternalIdField__c  = 'TEKCO_NoSuchExternalId__c';
+
+        String result = TEKCO_AnonymizationPatternService.applyPattern(
+            'EMAIL_PLUS_EXTERNALID', 'original@example.com', acc, pattern
+        );
+
+        System.assert(result.contains('+EXT12345'),
+            'Must key on the org-configured external ID field, got: ' + result);
+        System.assert(!result.contains(acc.Id),
+            'Must not degrade to the Salesforce Id when the org declares a usable field: ' + result);
+    }
+
+    @isTest
+    static void externalId_patternFieldWinsOverOrgConfig() {
+        TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
+        useOrgExternalIdField('AccountNumber');
+
+        Account acc = new Account(Name = 'Test', AccountNumber = 'ORGFIELD', Site = 'PATTERNFIELD');
+        insert acc;
+
+        TEKCO_AnonymizationPattern__mdt pattern = activePattern('EMAIL_PLUS_EXTERNALID');
+        pattern.TEKCO_BaseEmail__c       = 'anon@example.com';
+        pattern.TEKCO_ExternalIdField__c = 'Site';
+
+        String result = TEKCO_AnonymizationPatternService.applyPattern(
+            'EMAIL_PLUS_EXTERNALID', 'original@example.com', acc, pattern
+        );
+
+        System.assert(result.contains('+PATTERNFIELD'),
+            'The field named on the pattern must win when it resolves: ' + result);
+        System.assert(!result.contains('ORGFIELD'),
+            'The org fallback must stay dormant while the pattern field answers: ' + result);
+    }
+
+    @isTest
+    static void externalId_sfidPatternNeverDivertsToOrgConfig() {
+        TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
+        useOrgExternalIdField('AccountNumber');
+
+        Account acc = new Account(Name = 'Test', AccountNumber = 'EXT12345');
+        insert acc;
+
+        TEKCO_AnonymizationPattern__mdt pattern = activePattern('EMAIL_PLUS_SFID');
+        pattern.TEKCO_BaseEmail__c       = 'anon@example.com';
+        pattern.TEKCO_ExternalIdField__c = 'Id'; // how the shipped SFID patterns are configured
+
+        String result = TEKCO_AnonymizationPatternService.applyPattern(
+            'EMAIL_PLUS_SFID', 'original@example.com', acc, pattern
+        );
+
+        System.assert(result.contains(acc.Id),
+            'A SFID pattern must key on the record Id: ' + result);
+        System.assert(!result.contains('EXT12345'),
+            'A SFID pattern must never drift onto a business identifier: ' + result);
+    }
+
+    @isTest
+    static void externalId_patternDeclaringNoFieldIgnoresOrgConfig() {
+        TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
+        useOrgExternalIdField('AccountNumber');
+
+        Account acc = new Account(Name = 'Test', AccountNumber = 'EXT12345');
+        insert acc;
+
+        TEKCO_AnonymizationPattern__mdt pattern = activePattern('EMAIL_PLUS_SFID');
+        pattern.TEKCO_BaseEmail__c = 'anon@example.com';
+        // No external ID field declared at all — deliberate, so no fallback.
+
+        String result = TEKCO_AnonymizationPatternService.applyPattern(
+            'EMAIL_PLUS_SFID', 'original@example.com', acc, pattern
+        );
+
+        System.assert(!result.contains('EXT12345'),
+            'A pattern naming no external ID field must not pick one up: ' + result);
+    }
+
     // ─── SSN_SEQUENTIAL ────────────────────────────────────────────────────────
 
     @isTest

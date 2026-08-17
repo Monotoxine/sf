@@ -103,6 +103,47 @@ private class TEKCO_AnonymizationOrgConfigServiceTest {
         System.assertEquals(false, TEKCO_AnonymizationOrgConfigService.hasField('Account', 'TEKCO_NoSuchField__c'));
     }
 
+    // ─── External ID fields ──────────────────────────────────────────────────
+
+    private static void useExternalIdFields(String configured) {
+        TEKCO_AnonymizationOrgConfigService.OrgConfig cfg = tekcoModeConfig();
+        cfg.externalIdFields = configured;
+        TEKCO_AnonymizationOrgConfigService.setConfigForTest(cfg);
+    }
+
+    @isTest
+    static void getExternalIdFieldsOn_keepsOnlyFieldsPresentOnTheObject() {
+        useExternalIdFields('AccountNumber,TEKCO_NoSuchField__c');
+
+        List<String> fields = TEKCO_AnonymizationOrgConfigService.getExternalIdFieldsOn('Account');
+
+        System.assertEquals(1, fields.size(), 'Absent fields must be filtered out: ' + fields);
+        System.assertEquals('AccountNumber', fields[0]);
+    }
+
+    @isTest
+    static void getExternalIdFieldsOn_trimsWhitespaceAndSkipsEmptyEntries() {
+        useExternalIdFields('  AccountNumber ,, Site  ');
+
+        List<String> fields = TEKCO_AnonymizationOrgConfigService.getExternalIdFieldsOn('Account');
+
+        System.assertEquals(new List<String>{ 'AccountNumber', 'Site' }, fields,
+            'Entries must be trimmed and blanks dropped, declaration order preserved');
+    }
+
+    @isTest
+    static void getExternalIdFieldsOn_returnsEmptyWhenNothingUsable() {
+        useExternalIdFields(null);
+        System.assertEquals(0,
+            TEKCO_AnonymizationOrgConfigService.getExternalIdFieldsOn('Account').size(),
+            'A blank setting yields no field');
+
+        useExternalIdFields('AccountNumber');
+        System.assertEquals(0,
+            TEKCO_AnonymizationOrgConfigService.getExternalIdFieldsOn(UNKNOWN_OBJECT).size(),
+            'An absent object yields no field rather than throwing');
+    }
+
     // ─── Brand / country resolution ──────────────────────────────────────────
 
     @isTest

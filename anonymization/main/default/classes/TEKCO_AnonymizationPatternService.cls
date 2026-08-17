@@ -244,14 +244,48 @@ public class TEKCO_AnonymizationPatternService {
         return currentValue.replaceFirst('\\d+', String.valueOf(streetNumber + randomOffset));
     }
 
+    /** Patterns that deliberately key on the record Id — never divert them to a business key. */
+    private static final String SFID_FIELD = 'Id';
+
+    /**
+     * The pattern's own field first, then whatever the org declares in
+     * TEKCO_AnonymizationOrgConfig__mdt.TEKCO_ExternalIdFields__c.
+     *
+     * The field named on a pattern record belongs to the standard TEKCO schema
+     * (TEKCO_ExternalId__c) and simply does not exist in every org — Portugal keys on
+     * ALH_ExternalSystemID__c. Without this fallback the identifier silently degrades to the
+     * Salesforce Id in those orgs.
+     */
     private static String getExternalId(SObject record, TEKCO_AnonymizationPattern__mdt pattern) {
-        if (record == null || String.isBlank(pattern.TEKCO_ExternalIdField__c)) return '';
+        if (record == null) return '';
+        String declared = pattern.TEKCO_ExternalIdField__c;
+
+        String fromPattern = readExternalId(record, declared);
+        if (String.isNotBlank(fromPattern)) return fromPattern;
+
+        // A pattern naming no field, or naming Id outright, must not drift onto a business
+        // identifier — that would change what it means.
+        if (String.isBlank(declared) || SFID_FIELD.equalsIgnoreCase(declared)) return '';
+
+        for (String fieldName : TEKCO_AnonymizationOrgConfigService.getExternalIdFieldsOn(
+                                    String.valueOf(record.getSObjectType()))) {
+            String fromOrgConfig = readExternalId(record, fieldName);
+            if (String.isNotBlank(fromOrgConfig)) return fromOrgConfig;
+        }
+        return '';
+    }
+
+    /**
+     * Reads one candidate field and validates it. Rejects base64, BOM chars, slashes, equals —
+     * anything unsafe in a name or email field. Callers fall back to the functional ID, then
+     * the Salesforce record Id, when this returns ''.
+     */
+    private static String readExternalId(SObject record, String fieldApiName) {
+        if (String.isBlank(fieldApiName)) return '';
         try {
-            Object fieldValue = record.get(pattern.TEKCO_ExternalIdField__c);
+            Object fieldValue = record.get(fieldApiName);
             if (fieldValue == null) return '';
             String externalId = String.valueOf(fieldValue);
-            // Reject base64, BOM chars, slashes, equals — anything unsafe in name or email fields.
-            // Callers fall back to functional ID → Salesforce record Id when this returns ''.
             if (!System.Pattern.compile('^[a-zA-Z0-9_\\-]+$').matcher(externalId).matches()) return '';
             return externalId;
         } catch (Exception e) {
