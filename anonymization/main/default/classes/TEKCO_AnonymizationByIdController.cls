@@ -13,8 +13,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
         String targetObject,
         String externalIdField
     ) {
-        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
-
         ResolveResultDTO result = new ResolveResultDTO();
         result.directObjects   = new List<ObjectScopeDTO>();
         result.childObjects    = new List<ObjectScopeDTO>();
@@ -98,10 +96,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
                         brandSet.add((String) r.get('TEKCO_Brand__c'));
                     }
                 }
-            } catch (Exception e) {
-                System.debug(LoggingLevel.WARN,
-                    'Brand collection failed for ' + obj + ': ' + e.getMessage());
-            }
+            } catch (Exception e) {  }
         }
         List<String> brandList = new List<String>(brandSet);
         brandList.sort();
@@ -119,7 +114,11 @@ public with sharing class TEKCO_AnonymizationByIdController {
         List<String> excludedFields,
         List<String> noHistoryFields
     ) {
-        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
+        if (!FeatureManagement.checkPermission('TEKCO_AnonymizeData')) {
+            throw new AuraHandledException(
+                'Permission denied: the "TEKCO Anonymize Data" custom permission is required.'
+            );
+        }
         TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
 
         if (rawIds == null || rawIds.isEmpty()) {
@@ -177,13 +176,8 @@ public with sharing class TEKCO_AnonymizationByIdController {
 
         List<String> objectsToProcess = new List<String>(allIdsByObject.keySet());
 
-        // DeveloperName is required: these configs are handed to the batch constructors, which
-        // reduce them to DeveloperNames for stateful storage (TEKCO_AnonymizationBatchUtils
-        // .toDevNames) and re-query the full records later. Omitting it here throws
-        // "SObject row was retrieved via SOQL without querying the requested field" in start().
         List<TEKCO_AnonymizationFieldConfig__mdt> scopedConfigs = [
-            SELECT DeveloperName,
-                   TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c, TEKCO_PatternType__c,
+            SELECT DeveloperName, TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c, TEKCO_PatternType__c,
                    TEKCO_IsActive__c, TEKCO_RecordTypeDeveloperName__c, TEKCO_DeleteHistory__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
             WHERE TEKCO_IsActive__c = true
@@ -227,12 +221,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
             }
         }
 
-        // Surface configs whose pattern type resolves to nothing — they would otherwise
-        // be skipped silently at execute() time.
-        List<String> startupWarnings =
-            TEKCO_AnonymizationBatchUtils.validatePatternTypes(scopedConfigs);
-
-        Map<String, TEKCO_AnonymizationPattern__mdt> patternsByType = TEKCO_AnonymizationBatchUtils.buildPatternMap();
+        Map<String, TEKCO_AnonymizationPattern__mdt> patternsByType = buildPatternMap();
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot =
             TEKCO_AnonymizationBypassService.activate();
 
@@ -266,7 +255,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
                     patternsByType, auditLog.Id, remainingObjectIds,
                     contentDocConfigs, contentDocIdsByObject,
                     historyConfigs, historyIdsByObject,
-                    bypassSnapshot, startupWarnings, 0, 0
+                    bypassSnapshot, new List<String>(), 0
                 ),
                 TEKCO_AnonymizationByIdBatch.DEFAULT_BATCH_SIZE
             );
@@ -278,7 +267,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
                     firstObj, contentDocIdsByObject.get(firstObj), auditLog.Id,
                     contentDocConfigs, contentDocIdsByObject,
                     historyConfigs, historyIdsByObject,
-                    bypassSnapshot, startupWarnings, 0, 0, 0
+                    bypassSnapshot, new List<String>(), 0, 0
                 ),
                 TEKCO_ContentDocumentByIdBatch.DEFAULT_BATCH_SIZE
             );
@@ -300,7 +289,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
 
     @AuraEnabled(cacheable=false)
     public static List<TEKCO_AnonymizationAuditLog__c> getAuditLogsByid() {
-        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
         return [
             SELECT Name, TEKCO_ObjectApiName__c, TEKCO_BrandFilter__c, TEKCO_Status__c,
                    TEKCO_RecordsProcessed__c, TEKCO_RecordsFailed__c,
@@ -316,7 +304,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
 
     @AuraEnabled(cacheable=true)
     public static List<Map<String, String>> getDirectObjects() {
-        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
         Set<String> seen = new Set<String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fc : [
             SELECT TEKCO_ObjectApiName__c
@@ -338,7 +325,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
 
     @AuraEnabled(cacheable=true)
     public static List<String> getExternalIdFieldsForObject(String objectApiName) {
-        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
         if (String.isBlank(objectApiName)) return new List<String>();
 
         Set<String> patternTypesForObj = new Set<String>();
@@ -387,25 +373,19 @@ public with sharing class TEKCO_AnonymizationByIdController {
         List<String> invalidOut
     ) {
         Map<String, List<Id>> result = new Map<String, List<Id>>();
-        // Both names are client-supplied and go straight into dynamic SOQL — validate first.
-        String safeObject;
-        String safeField;
-        try {
-            safeObject = TEKCO_AnonymizationBatchUtils.requireConfiguredObject(objectApiName);
-            safeField  = TEKCO_AnonymizationBatchUtils.requireFieldOnObject(safeObject, fieldApiName);
-        } catch (Exception e) {
-            if (invalidOut != null) invalidOut.add(objectApiName + '.' + fieldApiName + ' — ' + e.getMessage());
+        try { Schema.describeSObjects(new List<String>{ objectApiName }); }
+        catch (Exception e) {
+            if (invalidOut != null) invalidOut.add(objectApiName + ' — object not found in org');
             return result;
         }
         try {
             List<SObject> records = Database.query(
-                'SELECT Id FROM ' + safeObject
-                + ' WHERE ' + safeField + ' IN :rawValues'
+                'SELECT Id FROM ' + objectApiName
+                + ' WHERE ' + fieldApiName + ' IN :rawValues'
             );
             List<Id> ids = new List<Id>();
             for (SObject r : records) ids.add(r.Id);
-            // Key by the canonical configured name so downstream comparisons line up.
-            if (!ids.isEmpty()) result.put(safeObject, ids);
+            if (!ids.isEmpty()) result.put(objectApiName, ids);
         } catch (Exception e) {
             if (invalidOut != null) {
                 invalidOut.add(objectApiName + '.' + fieldApiName + ' — ' + e.getMessage());
@@ -474,11 +454,8 @@ public with sharing class TEKCO_AnonymizationByIdController {
     private static List<Id> resolveChildIds(
         String childObjectApiName, String parentLookupField, List<Id> parentIds
     ) {
-        // Names come from CMDT (admin-managed) but still reach dynamic SOQL — validate,
-        // so a typo surfaces as a skipped object rather than a QueryException.
-        if (!TEKCO_AnonymizationOrgConfigService.hasField(childObjectApiName, parentLookupField)) {
-            return new List<Id>();
-        }
+        try { Schema.describeSObjects(new List<String>{ childObjectApiName }); }
+        catch (Exception e) { return new List<Id>(); }
         List<Id> childIds = new List<Id>();
         try {
             List<SObject> children = Database.query(
@@ -486,11 +463,12 @@ public with sharing class TEKCO_AnonymizationByIdController {
                 + ' WHERE ' + parentLookupField + ' IN :parentIds'
             );
             for (SObject child : children) childIds.add(child.Id);
-        } catch (Exception e) {
-            System.debug(LoggingLevel.WARN, 'Child resolution failed for '
-                + childObjectApiName + '.' + parentLookupField + ': ' + e.getMessage());
-        }
+        } catch (Exception e) { }
         return childIds;
+    }
+
+    private static Map<String, TEKCO_AnonymizationPattern__mdt> buildPatternMap() {
+        return TEKCO_AnonymizationBatchUtils.buildPatternMap();
     }
 
     private class ChildRelationInfo {

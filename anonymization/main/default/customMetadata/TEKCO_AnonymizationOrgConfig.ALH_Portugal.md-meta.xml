@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>ALH Portugal</label>
+    <protected>false</protected>
+    <values>
+        <field>TEKCO_BrandCodeField__c</field>
+        <value xsi:type="xsd:string">Name</value>
+    </values>
+    <values>
+        <field>TEKCO_BrandCountryField__c</field>
+        <value xsi:type="xsd:string">Country__c</value>
+    </values>
+    <values>
+        <field>TEKCO_BrandLookupFieldOnRecord__c</field>
+        <value xsi:type="xsd:string">ALH_Brand__r</value>
+    </values>
+    <values>
+        <field>TEKCO_BrandObjectApiName__c</field>
+        <value xsi:type="xsd:string">ALH_Brand__c</value>
+    </values>
+    <values>
+        <field>TEKCO_BypassEnabled__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>TEKCO_ExternalIdFields__c</field>
+        <value xsi:type="xsd:string">ALH_ExternalSystemID__c</value>
+    </values>
+    <values>
+        <field>TEKCO_FunctionalIdField__c</field>
+        <value xsi:type="xsd:string">ALH_FunctionalId__c</value>
+    </values>
+    <values>
+        <field>TEKCO_OrgDomain__c</field>
+        <value xsi:type="xsd:string">airliquidehomecare--preprod</value>
+    </values>
+</CustomMetadata>

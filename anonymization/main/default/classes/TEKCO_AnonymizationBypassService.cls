@@ -17,10 +17,8 @@ public inherited sharing class TEKCO_AnonymizationBypassService {
         public Map<String, Boolean> preExistingFieldValues;
     }
 
-    /** Updateable boolean field names on the bypass setting, described once per transaction. */
     private static List<String> bypassFieldNames;
 
-    /** Single guard for both entry points: the org must want the bypass and own the object. */
     private static Boolean bypassAvailable() {
         return TEKCO_AnonymizationOrgConfigService.getConfig().bypassEnabled
             && TEKCO_AnonymizationOrgConfigService.hasObject(BYPASS_OBJECT);
@@ -41,10 +39,6 @@ public inherited sharing class TEKCO_AnonymizationBypassService {
         return bypassFieldNames;
     }
 
-    /**
-     * The running user's bypass record, or a new unsaved one carrying its SetupOwnerId.
-     * A null Id means it did not pre-exist, which is what the snapshot records.
-     */
     private static SObject getOrNewBypassRecord(Id userId) {
         List<String> fieldNames = getBypassFieldNames();
         String selectList = fieldNames.isEmpty() ? 'Id' : 'Id, ' + String.join(fieldNames, ', ');
@@ -62,7 +56,6 @@ public inherited sharing class TEKCO_AnonymizationBypassService {
         return bypassRecord;
     }
 
-    /** upsert is not supported on a generic SObject, so the insert/update split is explicit. */
     private static void saveBypassRecord(SObject bypassRecord) {
         if (bypassRecord.Id == null) {
             Database.insert(bypassRecord);

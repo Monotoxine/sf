@@ -3,10 +3,7 @@
  * @description Phase 3 of the anonymization chain: deletes field history records for
  *              fields where TEKCO_AnonymizationFieldConfig__mdt.TEKCO_DeleteHistory__c = true
  */
-// Deliberately 'without sharing': anonymization must reach every record matching the
-// configured scope. Running with sharing would silently skip records the launching
-// user cannot see, leaving PII in place with no error.
-public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Database.Stateful {
+public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Database.Stateful {
 
     public static final Integer DEFAULT_BATCH_SIZE   = 2000;
     private static final Integer MAX_CAPTURED_ERRORS  = 50;
@@ -23,12 +20,8 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
     private Integer recordsDeleted                   = 0;
     private Integer recordsFailed                    = 0;
     private Integer accumulatedRecordsProcessed      = 0;
-    private Integer accumulatedRecordsFailed         = 0;
     private Integer accumulatedDocumentsDeleted      = 0;
     private Integer accumulatedHistoryRecordsDeleted = 0;
-    /** Set when the sandbox guard trips in start(); finish() must not re-finalize
-     *  the audit log that assertSandboxOrClose() already closed as Failed. */
-    private Boolean aborted = false;
     private List<String> errors                      = new List<String>();
     private List<String> accumulatedErrors           = new List<String>();
 
@@ -41,7 +34,6 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
         List<String> accumulatedErrors,
         Integer accumulatedRecordsProcessed,
-        Integer accumulatedRecordsFailed,
         Integer accumulatedDocumentsDeleted,
         Integer accumulatedHistoryRecordsDeleted,
         Map<String, List<String>> parentFiltersByObject,
@@ -55,7 +47,6 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
         this.bypassSnapshot                   = bypassSnapshot;
         this.accumulatedErrors                = accumulatedErrors                != null ? accumulatedErrors                : new List<String>();
         this.accumulatedRecordsProcessed      = accumulatedRecordsProcessed      != null ? accumulatedRecordsProcessed      : 0;
-        this.accumulatedRecordsFailed         = accumulatedRecordsFailed         != null ? accumulatedRecordsFailed         : 0;
         this.accumulatedDocumentsDeleted      = accumulatedDocumentsDeleted      != null ? accumulatedDocumentsDeleted      : 0;
         this.accumulatedHistoryRecordsDeleted = accumulatedHistoryRecordsDeleted != null ? accumulatedHistoryRecordsDeleted : 0;
         this.parentFiltersByObject            = parentFiltersByObject != null
@@ -65,10 +56,7 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
     }
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
-        if (!TEKCO_AnonymizationBatchUtils.assertSandboxOrClose(auditLogId, bypassSnapshot)) {
-            aborted = true;
-            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
-        }
+        TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
 
         try { Schema.describeSObjects(new List<String>{ objectApiName }); }
         catch (Exception e) {
@@ -76,8 +64,8 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
             return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
         }
 
-        String historyObjectName = TEKCO_AnonymizationBatchUtils.computeHistoryObjectName(objectApiName);
-        String parentIdFieldName = TEKCO_AnonymizationBatchUtils.computeParentIdFieldName(objectApiName);
+        String historyObjectName = computeHistoryObjectName(objectApiName);
+        String parentIdFieldName = computeParentIdFieldName(objectApiName);
 
         try { Schema.describeSObjects(new List<String>{ historyObjectName }); }
         catch (Exception e) {
@@ -174,27 +162,30 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
     }
 
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
-        TEKCO_FieldHistoryDeleteService.DeleteOutcome outcome =
-            TEKCO_FieldHistoryDeleteService.deleteHistoryRecords(scope);
-
-        recordsDeleted += outcome.recordsDeleted;
-        recordsFailed  += outcome.recordsFailed;
-        for (String e : outcome.errors) {
-            if (errors.size() < MAX_CAPTURED_ERRORS) errors.add(e);
+        Database.DeleteResult[] deleteResults = Database.delete(scope, false);
+        for (Database.DeleteResult deleteResult : deleteResults) {
+            if (deleteResult.isSuccess()) {
+                recordsDeleted++;
+            } else {
+                recordsFailed++;
+                if (errors.size() < MAX_CAPTURED_ERRORS) {
+                    List<String> errorMessages = new List<String>();
+                    for (Database.Error dmlError : deleteResult.getErrors()) {
+                        errorMessages.add(dmlError.getMessage());
+                    }
+                    errors.add(TEKCO_AnonymizationBatchUtils.cap(String.join(errorMessages, '; ')));
+                }
+            }
         }
     }
 
     public void finish(Database.BatchableContext bc) {
-        // The sandbox guard already closed the audit log as Failed — do not overwrite it.
-        if (aborted) return;
-
         for (String e : errors) {
             if (accumulatedErrors.size() < TEKCO_AnonymizationBatch.MAX_ACCUMULATED_ERRORS) {
                 accumulatedErrors.add(e);
             }
         }
         Integer totalHistoryDeleted = accumulatedHistoryRecordsDeleted + recordsDeleted;
-        Integer totalFailed         = accumulatedRecordsFailed         + recordsFailed;
         List<TEKCO_AnonymizationFieldConfig__mdt> remainingHistoryConfigs =
             TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(remainingHistoryConfigDevNames);
         try {
@@ -212,7 +203,6 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
                         bypassSnapshot,
                         accumulatedErrors,
                         accumulatedRecordsProcessed,
-                        totalFailed,
                         accumulatedDocumentsDeleted,
                         totalHistoryDeleted,
                         parentFiltersByObject,
@@ -223,26 +213,28 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
             } else {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
                 TEKCO_AnonymizationAuditService.finalize(
-                    auditLogId, accumulatedRecordsProcessed, totalFailed,
+                    auditLogId, accumulatedRecordsProcessed, recordsFailed,
                     accumulatedDocumentsDeleted, totalHistoryDeleted, accumulatedErrors
                 );
-                return;
             }
-            TEKCO_AnonymizationAuditService.markRunning(
-                auditLogId, accumulatedRecordsProcessed, totalFailed, accumulatedErrors
-            );
         } catch (Exception e) {
             try {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-            } catch (Exception restoreEx) {
-                System.debug(LoggingLevel.ERROR, 'Bypass restore failed; flags may remain enabled: ' + restoreEx.getMessage());
-            }
+            } catch (Exception restoreEx) { }
             TEKCO_AnonymizationAuditService.closeFailed(
-                auditLogId, accumulatedRecordsProcessed, totalFailed,
+                auditLogId, accumulatedRecordsProcessed, recordsFailed,
                 accumulatedDocumentsDeleted, totalHistoryDeleted, accumulatedErrors, e.getMessage()
             );
         }
     }
 
+
+    private static String computeHistoryObjectName(String objectApiName) {
+        return TEKCO_AnonymizationBatchUtils.computeHistoryObjectName(objectApiName);
+    }
+
+    private static String computeParentIdFieldName(String objectApiName) {
+        return TEKCO_AnonymizationBatchUtils.computeParentIdFieldName(objectApiName);
+    }
 
 }

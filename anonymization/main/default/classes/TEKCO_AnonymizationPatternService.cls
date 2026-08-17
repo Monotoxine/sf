@@ -17,7 +17,7 @@
  *   DELETE_CONTENT_DOCUMENT         - Handled by dedicated batch (Phase 2)
  *   EMAIL_MESSAGE_LOREM             - Draft → lorem ipsum on the field; non-Draft → record deleted (handled in batch)
  */
-public inherited sharing class TEKCO_AnonymizationPatternService {
+public class TEKCO_AnonymizationPatternService {
 
     public static final String LOREM_TEXT =
         'Lorem ipsum dolor sit amet, consectetur adipiscing elit. ' +
@@ -120,10 +120,7 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
                 if (functionalId != null && String.isNotBlank(String.valueOf(functionalId))) {
                     return String.valueOf(functionalId);
                 }
-            } catch (Exception e) {
-                System.debug(LoggingLevel.WARN,
-                    'Functional ID field unreadable on record: ' + e.getMessage());
-            }
+            } catch (Exception e) {}
         }
 
         return getSalesforceId(record);
@@ -197,13 +194,11 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
             : (pattern.TEKCO_SsnLength__c != null
                 ? Integer.valueOf(pattern.TEKCO_SsnLength__c)
                 : SSN_DEFAULT_LENGTH);
-        // Repeat the 1-9 cycle then trim, rather than concatenating in a loop.
-        String cycle = '123456789';
         String result = '';
-        while (result.length() < targetLength) {
-            result += cycle;
+        for (Integer index = 0; index < targetLength; index++) {
+            result += String.valueOf(Math.mod(index, 9) + 1);
         }
-        return result.substring(0, targetLength);
+        return result;
     }
 
     /**

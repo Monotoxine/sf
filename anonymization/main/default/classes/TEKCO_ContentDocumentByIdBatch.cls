@@ -4,34 +4,24 @@
  *              explicit parent IDs. Mirrors TEKCO_ContentDocumentBatch.execute() exactly;
  *              only start() differs — it filters by explicit parent IDs instead of brand/RT.
  */
-// Deliberately 'without sharing': anonymization must reach every record matching the
-// configured scope. Running with sharing would silently skip records the launching
-// user cannot see, leaving PII in place with no error.
-public without sharing class TEKCO_ContentDocumentByIdBatch implements Database.Batchable<SObject>, Database.Stateful {
+public class TEKCO_ContentDocumentByIdBatch implements Database.Batchable<SObject>, Database.Stateful {
 
-    // Kept low deliberately: each parent can own many ContentDocuments/Attachments,
-    // and every one of them counts against the 10 000-row DML ceiling for the chunk.
-    public static final Integer DEFAULT_BATCH_SIZE   = 100;
+    public static final Integer DEFAULT_BATCH_SIZE   = 500;
     private static final Integer MAX_CAPTURED_ERRORS = 50;
 
     private String                                       objectApiName;
     private List<Id>                                     parentIds;
     private Id                                           auditLogId;
-    // DeveloperNames only — re-queried in finish() before chaining to keep serialized state small.
-    private List<String>                                 remainingContentDocConfigDevNames;
+    private List<TEKCO_AnonymizationFieldConfig__mdt>    remainingContentDocConfigs;
     private Map<String, List<Id>>                        contentDocIdsByObject;
-    private List<String>                                 historyConfigDevNames;
+    private List<TEKCO_AnonymizationFieldConfig__mdt>    historyConfigs;
     private Map<String, List<Id>>                        historyIdsByObject;
     private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
 
     private Integer recordsDeleted               = 0;
     private Integer recordsFailed                = 0;
     private Integer accumulatedRecordsProcessed  = 0;
-    private Integer accumulatedRecordsFailed     = 0;
     private Integer accumulatedDocumentsDeleted  = 0;
-    /** Set when the sandbox guard trips in start(); finish() must not re-finalize
-     *  the audit log that assertSandboxOrClose() already closed as Failed. */
-    private Boolean aborted = false;
     private List<String> errors                  = new List<String>();
     private List<String> accumulatedErrors       = new List<String>();
 
@@ -46,63 +36,94 @@ public without sharing class TEKCO_ContentDocumentByIdBatch implements Database.
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
         List<String> accumulatedErrors,
         Integer accumulatedRecordsProcessed,
-        Integer accumulatedRecordsFailed,
         Integer accumulatedDocumentsDeleted
     ) {
         this.objectApiName               = objectApiName;
         this.parentIds                   = parentIds                   != null ? parentIds                   : new List<Id>();
         this.auditLogId                  = auditLogId;
-        this.remainingContentDocConfigDevNames = TEKCO_AnonymizationBatchUtils.toDevNames(remainingContentDocConfigs);
+        this.remainingContentDocConfigs  = remainingContentDocConfigs  != null ? remainingContentDocConfigs  : new List<TEKCO_AnonymizationFieldConfig__mdt>();
         this.contentDocIdsByObject       = contentDocIdsByObject       != null ? contentDocIdsByObject       : new Map<String, List<Id>>();
-        this.historyConfigDevNames       = TEKCO_AnonymizationBatchUtils.toDevNames(historyConfigs);
+        this.historyConfigs              = historyConfigs              != null ? historyConfigs              : new List<TEKCO_AnonymizationFieldConfig__mdt>();
         this.historyIdsByObject          = historyIdsByObject          != null ? historyIdsByObject          : new Map<String, List<Id>>();
         this.bypassSnapshot              = bypassSnapshot;
         this.accumulatedErrors           = accumulatedErrors           != null ? accumulatedErrors           : new List<String>();
         this.accumulatedRecordsProcessed = accumulatedRecordsProcessed != null ? accumulatedRecordsProcessed : 0;
-        this.accumulatedRecordsFailed    = accumulatedRecordsFailed    != null ? accumulatedRecordsFailed    : 0;
         this.accumulatedDocumentsDeleted = accumulatedDocumentsDeleted != null ? accumulatedDocumentsDeleted : 0;
     }
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
-        if (!TEKCO_AnonymizationBatchUtils.assertSandboxOrClose(auditLogId, bypassSnapshot)) {
-            aborted = true;
-            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
-        }
+        TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
         return Database.getQueryLocator(
             'SELECT Id FROM ' + objectApiName + ' WHERE Id IN :parentIds'
         );
     }
 
+    // Identical to TEKCO_ContentDocumentBatch.execute()
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
-        Set<Id> parentIds = new Set<Id>();
-        for (SObject record : scope) parentIds.add(record.Id);
+        Set<Id> scopeIds = new Set<Id>();
+        for (SObject record : scope) scopeIds.add(record.Id);
+        if (scopeIds.isEmpty()) return;
 
-        TEKCO_ContentDocumentDeleteService.DeleteOutcome outcome =
-            TEKCO_ContentDocumentDeleteService.deleteForParentIds(parentIds);
+        // ServiceReports (must be deleted before ContentDocument)
+        try {
+            List<SObject> serviceReports = Database.query(
+                'SELECT Id FROM ServiceReport WHERE ParentId IN :scopeIds'
+            );
+            if (!serviceReports.isEmpty()) {
+                Database.delete(serviceReports, false);
+            }
+        } catch (Exception e) {
+            // ServiceReport not available in this org — skip
+        }
 
-        recordsDeleted += outcome.recordsDeleted;
-        recordsFailed  += outcome.recordsFailed;
-        for (String e : outcome.errors) {
-            if (errors.size() < MAX_CAPTURED_ERRORS) errors.add(e);
+        // ContentDocuments
+        List<ContentDocumentLink> cdLinks = [
+            SELECT ContentDocumentId
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId IN :scopeIds
+        ];
+        if (!cdLinks.isEmpty()) {
+            Set<Id> cdIds = new Set<Id>();
+            for (ContentDocumentLink cdl : cdLinks) cdIds.add(cdl.ContentDocumentId);
+            List<ContentDocument> toDelete = new List<ContentDocument>();
+            for (Id cdId : cdIds) toDelete.add(new ContentDocument(Id = cdId));
+            for (Database.DeleteResult dr : Database.delete(toDelete, false)) {
+                if (dr.isSuccess()) {
+                    recordsDeleted++;
+                } else {
+                    recordsFailed++;
+                    if (errors.size() < MAX_CAPTURED_ERRORS) {
+                        List<String> msgs = new List<String>();
+                        for (Database.Error e : dr.getErrors()) msgs.add(e.getMessage());
+                        errors.add(String.join(msgs, '; '));
+                    }
+                }
+            }
+        }
+
+        // Attachments
+        List<Attachment> attachments = [
+            SELECT Id FROM Attachment WHERE ParentId IN :scopeIds
+        ];
+        if (!attachments.isEmpty()) {
+            for (Database.DeleteResult dr : Database.delete(attachments, false)) {
+                if (dr.isSuccess()) {
+                    recordsDeleted++;
+                } else {
+                    recordsFailed++;
+                    if (errors.size() < MAX_CAPTURED_ERRORS) {
+                        List<String> msgs = new List<String>();
+                        for (Database.Error e : dr.getErrors()) msgs.add(e.getMessage());
+                        errors.add(String.join(msgs, '; '));
+                    }
+                }
+            }
         }
     }
 
     public void finish(Database.BatchableContext bc) {
-        // The sandbox guard already closed the audit log as Failed — do not overwrite it.
-        if (aborted) return;
-
-        for (String e : errors) {
-            if (accumulatedErrors.size() < TEKCO_AnonymizationBatch.MAX_ACCUMULATED_ERRORS) {
-                accumulatedErrors.add(e);
-            }
-        }
+        accumulatedErrors.addAll(errors);
         Integer totalDocsDeleted = accumulatedDocumentsDeleted + recordsDeleted;
-        Integer totalFailed      = accumulatedRecordsFailed    + recordsFailed;
-        // Re-query CMDT lists here — only devNames were carried through execute() chunks.
-        List<TEKCO_AnonymizationFieldConfig__mdt> remainingContentDocConfigs =
-            TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(remainingContentDocConfigDevNames);
-        List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs =
-            TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(historyConfigDevNames);
 
         try {
             if (!remainingContentDocConfigs.isEmpty()) {
@@ -113,7 +134,7 @@ public without sharing class TEKCO_ContentDocumentByIdBatch implements Database.
                         nextObj, contentDocIdsByObject.get(nextObj), auditLogId,
                         remainingContentDocConfigs, contentDocIdsByObject,
                         historyConfigs, historyIdsByObject,
-                        bypassSnapshot, accumulatedErrors, accumulatedRecordsProcessed, totalFailed, totalDocsDeleted
+                        bypassSnapshot, accumulatedErrors, accumulatedRecordsProcessed, totalDocsDeleted
                     ),
                     DEFAULT_BATCH_SIZE
                 );
@@ -125,29 +146,21 @@ public without sharing class TEKCO_ContentDocumentByIdBatch implements Database.
                     new TEKCO_FieldHistoryByIdBatch(
                         firstHistObj, firstHistConfigs, historyIdsByObject.get(firstHistObj),
                         auditLogId, historyConfigs, historyIdsByObject,
-                        bypassSnapshot, accumulatedErrors, accumulatedRecordsProcessed, totalFailed, totalDocsDeleted, 0
+                        bypassSnapshot, accumulatedErrors, accumulatedRecordsProcessed, totalDocsDeleted, 0
                     ),
                     TEKCO_FieldHistoryByIdBatch.DEFAULT_BATCH_SIZE
                 );
             } else {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
                 TEKCO_AnonymizationAuditService.finalize(
-                    auditLogId, accumulatedRecordsProcessed, totalFailed,
+                    auditLogId, accumulatedRecordsProcessed, recordsFailed,
                     totalDocsDeleted, 0, accumulatedErrors
                 );
-                return;
             }
-            TEKCO_AnonymizationAuditService.markRunning(
-                auditLogId, accumulatedRecordsProcessed, totalFailed, accumulatedErrors
-            );
         } catch (Exception e) {
-            try {
-                TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-            } catch (Exception ex) {
-                System.debug(LoggingLevel.ERROR, 'Bypass restore failed; flags may remain enabled: ' + ex.getMessage());
-            }
+            try { TEKCO_AnonymizationBypassService.restore(bypassSnapshot); } catch (Exception ex) {}
             TEKCO_AnonymizationAuditService.closeFailed(
-                auditLogId, accumulatedRecordsProcessed, totalFailed,
+                auditLogId, accumulatedRecordsProcessed, recordsFailed,
                 totalDocsDeleted, 0, accumulatedErrors, e.getMessage()
             );
         }

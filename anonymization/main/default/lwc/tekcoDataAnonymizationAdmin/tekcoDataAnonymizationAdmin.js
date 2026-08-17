@@ -161,20 +161,8 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
                         : `${count} record(s)`
             }));
             this.isLoadingPreview = false;
-            if (this.previewByObject.length === 0) {
-                this.previewNote = 'No objects matched the current selection.';
-            }
         })
-        .catch(err => {
-            // Previously discarded, which rendered the panel empty with no explanation.
-            this.isLoadingPreview = false;
-            this.showError('Failed to load preview', err);
-            this.showToast(
-                'Preview failed',
-                err?.body?.message ?? err?.message ?? 'Unknown error — see the browser console.',
-                'error'
-            );
-        });
+        .catch(() => { this.isLoadingPreview = false; });
     }
 
     loadAuditLogs() {
@@ -579,9 +567,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     // ── By Criteria getters ───────────────────────────────────────────────────
 
     get hasFieldConfigs()      { return this.fieldConfigs.length > 0; }
-    // Also true when there is only a note, so an empty result set still explains itself
-    // instead of rendering nothing at all.
-    get hasPreview()           { return this.previewByObject.length > 0 || !!this.previewNote; }
+    get hasPreview()           { return this.previewByObject.length > 0; }
     get hasAuditLogs()         { return this.auditLogs.length > 0; }
     get hasRecordTypeOptions() { return this.recordTypeOptions.length > 0; }
     get isStartDisabled()      { return !this.hasPermission || this.isRunning; }

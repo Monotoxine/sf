@@ -1,14 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
-    <label>TEKCO Anonymization Admin</label>
-    <description>Grants the TEKCO_AnonymizeData custom permission and full access to the TEKCO_AnonymizationAuditLog__c object. Assign to admins who run sandbox data anonymization.</description>
-    <hasActivationRequired>false</hasActivationRequired>
-
-    <!-- Custom Permissions -->
-    <customPermissions>
-        <enabled>true</enabled>
-        <name>TEKCO_AnonymizeData</name>
-    </customPermissions>
     <customPermissions>
         <enabled>true</enabled>
         <name>CXFCO_BypassCustomValidations</name>
@@ -17,72 +8,88 @@
         <enabled>true</enabled>
         <name>CXFCO_BypassOutboundSynchronization</name>
     </customPermissions>
-
-    <!-- Object: TEKCO_AnonymizationAuditLog__c — full CRUD -->
+    <customPermissions>
+        <enabled>true</enabled>
+        <name>TEKCO_AnonymizeData</name>
+    </customPermissions>
+    <description>Grants the TEKCO_AnonymizeData custom permission and full access to the TEKCO_AnonymizationAuditLog__c object. Assign to admins who run sandbox data anonymization.</description>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_BrandFilter__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_EndTime__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_ErrorMessage__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_FieldsAnonymized__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_JobId__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_ObjectApiName__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_RecordsFailed__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_RecordsProcessed__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_StartTime__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_Status__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_TriggeredBy__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>TEKCO Anonymization Admin</label>
     <objectPermissions>
         <allowCreate>true</allowCreate>
         <allowDelete>true</allowDelete>
         <allowEdit>true</allowEdit>
         <allowRead>true</allowRead>
         <modifyAllRecords>true</modifyAllRecords>
-        <viewAllRecords>true</viewAllRecords>
         <object>TEKCO_AnonymizationAuditLog__c</object>
+        <viewAllFields>false</viewAllFields>
+        <viewAllRecords>true</viewAllRecords>
     </objectPermissions>
-
-    <!-- Field permissions — all custom fields read + edit -->
-    <fieldPermissions>
-        <editable>true</editable>
-        <readable>true</readable>
-        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_BrandFilter__c</field>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <readable>true</readable>
-        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_EndTime__c</field>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <readable>true</readable>
-        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_ErrorMessage__c</field>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <readable>true</readable>
-        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_FieldsAnonymized__c</field>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <readable>true</readable>
-        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_JobId__c</field>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <readable>true</readable>
-        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_ObjectApiName__c</field>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <readable>true</readable>
-        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_RecordsFailed__c</field>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <readable>true</readable>
-        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_RecordsProcessed__c</field>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <readable>true</readable>
-        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_StartTime__c</field>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <readable>true</readable>
-        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_Status__c</field>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <readable>true</readable>
-        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_TriggeredBy__c</field>
-    </fieldPermissions>
+    <tabSettings>
+        <tab>TEKCO_Data_Anonymization</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
+    <userPermissions>
+        <enabled>true</enabled>
+        <name>DeleteFieldHistory</name>
+    </userPermissions>
+    <userPermissions>
+        <enabled>true</enabled>
+        <name>DeleteFieldHistoryArchive</name>
+    </userPermissions>
 </PermissionSet>

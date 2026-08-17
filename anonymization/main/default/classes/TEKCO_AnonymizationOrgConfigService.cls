@@ -84,7 +84,6 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
         describeCache = new Map<String, Schema.DescribeSObjectResult>();
     }
 
-    /** Forces the config for the current transaction so tests can exercise both org modes. */
     @TestVisible
     private static void setConfigForTest(OrgConfig cfg) {
         cachedConfig = cfg;
@@ -111,14 +110,6 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
 
     // ─── Describe utilities ──────────────────────────────────────────────────
 
-    /**
-     * Cache of object describes by lowercase API name. hasField() is called in loops
-     * (preview counts, external ID resolution, every batch start()), and each miss costs
-     * a full describe. Null value = object does not exist in this org.
-     *
-     * Single describe entry point for the whole package: hasObject(), hasField() and
-     * getSObjectType() all read from here, so no caller opens its own describe path.
-     */
     private static Map<String, Schema.DescribeSObjectResult> describeCache =
         new Map<String, Schema.DescribeSObjectResult>();
 
@@ -136,12 +127,6 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
         return describeResult;
     }
 
-    /**
-     * True when the object exists in this org. Lets callers reach objects that are absent
-     * from some orgs (e.g. Portugal has neither TEKCO_BypassSettings__c nor
-     * TEKCO_CountryBrandSetting__mdt) without a compile-time reference that would make the
-     * package undeployable there.
-     */
     public static Boolean hasObject(String objectApiName) {
         return getDescribe(objectApiName) != null;
     }
@@ -166,10 +151,6 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
 
     // ─── Brand / country resolution ──────────────────────────────────────────
 
-    /**
-     * Brand-to-country mapping CMDT used by orgs that do not model brands as a lookup
-     * object. Absent from the Portugal org, hence reached dynamically.
-     */
     @TestVisible
     private static final String COUNTRY_BRAND_OBJECT        = 'TEKCO_CountryBrandSetting__mdt';
     @TestVisible
@@ -197,11 +178,6 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
         );
     }
 
-    /**
-     * Both brand modes resolve countries the same way — filter a source object on the brand
-     * values, collect one text column — so they share this query rather than each carrying
-     * their own loop.
-     */
     private static List<String> queryCountryColumn(
         String sourceObject, String brandField, String countryField, List<String> brands
     ) {

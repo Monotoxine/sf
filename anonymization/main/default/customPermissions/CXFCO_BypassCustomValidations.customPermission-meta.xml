@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomPermission xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>CXHHC-20342 ALKH 27/09/2022</description>
+    <isLicensed>false</isLicensed>
+    <label>Bypass Custom Validations</label>
+</CustomPermission>

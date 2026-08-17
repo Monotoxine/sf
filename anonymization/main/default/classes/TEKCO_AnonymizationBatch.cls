@@ -2,10 +2,7 @@
  * @author
  * @description Chain order: TEKCO_AnonymizationBatch → TEKCO_ContentDocumentBatch → TEKCO_FieldHistoryBatch
  */
-// Deliberately 'without sharing': anonymization must reach every record matching the
-// configured scope. Running with sharing would silently skip records the launching
-// user cannot see, leaving PII in place with no error.
-public without sharing class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Database.Stateful {
+public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Database.Stateful {
 
     public static final Integer DEFAULT_BATCH_SIZE      = 200;
     public static final Integer MAX_ACCUMULATED_ERRORS  = 200;
@@ -30,10 +27,6 @@ public without sharing class TEKCO_AnonymizationBatch implements Database.Batcha
     private Integer recordsProcessed        = 0;
     private Integer recordsFailed           = 0;
     private Integer accumulatedRecordsProcessed = 0;
-    private Integer accumulatedRecordsFailed    = 0;
-    /** Set when the sandbox guard trips in start(); finish() must not re-finalize
-     *  the audit log that assertSandboxOrClose() already closed as Failed. */
-    private Boolean aborted = false;
     private List<String> errors             = new List<String>();
     private List<String> accumulatedErrors  = new List<String>();
 
@@ -50,7 +43,6 @@ public without sharing class TEKCO_AnonymizationBatch implements Database.Batcha
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
         List<String> accumulatedErrors,
         Integer accumulatedRecordsProcessed,
-        Integer accumulatedRecordsFailed,
         Map<String, List<String>> parentFiltersByObject,
         Map<String, String> additionalFiltersByObject
     ) {
@@ -65,7 +57,6 @@ public without sharing class TEKCO_AnonymizationBatch implements Database.Batcha
         this.bypassSnapshot             = bypassSnapshot;
         this.accumulatedErrors          = accumulatedErrors != null ? accumulatedErrors : new List<String>();
         this.accumulatedRecordsProcessed = accumulatedRecordsProcessed != null ? accumulatedRecordsProcessed : 0;
-        this.accumulatedRecordsFailed    = accumulatedRecordsFailed    != null ? accumulatedRecordsFailed    : 0;
         this.parentFiltersByObject = parentFiltersByObject != null
             ? parentFiltersByObject : new Map<String, List<String>>();
         this.additionalFiltersByObject = additionalFiltersByObject != null
@@ -73,10 +64,7 @@ public without sharing class TEKCO_AnonymizationBatch implements Database.Batcha
     }
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
-        if (!TEKCO_AnonymizationBatchUtils.assertSandboxOrClose(auditLogId, bypassSnapshot)) {
-            aborted = true;
-            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
-        }
+        TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
 
         Schema.DescribeSObjectResult sObjectDescribe;
         try {
@@ -233,16 +221,12 @@ public without sharing class TEKCO_AnonymizationBatch implements Database.Batcha
     }
 
     public void finish(Database.BatchableContext bc) {
-        // The sandbox guard already closed the audit log as Failed — do not overwrite it.
-        if (aborted) return;
-
         for (String e : errors) {
             if (accumulatedErrors.size() < MAX_ACCUMULATED_ERRORS) {
                 accumulatedErrors.add(TEKCO_AnonymizationBatchUtils.cap(e));
             }
         }
         Integer totalProcessed = accumulatedRecordsProcessed + recordsProcessed;
-        Integer totalFailed    = accumulatedRecordsFailed    + recordsFailed;
         List<TEKCO_AnonymizationFieldConfig__mdt> contentDocConfigs =
             TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(contentDocConfigDevNames);
         List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs =
@@ -265,7 +249,6 @@ public without sharing class TEKCO_AnonymizationBatch implements Database.Batcha
                         bypassSnapshot,
                         accumulatedErrors,
                         totalProcessed,
-                        totalFailed,
                         parentFiltersByObject,
                         additionalFiltersByObject
                     ),
@@ -283,7 +266,6 @@ public without sharing class TEKCO_AnonymizationBatch implements Database.Batcha
                         bypassSnapshot,
                         accumulatedErrors,
                         totalProcessed,
-                        totalFailed,
                         0,
                         parentFiltersByObject,
                         additionalFiltersByObject
@@ -304,7 +286,6 @@ public without sharing class TEKCO_AnonymizationBatch implements Database.Batcha
                         bypassSnapshot,
                         accumulatedErrors,
                         totalProcessed,
-                        totalFailed,
                         0,
                         0,
                         parentFiltersByObject,
@@ -314,17 +295,15 @@ public without sharing class TEKCO_AnonymizationBatch implements Database.Batcha
                 );
             } else {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-                TEKCO_AnonymizationAuditService.finalize(auditLogId, totalProcessed, totalFailed, 0, 0, accumulatedErrors);
+                TEKCO_AnonymizationAuditService.finalize(auditLogId, totalProcessed, recordsFailed, 0, 0, accumulatedErrors);
                 return;
             }
-            TEKCO_AnonymizationAuditService.markRunning(auditLogId, totalProcessed, totalFailed, accumulatedErrors);
+            TEKCO_AnonymizationAuditService.markRunning(auditLogId, totalProcessed, recordsFailed, accumulatedErrors);
         } catch (Exception e) {
             try {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-            } catch (Exception restoreEx) {
-                System.debug(LoggingLevel.ERROR, 'Bypass restore failed; flags may remain enabled: ' + restoreEx.getMessage());
-            }
-            TEKCO_AnonymizationAuditService.closeFailed(auditLogId, totalProcessed, totalFailed, 0, 0, accumulatedErrors, e.getMessage());
+            } catch (Exception restoreEx) {  }
+            TEKCO_AnonymizationAuditService.closeFailed(auditLogId, totalProcessed, recordsFailed, 0, 0, accumulatedErrors, e.getMessage());
         }
     }
 

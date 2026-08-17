@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomPermission xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>CXHHC-29835 AK 08/08/2023</description>
+    <isLicensed>false</isLicensed>
+    <label>Bypass Outbound Synchronization</label>
+</CustomPermission>
