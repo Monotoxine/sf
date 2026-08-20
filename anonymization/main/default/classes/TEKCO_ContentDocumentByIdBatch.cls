@@ -37,14 +37,28 @@ public without sharing class TEKCO_ContentDocumentByIdBatch implements Database.
         }
 
         String objectApiName = config.TEKCO_ObjectApiName__c;
-        // Must be a local of this exact name: the produced query binds ':parentIds'.
-        List<Id> parentIds = ctx.recordIdsFor(objectApiName);
+        // requireConfiguredObject() validates a name against the CMDT, not against the org's
+        // schema, so a config for an object this org does not have reaches here. Without this
+        // guard getQueryLocator() throws, start() dies, finish() never runs, the chain runner is
+        // never called — and the audit log sits on Running forever.
+        if (!TEKCO_AnonymizationOrgConfigService.hasObject(objectApiName)) {
+            errors.add('Object not found in org, skipped: ' + objectApiName);
+            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
+        }
 
-        return Database.getQueryLocator(
-            TEKCO_AnonymizationScopeQueryBuilder.buildByIdScopeQuery(
-                objectApiName, new Set<String>{ 'Id' }, 'parentIds'
-            )
-        );
+        try {
+            // Must be a local of this exact name: the produced query binds ':parentIds'.
+            List<Id> parentIds = ctx.recordIdsFor(objectApiName);
+
+            return Database.getQueryLocator(
+                TEKCO_AnonymizationScopeQueryBuilder.buildByIdScopeQuery(
+                    objectApiName, new Set<String>{ 'Id' }, 'parentIds'
+                )
+            );
+        } catch (Exception e) {
+            errors.add('Failed to build query for ' + objectApiName + ': ' + e.getMessage());
+            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
+        }
     }
 
     public void execute(Database.BatchableContext bc, List<SObject> scope) {

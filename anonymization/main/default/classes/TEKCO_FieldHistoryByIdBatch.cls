@@ -27,6 +27,14 @@ public without sharing class TEKCO_FieldHistoryByIdBatch implements Database.Bat
             return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
         }
 
+        // Same guard as the By Criteria twin. Without it a missing object yields a missing
+        // history object, and the run is reported as 'field history not enabled' when the
+        // object itself is what is absent.
+        if (!TEKCO_AnonymizationOrgConfigService.hasObject(objectApiName)) {
+            errors.add('Object not found in org, skipped: ' + objectApiName);
+            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
+        }
+
         String historyObjectName = TEKCO_AnonymizationBatchUtils.computeHistoryObjectName(objectApiName);
         String parentIdFieldName = TEKCO_AnonymizationBatchUtils.computeParentIdFieldName(objectApiName);
 
