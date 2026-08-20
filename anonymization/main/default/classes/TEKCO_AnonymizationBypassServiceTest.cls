@@ -1,18 +1,19 @@
 @isTest
 private class TEKCO_AnonymizationBypassServiceTest {
 
-    private static TEKCO_AnonymizationOrgConfigService.OrgConfig configWithBypass(Boolean enabled) {
+    /** Blank object name = bypass disabled; set = bypass through that hierarchy setting. */
+    private static TEKCO_AnonymizationOrgConfigService.OrgConfig configWithBypassObject(String objectApiName) {
         TEKCO_AnonymizationOrgConfigService.OrgConfig cfg =
             new TEKCO_AnonymizationOrgConfigService.OrgConfig();
-        cfg.functionalIdField = 'TEKCO_FunctionalId__c';
-        cfg.bypassEnabled     = enabled;
+        cfg.functionalIdField   = 'TEKCO_FunctionalId__c';
+        cfg.bypassObjectApiName = objectApiName;
         return cfg;
     }
 
     @isTest
-    static void activate_whenBypassDisabled_isNoOp() {
-        // Portugal-like org: the bypass setting is not used at all.
-        TEKCO_AnonymizationOrgConfigService.setConfigForTest(configWithBypass(false));
+    static void activate_whenNoBypassObjectConfigured_isNoOp() {
+        // Portugal-like org: no bypass setting named — the tool must not touch anything.
+        TEKCO_AnonymizationOrgConfigService.setConfigForTest(configWithBypassObject(null));
 
         Test.startTest();
         TEKCO_AnonymizationBypassService.BypassSnapshot snapshot =
@@ -27,8 +28,8 @@ private class TEKCO_AnonymizationBypassServiceTest {
     }
 
     @isTest
-    static void restore_whenBypassDisabled_isNoOp() {
-        TEKCO_AnonymizationOrgConfigService.setConfigForTest(configWithBypass(false));
+    static void restore_whenNoBypassObjectConfigured_isNoOp() {
+        TEKCO_AnonymizationOrgConfigService.setConfigForTest(configWithBypassObject(null));
 
         TEKCO_AnonymizationBypassService.BypassSnapshot snapshot =
             new TEKCO_AnonymizationBypassService.BypassSnapshot();

@@ -131,7 +131,6 @@
         <members>TEKCO_AnonymizationPattern__mdt.TEKCO_RegexReplace__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_OrgDomain__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_FunctionalIdField__c</members>
-        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BypassEnabled__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BypassObjectApiName__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BrandObjectApiName__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BrandCodeField__c</members>

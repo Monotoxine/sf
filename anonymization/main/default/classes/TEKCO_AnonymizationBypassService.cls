@@ -4,23 +4,19 @@
  *              for the running user before the anonymization batch starts, then restores the original
  *              state once the entire batch chain is complete.
  *
- *              The setting is reached dynamically: it is absent from some orgs (Portugal, where
- *              TEKCO_BypassEnabled__c is false), and a compile-time reference would make the whole
- *              package undeployable there even though this code never runs.
+ *              The setting is reached dynamically: it is absent from some orgs, and a compile-time
+ *              reference would make the whole package undeployable there even though this code
+ *              never runs.
  *
  *              Which setting carries the flags is per-org configuration:
- *              TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BypassObjectApiName__c, defaulting to the
- *              standard TEKCO_BypassSettings__c when blank. An org with its own bypass setting can
- *              enable TEKCO_BypassEnabled__c and point this at it, so its automations are
- *              suppressed during a run instead of firing on every anonymization update.
+ *              TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BypassObjectApiName__c.
+ *              Blank = no bypass at all (Portugal today); set = bypass through the named setting.
+ *              Orgs without a CMDT record get TEKCO_BypassSettings__c from the code default.
  */
 public inherited sharing class TEKCO_AnonymizationBypassService {
 
-    private static final String DEFAULT_BYPASS_OBJECT = 'TEKCO_BypassSettings__c';
-
     private static String bypassObject() {
-        String configured = TEKCO_AnonymizationOrgConfigService.getConfig().bypassObjectApiName;
-        return String.isNotBlank(configured) ? configured : DEFAULT_BYPASS_OBJECT;
+        return TEKCO_AnonymizationOrgConfigService.getConfig().bypassObjectApiName;
     }
 
     public class BypassSnapshot {
@@ -31,7 +27,7 @@ public inherited sharing class TEKCO_AnonymizationBypassService {
     private static List<String> bypassFieldNames;
 
     private static Boolean bypassAvailable() {
-        return TEKCO_AnonymizationOrgConfigService.getConfig().bypassEnabled
+        return String.isNotBlank(bypassObject())
             && TEKCO_AnonymizationOrgConfigService.hasObject(bypassObject());
     }
 

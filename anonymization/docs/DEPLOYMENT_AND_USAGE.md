@@ -237,7 +237,7 @@ When you click **Launch Anonymization**, the tool switches **every** bypass chec
 3. Either uncheck every checkbox to match what it was before the run, or **delete the user-level record** entirely if you did not have one before — the hierarchy then falls back to the org default.
 4. Confirm by editing any record that should fire a trigger, and check that it does.
 
-**When this does not apply:** if the org's `TEKCO_AnonymizationOrgConfig__mdt` record has `TEKCO_BypassEnabled__c = false` (currently the case for the Portugal / ALH org), the tool never touches the bypass settings at all, and aborting has no side effect on them. See section 1.14 for the per-org configuration.
+**When this does not apply:** if the org's `TEKCO_AnonymizationOrgConfig__mdt` record leaves `TEKCO_BypassObjectApiName__c` blank (currently the case for the Portugal / ALH org), the tool never touches the bypass settings at all, and aborting has no side effect on them. See section 1.14 for the per-org configuration.
 
 **Preferred alternative to aborting:** let the chain finish. Anonymization is idempotent — Phase 1 only writes a field when the anonymized value differs from the current one — so a run that completes with errors is safe, and re-launching afterwards processes only what remains. Abort only when you genuinely need to stop immediately, and clear the flags straight afterwards.
 
@@ -466,7 +466,7 @@ sf project deploy start \
 |-------|----------|-------|
 | `TEKCO_OrgDomain__c` | Yes | Domain prefix from Step 1. e.g. `airliquide-pt--sandbox` |
 | `TEKCO_FunctionalIdField__c` | Yes | API name of the functional ID field. e.g. `ALH_FunctionalId__c` |
-| `TEKCO_BypassEnabled__c` | Yes | Set to `true` if `TEKCO_BypassSettings__c` is deployed and configured in this org |
+| `TEKCO_BypassObjectApiName__c` | Optional | Hierarchy Custom Setting whose flags are raised during a run. Blank = no bypass; set = bypass through the named setting. Orgs without a config record default to `TEKCO_BypassSettings__c` |
 | `TEKCO_BrandObjectApiName__c` | If brand is a lookup | API name of the brand SObject (e.g. `ALH_Brand__c`). Leave blank to use picklist mode |
 | `TEKCO_BrandCodeField__c` | If brand object set | Field on the brand object holding the brand code label (e.g. `Name`) |
 | `TEKCO_BrandCountryField__c` | If brand object set | Field on the brand object holding the country value (e.g. `ALH_Country__c`) |

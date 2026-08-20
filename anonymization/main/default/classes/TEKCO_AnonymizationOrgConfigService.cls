@@ -8,8 +8,11 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
     public class OrgConfig {
         public String  orgDomain;
         public String  functionalIdField;
-        public Boolean bypassEnabled;
-        /** Hierarchy Custom Setting carrying the bypass flags. Blank = TEKCO_BypassSettings__c. */
+        /**
+         * Hierarchy Custom Setting carrying the automation-bypass flags.
+         * Blank = no bypass at all; set = bypass through the named setting.
+         * The code default (org without a CMDT record) supplies TEKCO_BypassSettings__c.
+         */
         public String  bypassObjectApiName;
         public String  brandObjectApiName;
         public String  brandCodeField;
@@ -41,7 +44,6 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
                 SELECT
                     TEKCO_OrgDomain__c,
                     TEKCO_FunctionalIdField__c,
-                    TEKCO_BypassEnabled__c,
                     TEKCO_BypassObjectApiName__c,
                     TEKCO_BrandObjectApiName__c,
                     TEKCO_BrandCodeField__c,
@@ -60,7 +62,6 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
 
         if (mdtRecord != null) {
             cfg.functionalIdField          = mdtRecord.TEKCO_FunctionalIdField__c;
-            cfg.bypassEnabled              = mdtRecord.TEKCO_BypassEnabled__c == true;
             cfg.bypassObjectApiName        = mdtRecord.TEKCO_BypassObjectApiName__c;
             cfg.brandObjectApiName         = mdtRecord.TEKCO_BrandObjectApiName__c;
             cfg.brandCodeField             = mdtRecord.TEKCO_BrandCodeField__c;
@@ -70,8 +71,7 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
         } else {
             // Default: TEKCO standard config
             cfg.functionalIdField          = 'TEKCO_FunctionalId__c';
-            cfg.bypassEnabled              = true;
-            cfg.bypassObjectApiName        = null; // blank = TEKCO_BypassSettings__c
+            cfg.bypassObjectApiName        = 'TEKCO_BypassSettings__c';
             cfg.brandObjectApiName         = null;
             cfg.brandCodeField             = null;
             cfg.brandCountryField          = null;

@@ -97,7 +97,7 @@ private class TEKCO_AnonymizationPatternServiceTest {
         TEKCO_AnonymizationOrgConfigService.OrgConfig cfg =
             new TEKCO_AnonymizationOrgConfigService.OrgConfig();
         cfg.functionalIdField = 'TEKCO_FunctionalId__c';
-        cfg.bypassEnabled     = false;
+        // bypassObjectApiName left blank: no bypass — irrelevant to these tests.
         cfg.externalIdFields  = fieldApiName;
         TEKCO_AnonymizationOrgConfigService.setConfigForTest(cfg);
     }

@@ -8,5 +8,9 @@
         <members>TEKCO_AnonymizationOrgConfig.Portugal_ALH</members>
         <name>CustomMetadata</name>
     </types>
+    <types>
+        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BypassEnabled__c</members>
+        <name>CustomField</name>
+    </types>
     <version>65.0</version>
 </Package>

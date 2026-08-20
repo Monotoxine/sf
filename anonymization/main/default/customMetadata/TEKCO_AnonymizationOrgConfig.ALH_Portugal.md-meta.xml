@@ -19,10 +19,6 @@
         <value xsi:type="xsd:string">ALH_Brand__c</value>
     </values>
     <values>
-        <field>TEKCO_BypassEnabled__c</field>
-        <value xsi:type="xsd:boolean">false</value>
-    </values>
-    <values>
         <field>TEKCO_ExternalIdFields__c</field>
         <value xsi:type="xsd:string">ALH_ExternalSystemID__c</value>
     </values>

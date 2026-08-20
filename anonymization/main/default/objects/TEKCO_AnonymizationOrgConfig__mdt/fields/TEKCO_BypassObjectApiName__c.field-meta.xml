@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>TEKCO_BypassObjectApiName__c</fullName>
-    <description>API name of the hierarchy Custom Setting whose boolean flags the anonymization raises for the running user during a run (automation bypass). Blank = the standard TEKCO_BypassSettings__c. Only read when TEKCO_BypassEnabled__c is true. Lets an org that has its own bypass setting (e.g. Portugal) suppress triggers/flows/validation rules during anonymization instead of paying their cost on every update.</description>
+    <description>API name of the hierarchy Custom Setting whose boolean flags the anonymization raises for the running user during a run (automation bypass). Blank = no bypass at all: the tool touches nothing and every anonymization update pays full trigger/flow/validation-rule cost. Set = bypass through the named setting. Orgs without a config record default to TEKCO_BypassSettings__c.</description>
     <externalId>false</externalId>
     <fieldManageability>DeveloperControlled</fieldManageability>
     <label>Bypass Object API Name</label>

@@ -210,8 +210,8 @@ produces an org that behaves as if it were standard. Whenever something looks in
 | Field | Required | Purpose | Portugal value |
 |---|---|---|---|
 | `TEKCO_OrgDomain__c` | Yes | Domain prefix this record applies to | `airliquidehomecare--preprod` |
+| `TEKCO_BypassObjectApiName__c` | Optional | Hierarchy Custom Setting whose flags are raised during a run. **Blank = no bypass at all**; set = bypass through the named setting. Orgs without a config record default to `TEKCO_BypassSettings__c` | *(blank — no bypass)* |
 | `TEKCO_FunctionalIdField__c` | Yes | Functional identifier field on anonymized records | `ALH_FunctionalId__c` |
-| `TEKCO_BypassEnabled__c` | Yes | Whether to raise the bypass flags during a run | `false` |
 | `TEKCO_BrandObjectApiName__c` | If brand is a lookup | Brand SObject. Leave blank for picklist mode | `ALH_Brand__c` |
 | `TEKCO_BrandCodeField__c` | If brand object set | Field holding the brand code shown in the UI | `Name` |
 | `TEKCO_BrandCountryField__c` | If brand object set | Field holding the country | `Country__c` |
@@ -233,7 +233,7 @@ Useful when a value looks wrong and you need to know where it takes effect.
 | `TEKCO_BrandLookupFieldOnRecord__c` | Scope building in `TEKCO_AnonymizationBatch`, `TEKCO_ContentDocumentBatch`, `TEKCO_FieldHistoryBatch` and the preview count — becomes `ALH_Brand__r.Name IN (...)` |
 | `TEKCO_FunctionalIdField__c` | `TEKCO_AnonymizationPatternService`, second step of the identifier chain |
 | `TEKCO_ExternalIdFields__c` | The By ID tab's external ID selector, **and** the identifier fallback below |
-| `TEKCO_BypassEnabled__c` | `TEKCO_AnonymizationBypassService` — when false, the service is inert end to end |
+| `TEKCO_BypassObjectApiName__c` | `TEKCO_AnonymizationBypassService` — blank makes the service inert end to end; set, it raises/restores that setting's flags around the run |
 
 ### The identifier resolution chain
 
@@ -270,7 +270,7 @@ and deploys in orgs that do not own them.
 > **Rule, not a preference:** never reintroduce a typed Apex reference to either object. Apex
 > resolves those at compile time, so a branch that never executes at runtime is still enough to
 > make the whole package undeployable in an org lacking the object. The runtime guards
-> (`TEKCO_BypassEnabled__c = false`, `usesBrandObject()`) do not protect against this.
+> (a blank `TEKCO_BypassObjectApiName__c`, `usesBrandObject()`) do not protect against this.
 
 ---
 
@@ -339,7 +339,6 @@ Record `ALH_Portugal`, in
 |---|---|
 | `TEKCO_OrgDomain__c` | `airliquidehomecare--preprod` |
 | `TEKCO_FunctionalIdField__c` | `ALH_FunctionalId__c` |
-| `TEKCO_BypassEnabled__c` | `false` |
 | `TEKCO_BrandObjectApiName__c` | `ALH_Brand__c` |
 | `TEKCO_BrandCodeField__c` | `Name` |
 | `TEKCO_BrandCountryField__c` | `Country__c` |

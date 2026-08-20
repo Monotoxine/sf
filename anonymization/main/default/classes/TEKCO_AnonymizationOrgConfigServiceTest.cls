@@ -7,8 +7,8 @@ private class TEKCO_AnonymizationOrgConfigServiceTest {
     private static TEKCO_AnonymizationOrgConfigService.OrgConfig tekcoModeConfig() {
         TEKCO_AnonymizationOrgConfigService.OrgConfig cfg =
             new TEKCO_AnonymizationOrgConfigService.OrgConfig();
-        cfg.functionalIdField = 'TEKCO_FunctionalId__c';
-        cfg.bypassEnabled     = true;
+        cfg.functionalIdField   = 'TEKCO_FunctionalId__c';
+        cfg.bypassObjectApiName = 'TEKCO_BypassSettings__c';
         return cfg;
     }
 

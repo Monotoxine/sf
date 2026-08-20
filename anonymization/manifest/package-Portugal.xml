@@ -121,7 +121,6 @@
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BrandCountryField__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BrandLookupFieldOnRecord__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BrandObjectApiName__c</members>
-        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BypassEnabled__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BypassObjectApiName__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_ExternalIdFields__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_FunctionalIdField__c</members>
