@@ -21,6 +21,8 @@
         <members>TEKCO_FieldHistoryByIdBatch</members>
         <members>TEKCO_AnonymizationBatchUtils</members>
         <members>TEKCO_AnonymizationExecuteService</members>
+        <members>TEKCO_AnonymizationScopeQueryBuilder</members>
+        <members>TEKCO_AnonymizationPreviewService</members>
         <members>TEKCO_ContentDocumentDeleteService</members>
         <members>TEKCO_FieldHistoryDeleteService</members>
         <name>ApexClass</name>

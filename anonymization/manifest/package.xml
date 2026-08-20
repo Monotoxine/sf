@@ -11,6 +11,10 @@
         <members>TEKCO_AnonymizationBypassServiceTest</members>
         <members>TEKCO_AnonymizationController</members>
         <members>TEKCO_AnonymizationExecuteService</members>
+        <members>TEKCO_AnonymizationScopeQueryBuilder</members>
+        <members>TEKCO_AnonymizationScopeQueryBuilderTest</members>
+        <members>TEKCO_AnonymizationPreviewService</members>
+        <members>TEKCO_AnonymizationPreviewServiceTest</members>
         <members>TEKCO_AnonymizationExecuteServiceTest</members>
         <members>TEKCO_ContentDocumentDeleteService</members>
         <members>TEKCO_ContentDocumentDeleteServiceTest</members>

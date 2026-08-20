@@ -520,6 +520,30 @@ public with sharing class TEKCO_AnonymizationController {
         return auditLog.Id;
     }
 
+    /**
+     * Before/after sample of what a By Criteria run would write on one object, without any DML.
+     * Bounded to TEKCO_AnonymizationPreviewService.MAX_SAMPLE_SIZE records whatever is asked.
+     */
+    @AuraEnabled(cacheable=false)
+    public static TEKCO_AnonymizationPreviewService.PreviewSampleDTO previewSample(
+        String objectApiName,
+        List<String> selectedBrands,
+        List<String> selectedRecordTypes,
+        List<String> excludedFields,
+        Integer sampleSize
+    ) {
+        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
+        try {
+            return TEKCO_AnonymizationPreviewService.previewByCriteria(
+                objectApiName, selectedBrands, selectedRecordTypes, excludedFields, sampleSize
+            );
+        } catch (AuraHandledException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new AuraHandledException('Preview failed: ' + e.getMessage());
+        }
+    }
+
     private static Map<String, TEKCO_AnonymizationPattern__mdt> buildPatternMap() {
         return TEKCO_AnonymizationBatchUtils.buildPatternMap();
     }

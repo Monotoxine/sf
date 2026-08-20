@@ -455,6 +455,13 @@ public with sharing class TEKCO_AnonymizationByIdController {
     private static List<Id> resolveChildIds(
         String childObjectApiName, String parentLookupField, List<Id> parentIds
     ) {
+        return resolveChildIds(childObjectApiName, parentLookupField, parentIds, null);
+    }
+
+    /** @param maxRows null = the whole child set (a run); a value = a bounded read (the preview). */
+    private static List<Id> resolveChildIds(
+        String childObjectApiName, String parentLookupField, List<Id> parentIds, Integer maxRows
+    ) {
         try { Schema.describeSObjects(new List<String>{ childObjectApiName }); }
         catch (Exception e) { return new List<Id>(); }
         List<Id> childIds = new List<Id>();
@@ -462,10 +469,79 @@ public with sharing class TEKCO_AnonymizationByIdController {
             List<SObject> children = Database.query(
                 'SELECT Id FROM ' + childObjectApiName
                 + ' WHERE ' + parentLookupField + ' IN :parentIds'
+                + (maxRows == null ? '' : ' LIMIT ' + maxRows)
             );
             for (SObject child : children) childIds.add(child.Id);
         } catch (Exception e) { }
         return childIds;
+    }
+
+    /**
+     * Before/after sample of what a By ID run would write on one object, without any DML.
+     *
+     * The ID list is resolved exactly as startAnonymizationByIds() resolves it — same parsing,
+     * same external-ID mode, same parent-to-child hop — then only the first few resolved records
+     * are read. A 50 000-record list previews as cheaply as a five-record one.
+     */
+    @AuraEnabled(cacheable=false)
+    public static TEKCO_AnonymizationPreviewService.PreviewSampleDTO previewSampleByIds(
+        List<String> rawIds,
+        String resolveMode,
+        String targetObject,
+        String externalIdField,
+        String objectApiName,
+        List<String> excludedFields,
+        Integer sampleSize
+    ) {
+        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
+        if (rawIds == null || rawIds.isEmpty() || String.isBlank(objectApiName)) {
+            throw new AuraHandledException('Provide at least one ID and an object to preview.');
+        }
+        try {
+            List<String> ignoredErrors = new List<String>();
+            Map<String, List<Id>> directIdsByObject =
+                (resolveMode == MODE_EXTERNAL_ID
+                        && String.isNotBlank(targetObject)
+                        && String.isNotBlank(externalIdField))
+                    ? resolveByExternalIds(rawIds, targetObject, externalIdField, ignoredErrors)
+                    : parseAndGroupIds(rawIds, ignoredErrors);
+
+            List<Id> idsForObject = idsForPreview(directIdsByObject, objectApiName);
+
+            return TEKCO_AnonymizationPreviewService.previewByIds(
+                objectApiName, idsForObject, excludedFields, sampleSize
+            );
+        } catch (AuraHandledException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new AuraHandledException('Preview failed: ' + e.getMessage());
+        }
+    }
+
+    /**
+     * Ids of objectApiName within the resolved scope: the pasted ids when it is a direct object,
+     * otherwise the children reached through the configured parent lookup. Bounded to the
+     * preview sample ceiling so the child query never fans out.
+     */
+    private static List<Id> idsForPreview(
+        Map<String, List<Id>> directIdsByObject, String objectApiName
+    ) {
+        for (String obj : directIdsByObject.keySet()) {
+            if (obj.equalsIgnoreCase(objectApiName)) return directIdsByObject.get(obj);
+        }
+
+        Map<String, ChildRelationInfo> childRelByObject = buildChildRelationMap(loadAllActiveConfigs());
+        for (String childObj : childRelByObject.keySet()) {
+            if (!childObj.equalsIgnoreCase(objectApiName)) continue;
+            ChildRelationInfo rel = childRelByObject.get(childObj);
+            List<Id> parentIds = directIdsByObject.get(rel.parentObjectApiName);
+            if (parentIds == null || parentIds.isEmpty()) return new List<Id>();
+            return resolveChildIds(
+                childObj, rel.parentLookupField, parentIds,
+                TEKCO_AnonymizationPreviewService.MAX_SAMPLE_SIZE
+            );
+        }
+        return new List<Id>();
     }
 
     private static Map<String, TEKCO_AnonymizationPattern__mdt> buildPatternMap() {

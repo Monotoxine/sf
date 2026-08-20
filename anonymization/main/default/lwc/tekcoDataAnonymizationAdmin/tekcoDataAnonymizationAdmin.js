@@ -9,12 +9,14 @@ import getFieldConfigs    from '@salesforce/apex/TEKCO_AnonymizationController.g
 import getPreviewCounts   from '@salesforce/apex/TEKCO_AnonymizationController.getPreviewCounts';
 import getAuditLogs       from '@salesforce/apex/TEKCO_AnonymizationController.getAuditLogs';
 import startAnonymization from '@salesforce/apex/TEKCO_AnonymizationController.startAnonymization';
+import previewSample      from '@salesforce/apex/TEKCO_AnonymizationController.previewSample';
 
 import resolveIds                  from '@salesforce/apex/TEKCO_AnonymizationByIdController.resolveIds';
 import startAnonymizationByIds     from '@salesforce/apex/TEKCO_AnonymizationByIdController.startAnonymizationByIds';
 import getAuditLogsByid            from '@salesforce/apex/TEKCO_AnonymizationByIdController.getAuditLogsByid';
 import getExternalIdFieldsForObject from '@salesforce/apex/TEKCO_AnonymizationByIdController.getExternalIdFieldsForObject';
 import getDirectObjects              from '@salesforce/apex/TEKCO_AnonymizationByIdController.getDirectObjects';
+import previewSampleByIds           from '@salesforce/apex/TEKCO_AnonymizationByIdController.previewSampleByIds';
 
 const AUDIT_POLL_INTERVAL_MS = 5000;
 
@@ -43,6 +45,33 @@ function buildDeleteStatsLine(docs, hist) {
     if (docs > 0)  parts.push(`${docs} docs`);
     if (hist > 0)  parts.push(`${hist} hist.`);
     return parts.length ? parts.join(' · ') + ' deleted' : null;
+}
+
+/** Records read per before/after sample. Apex caps it again server-side. */
+const SAMPLE_SIZE = 5;
+
+/**
+ * Shapes a PreviewSampleDTO for rendering. Shared by both tabs: the two panels are the same
+ * panel fed by two endpoints, so a change to the display happens once.
+ */
+function mapSampleResult(result) {
+    const rows = (result.rows || []).map((r, index) => ({
+        ...r,
+        key:        `${r.recordId}.${r.fieldApiName}.${index}`,
+        beforeValue: r.beforeValue === '' ? '(empty)' : r.beforeValue,
+        afterValue:  r.afterValue  === '' ? '(empty)' : r.afterValue
+    }));
+
+    const parts = [`${result.recordsSampled} record(s) sampled`];
+    if (result.recordsChanged   > 0) parts.push(`${result.recordsChanged} would change`);
+    if (result.recordsUnchanged > 0) parts.push(`${result.recordsUnchanged} unchanged`);
+    if (result.recordsToDelete  > 0) parts.push(`${result.recordsToDelete} would be deleted`);
+
+    return {
+        rows,
+        summary:  parts.join(' · '),
+        warnings: result.warnings || []
+    };
 }
 
 const RESOLVE_MODE_OPTIONS = [
@@ -83,6 +112,14 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     _pendingDisabledHistoryFields = [];
     _auditTimer   = null;
 
+    // Before/after sample (By Criteria)
+    @track sampleObjectOptions = [];
+    @track sampleObject        = '';
+    @track sampleRows          = [];
+    @track sampleSummary       = null;
+    @track sampleWarnings      = [];
+    @track isLoadingSample     = false;
+
     // ── By ID tab state ───────────────────────────────────────────────────────
     @track byIdFieldFilterText = '';
     @track byIdFieldFilterRT   = '_all_';
@@ -103,6 +140,14 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     @track byIdErrorMessage          = '';
 
     _byIdAuditTimer = null;
+
+    // Before/after sample (By ID)
+    @track byIdSampleObjectOptions = [];
+    @track byIdSampleObject        = '';
+    @track byIdSampleRows          = [];
+    @track byIdSampleSummary       = null;
+    @track byIdSampleWarnings      = [];
+    @track isLoadingByIdSample     = false;
 
     connectedCallback() {
         this.loadBrands();
@@ -180,6 +225,11 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
                         ? `${count} record(s) (ContentDocumentLinks to delete)`
                         : `${count} record(s)`
             }));
+            // Only objects that hold field-level patterns and actually match can be sampled.
+            this.sampleObjectOptions = results
+                .filter(r => !r.isContentDocOnly && r.count > 0)
+                .map(r => ({ label: r.objectApiName, value: r.objectApiName }));
+            this.resetSample();
             this.isLoadingPreview = false;
         })
         .catch(() => { this.isLoadingPreview = false; });
@@ -218,6 +268,62 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     handleSelectAllObjects()      { this.selectedObjects = this.objectOptions.map(o => o.value); this.loadRecordTypes(this.selectedObjects); }
     handleSelectAllRecordTypes()  { this.selectedRecordTypes = this.recordTypeOptions.map(o => o.value); }
     handlePreview()               { this.loadFieldConfigs(); this.loadPreview(); }
+
+    // ── Before/after sample (By Criteria) ─────────────────────────────────────
+
+    resetSample() {
+        const available = new Set(this.sampleObjectOptions.map(o => o.value));
+        if (!available.has(this.sampleObject)) {
+            this.sampleObject = this.sampleObjectOptions.length === 1
+                ? this.sampleObjectOptions[0].value
+                : '';
+        }
+        this.sampleRows     = [];
+        this.sampleSummary  = null;
+        this.sampleWarnings = [];
+    }
+
+    handleSampleObjectChange(event) {
+        this.sampleObject   = event.detail.value;
+        this.sampleRows     = [];
+        this.sampleSummary  = null;
+        this.sampleWarnings = [];
+    }
+
+    /**
+     * Reads a handful of records and shows what the run would write, without any DML.
+     * Field exclusions ticked in the table below are honoured, so what is shown is what the
+     * launch would actually do.
+     */
+    handleShowSample() {
+        if (!this.sampleObject) return;
+        this.isLoadingSample = true;
+        this.sampleRows      = [];
+        this.sampleSummary   = null;
+        this.sampleWarnings  = [];
+
+        const excludedFields = this.fieldConfigs
+            .filter(cfg => cfg.objectApiName === this.sampleObject && !cfg.enabled)
+            .map(cfg => cfg.configKey);
+
+        previewSample({
+            objectApiName:       this.sampleObject,
+            selectedBrands:      this.selectedBrands,
+            selectedRecordTypes: this.selectedRecordTypes.length > 0 ? this.selectedRecordTypes : null,
+            excludedFields:      excludedFields.length > 0 ? excludedFields : null,
+            sampleSize:          SAMPLE_SIZE
+        })
+        .then(result => {
+            const mapped        = mapSampleResult(result);
+            this.sampleRows     = mapped.rows;
+            this.sampleSummary  = mapped.summary;
+            this.sampleWarnings = mapped.warnings;
+            this.isLoadingSample = false;
+        }, err => {
+            this.showError('Sample preview failed', err);
+            this.isLoadingSample = false;
+        });
+    }
     handleFieldFilterChange(event)   { this.fieldFilterText = event.target.value; }
     handleFieldFilterRtChange(event) { this.fieldFilterRT   = event.detail.value; }
     handleSelectAllRun() {
@@ -367,6 +473,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             .then(result => {
                 this.byIdResolveResult = result;
                 this.isByIdResolving   = false;
+                this._refreshByIdSampleOptions(result);
                 if (result.totalValid > 0) this._loadByIdFieldConfigs(result);
             })
             .catch(err => {
@@ -395,6 +502,67 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
                 }));
             })
             .catch(() => { this.byIdFieldConfigs = []; });
+    }
+
+    // ── Before/after sample (By ID) ───────────────────────────────────────────
+
+    _refreshByIdSampleOptions(resolveResult) {
+        this.byIdSampleObjectOptions = [
+            ...(resolveResult.directObjects || []),
+            ...(resolveResult.childObjects  || [])
+        ].map(o => ({ label: o.objectApiName, value: o.objectApiName }));
+
+        const available = new Set(this.byIdSampleObjectOptions.map(o => o.value));
+        if (!available.has(this.byIdSampleObject)) {
+            this.byIdSampleObject = this.byIdSampleObjectOptions.length === 1
+                ? this.byIdSampleObjectOptions[0].value
+                : '';
+        }
+        this.byIdSampleRows     = [];
+        this.byIdSampleSummary  = null;
+        this.byIdSampleWarnings = [];
+    }
+
+    handleByIdSampleObjectChange(event) {
+        this.byIdSampleObject   = event.detail.value;
+        this.byIdSampleRows     = [];
+        this.byIdSampleSummary  = null;
+        this.byIdSampleWarnings = [];
+    }
+
+    handleShowByIdSample() {
+        if (!this.byIdSampleObject) return;
+        const ids = this._parseByIdInput();
+        if (!ids.length) return;
+
+        this.isLoadingByIdSample = true;
+        this.byIdSampleRows      = [];
+        this.byIdSampleSummary   = null;
+        this.byIdSampleWarnings  = [];
+
+        const excludedFields = this.byIdFieldConfigs
+            .filter(cfg => cfg.objectApiName === this.byIdSampleObject && !cfg.enabled)
+            .map(cfg => cfg.configKey);
+
+        previewSampleByIds({
+            rawIds:          ids,
+            resolveMode:     this.byIdResolveMode,
+            targetObject:    this.byIdTargetObject || null,
+            externalIdField: this.byIdExternalIdField || null,
+            objectApiName:   this.byIdSampleObject,
+            excludedFields:  excludedFields.length > 0 ? excludedFields : null,
+            sampleSize:      SAMPLE_SIZE
+        })
+        .then(result => {
+            const mapped            = mapSampleResult(result);
+            this.byIdSampleRows     = mapped.rows;
+            this.byIdSampleSummary  = mapped.summary;
+            this.byIdSampleWarnings = mapped.warnings;
+            this.isLoadingByIdSample = false;
+        }, err => {
+            this.byIdErrorMessage    = extractErrorMessage(err);
+            this.isLoadingByIdSample = false;
+        });
     }
 
     handleByIdFieldToggle(event) {
@@ -551,6 +719,11 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     get hasByIdAnyValid()         { return !!(this.byIdResolveResult?.totalValid > 0); }
     get byIdExternalIdFieldDisabled() { return !this.byIdTargetObject || this.byIdExternalIdFieldOptions.length === 0; }
     get hasByIdAuditLogs()        { return this.byIdAuditLogs.length > 0; }
+
+    get hasByIdSampleObjects()    { return this.byIdSampleObjectOptions.length > 0; }
+    get hasByIdSampleRows()        { return this.byIdSampleRows.length > 0; }
+    get hasByIdSampleWarnings()    { return this.byIdSampleWarnings.length > 0; }
+    get isByIdSampleDisabled()     { return !this.byIdSampleObject || this.isLoadingByIdSample; }
     get hasByIdFieldConfigs()     { return this.byIdFieldConfigs.length > 0; }
     get isByIdLaunchDisabled()    { return !this.hasPermission || !this.hasByIdAnyValid || this.isByIdRunning; }
     get byIdLaunchLabel()         { return this.isByIdRunning ? 'Running...' : 'Launch Anonymization'; }
@@ -596,6 +769,10 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
     get hasFieldConfigs()      { return this.fieldConfigs.length > 0; }
     get hasPreview()           { return this.previewByObject.length > 0; }
+    get hasSampleObjects()     { return this.sampleObjectOptions.length > 0; }
+    get hasSampleRows()        { return this.sampleRows.length > 0; }
+    get hasSampleWarnings()    { return this.sampleWarnings.length > 0; }
+    get isSampleDisabled()     { return !this.sampleObject || this.isLoadingSample; }
     get hasAuditLogs()         { return this.auditLogs.length > 0; }
     get hasRecordTypeOptions() { return this.recordTypeOptions.length > 0; }
     get isStartDisabled()      { return !this.hasPermission || this.isRunning; }

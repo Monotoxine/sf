@@ -137,4 +137,109 @@ private class TEKCO_AnonymizationExecuteServiceTest {
         System.assertEquals(0, result.recordsFailed);
         System.assert(result.errors.isEmpty());
     }
+
+    // ─── applyPatternsTo: the transformation without the DML ───────────────────
+
+    /**
+     * The preview relies on this method returning the same result as a run while writing
+     * nothing. If these two ever diverge, the preview becomes a lie.
+     */
+    @isTest
+    static void applyPatternsTo_capturesBeforeValuesAndLeavesTheDatabaseUntouched() {
+        Account acc = new Account(Name = 'Jean Dupont', Phone = '0612345678');
+        insert acc;
+
+        TEKCO_AnonymizationFieldConfig__mdt fc = new TEKCO_AnonymizationFieldConfig__mdt(
+            TEKCO_ObjectApiName__c = 'Account',
+            TEKCO_FieldApiName__c  = 'Phone',
+            TEKCO_PatternType__c   = 'REGEX',
+            TEKCO_IsActive__c      = true
+        );
+
+        SObject record = [SELECT Id, Phone FROM Account WHERE Id = :acc.Id];
+        Map<String, String> beforeByField = new Map<String, String>();
+
+        Test.startTest();
+        TEKCO_AnonymizationExecuteService.RecordOutcome outcome =
+            TEKCO_AnonymizationExecuteService.applyPatternsTo(
+                record,
+                new List<TEKCO_AnonymizationFieldConfig__mdt>{ fc },
+                new Map<String, TEKCO_AnonymizationPattern__mdt>{
+                    'REGEX' => activeRegexPattern('\\d', '0')
+                },
+                new Map<Id, String>(),
+                beforeByField
+            );
+        Test.stopTest();
+
+        System.assertEquals(true, outcome.modified, 'The record was transformed');
+        System.assertEquals(false, outcome.toDelete, 'A REGEX pattern never deletes');
+        System.assertEquals('0612345678', beforeByField.get('Phone'), 'The former value is captured');
+        System.assertEquals('0000000000', (String) record.get('Phone'), 'The in-memory value is the new one');
+
+        Account stored = [SELECT Phone FROM Account WHERE Id = :acc.Id];
+        System.assertEquals('0612345678', stored.Phone,
+            'applyPatternsTo must not persist anything — this is what makes the preview safe');
+    }
+
+    @isTest
+    static void applyPatternsTo_withoutCaptureMapStillTransforms() {
+        Account acc = new Account(Name = 'Test', Phone = '0611111111');
+        insert acc;
+
+        TEKCO_AnonymizationFieldConfig__mdt fc = new TEKCO_AnonymizationFieldConfig__mdt(
+            TEKCO_ObjectApiName__c = 'Account',
+            TEKCO_FieldApiName__c  = 'Phone',
+            TEKCO_PatternType__c   = 'REGEX',
+            TEKCO_IsActive__c      = true
+        );
+
+        SObject record = [SELECT Id, Phone FROM Account WHERE Id = :acc.Id];
+
+        // null capture map: what every batch run passes, so capture costs nothing there.
+        TEKCO_AnonymizationExecuteService.RecordOutcome outcome =
+            TEKCO_AnonymizationExecuteService.applyPatternsTo(
+                record,
+                new List<TEKCO_AnonymizationFieldConfig__mdt>{ fc },
+                new Map<String, TEKCO_AnonymizationPattern__mdt>{
+                    'REGEX' => activeRegexPattern('\\d', '0')
+                },
+                new Map<Id, String>(),
+                null
+            );
+
+        System.assertEquals(true, outcome.modified, 'Transformation happens with or without capture');
+        System.assertEquals('0000000000', (String) record.get('Phone'), 'The value is transformed');
+    }
+
+    @isTest
+    static void applyPatternsTo_recordTypeScopedConfigIsSkippedOnAnotherRecordType() {
+        Account acc = new Account(Name = 'Test', Phone = '0611111111');
+        insert acc;
+
+        TEKCO_AnonymizationFieldConfig__mdt fc = new TEKCO_AnonymizationFieldConfig__mdt(
+            TEKCO_ObjectApiName__c = 'Account',
+            TEKCO_FieldApiName__c  = 'Phone',
+            TEKCO_PatternType__c   = 'REGEX',
+            TEKCO_IsActive__c      = true,
+            TEKCO_RecordTypeDeveloperName__c = 'SomeOtherRecordType'
+        );
+
+        SObject record = [SELECT Id, Phone FROM Account WHERE Id = :acc.Id];
+
+        TEKCO_AnonymizationExecuteService.RecordOutcome outcome =
+            TEKCO_AnonymizationExecuteService.applyPatternsTo(
+                record,
+                new List<TEKCO_AnonymizationFieldConfig__mdt>{ fc },
+                new Map<String, TEKCO_AnonymizationPattern__mdt>{
+                    'REGEX' => activeRegexPattern('\\d', '0')
+                },
+                new Map<Id, String>(),
+                new Map<String, String>()
+            );
+
+        System.assertEquals(false, outcome.modified,
+            'A record type scoped config must not touch a record of another type');
+        System.assertEquals('0611111111', (String) record.get('Phone'), 'The value is untouched');
+    }
 }
