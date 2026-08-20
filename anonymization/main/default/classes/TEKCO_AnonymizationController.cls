@@ -337,9 +337,10 @@ public with sharing class TEKCO_AnonymizationController {
         List<String> disabledHistoryFields
     ) {
         TEKCO_AnonymizationGuard.assertCanAnonymize();
-
         TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
 
+        // Scope resolution is what makes this tab different; everything after it is shared with
+        // the By ID tab and lives in TEKCO_AnonymizationLaunchService.
         if (selectedObjects == null || selectedObjects.isEmpty()) {
             selectedObjects = getObjectApiNames();
         } else {
@@ -356,158 +357,21 @@ public with sharing class TEKCO_AnonymizationController {
             );
         }
 
-        Set<String> excludedFieldKeys = new Set<String>();
-        if (excludedFields != null) excludedFieldKeys.addAll(excludedFields);
-
-        Set<String> disabledHistoryFieldKeys = new Set<String>();
-        if (disabledHistoryFields != null) disabledHistoryFieldKeys.addAll(disabledHistoryFields);
-
-        TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot =
-            TEKCO_AnonymizationBypassService.activate();
-
-        List<TEKCO_AnonymizationFieldConfig__mdt> allFieldConfigs = [
-            SELECT
-                DeveloperName,
-                TEKCO_ObjectApiName__c,
-                TEKCO_FieldApiName__c,
-                TEKCO_PatternType__c,
-                TEKCO_IsActive__c,
-                TEKCO_RecordTypeDeveloperName__c,
-                TEKCO_DeleteHistory__c,
-                TEKCO_ParentObjectApiName__c,
-                TEKCO_ParentLookupFieldApiName__c,
-                TEKCO_ParentRecordTypeDeveloperName__c,
-                TEKCO_AdditionalFilter__c
-            FROM TEKCO_AnonymizationFieldConfig__mdt
-            WHERE TEKCO_IsActive__c = true
-                AND TEKCO_ObjectApiName__c IN :selectedObjects
-        ];
-
-        if (selectedRecordTypes != null && !selectedRecordTypes.isEmpty()) {
-            Set<String> rtFilter = new Set<String>(selectedRecordTypes);
-            List<TEKCO_AnonymizationFieldConfig__mdt> filteredConfigs =
-                new List<TEKCO_AnonymizationFieldConfig__mdt>();
-            for (TEKCO_AnonymizationFieldConfig__mdt fc : allFieldConfigs) {
-                if (String.isBlank(fc.TEKCO_RecordTypeDeveloperName__c)
-                        || rtFilter.contains(fc.TEKCO_RecordTypeDeveloperName__c)) {
-                    filteredConfigs.add(fc);
-                }
-            }
-            allFieldConfigs = filteredConfigs;
-        }
-
-        Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>> configsByObject =
-            new Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>>();
-        List<TEKCO_AnonymizationFieldConfig__mdt> contentDocConfigs =
-            new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs =
-            new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        Map<String, String> additionalFiltersByObject = new Map<String, String>();
-
-        for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : allFieldConfigs) {
-            String obj      = fieldConfig.TEKCO_ObjectApiName__c;
-            String fieldKey = TEKCO_AnonymizationConfigSelector.configKey(fieldConfig);
-
-            if (!additionalFiltersByObject.containsKey(obj)
-                    && String.isNotBlank(fieldConfig.TEKCO_AdditionalFilter__c)) {
-                additionalFiltersByObject.put(obj, fieldConfig.TEKCO_AdditionalFilter__c);
-            }
-
-            if (fieldConfig.TEKCO_PatternType__c == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
-                if (!excludedFieldKeys.contains(fieldKey)) contentDocConfigs.add(fieldConfig);
-                continue;
-            }
-
-            if (excludedFieldKeys.contains(fieldKey)) continue;
-
-            if (!configsByObject.containsKey(obj)) {
-                configsByObject.put(obj, new List<TEKCO_AnonymizationFieldConfig__mdt>());
-            }
-            configsByObject.get(obj).add(fieldConfig);
-
-            if (fieldConfig.TEKCO_DeleteHistory__c
-                    && !disabledHistoryFieldKeys.contains(fieldKey)) {
-                historyConfigs.add(fieldConfig);
-            }
-        }
-
-        List<String> objectsToProcess = new List<String>();
-        // Carries the user's exclusions and record-type filtering across the whole chain:
-        // every batch reloads its configs from these developer names instead of reloading
-        // everything active, which would resurrect the fields the user unchecked.
-        Map<String, List<String>> configDevNamesByObject = new Map<String, List<String>>();
-        for (String objectApiName : selectedObjects) {
-            if (configsByObject.containsKey(objectApiName)) {
-                objectsToProcess.add(objectApiName);
-                configDevNamesByObject.put(
-                    objectApiName,
-                    TEKCO_AnonymizationConfigSelector.toDevNames(configsByObject.get(objectApiName))
-                );
-            }
-        }
-
-        // History is planned per object, in the order the objects are processed.
-        Map<String, List<String>> historyDevNamesByObject = new Map<String, List<String>>();
-        for (TEKCO_AnonymizationFieldConfig__mdt historyConfig : historyConfigs) {
-            String obj = historyConfig.TEKCO_ObjectApiName__c;
-            if (!historyDevNamesByObject.containsKey(obj)) {
-                historyDevNamesByObject.put(obj, new List<String>());
-            }
-            historyDevNamesByObject.get(obj).add(historyConfig.DeveloperName);
-        }
-
-        if (objectsToProcess.isEmpty() && contentDocConfigs.isEmpty()) {
-            TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-            throw new AuraHandledException(
-                'No active field configurations found for selected scope.'
-            );
-        }
-
-        String brandLabel = (selectedBrands == null || selectedBrands.isEmpty())
+        TEKCO_AnonymizationLaunchService.LaunchRequest request =
+            new TEKCO_AnonymizationLaunchService.LaunchRequest();
+        request.byId                = false;
+        request.objectApiNames      = selectedObjects;
+        request.selectedBrands      = selectedBrands != null ? selectedBrands : new List<String>();
+        request.selectedRecordTypes = selectedRecordTypes;
+        if (excludedFields        != null) request.excludedFieldKeys.addAll(excludedFields);
+        if (disabledHistoryFields != null) request.disabledHistoryFieldKeys.addAll(disabledHistoryFields);
+        request.brandFilterLabel    = (selectedBrands == null || selectedBrands.isEmpty())
             ? 'ALL'
             : String.join(selectedBrands, ', ');
+        request.objectsLabel        = String.join(selectedObjects, ', ');
+        request.nothingToDoMessage  = 'No active field configurations found for selected scope.';
 
-        TEKCO_AnonymizationAuditLog__c auditLog = new TEKCO_AnonymizationAuditLog__c(
-            TEKCO_TriggeredBy__c   = UserInfo.getUserId(),
-            TEKCO_BrandFilter__c   = brandLabel,
-            TEKCO_ObjectApiName__c = String.join(selectedObjects, ', '),
-            TEKCO_Status__c        = 'Running',
-            TEKCO_RunMode__c       = 'BY_CRITERIA',
-            TEKCO_StartTime__c     = Datetime.now()
-        );
-        insert auditLog;
-
-        // Everything the chain needs, in one object: what to run, in what scope, and the
-        // counters it accumulates. TEKCO_AnonymizationChainRunner owns the sequencing.
-        TEKCO_AnonymizationRunContext ctx = new TEKCO_AnonymizationRunContext();
-        ctx.auditLogId                = auditLog.Id;
-        ctx.byId                      = false;
-        ctx.bypassSnapshot            = bypassSnapshot;
-        ctx.selectedBrands            = selectedBrands != null ? selectedBrands : new List<String>();
-        ctx.configDevNamesByObject    = configDevNamesByObject;
-        ctx.additionalFiltersByObject = additionalFiltersByObject;
-        ctx.historyConfigDevNamesByObject = historyDevNamesByObject;
-        // Configs whose pattern type resolves to nothing would be skipped silently at
-        // execute() time — surface them at launch as warnings seeded into the audit trail.
-        ctx.addErrors(TEKCO_AnonymizationGuard.validatePatternTypes(allFieldConfigs));
-
-        for (String objectApiName : objectsToProcess) {
-            ctx.addStep(TEKCO_AnonymizationRunContext.PHASE_FIELD, objectApiName);
-        }
-        for (TEKCO_AnonymizationFieldConfig__mdt contentDocConfig : contentDocConfigs) {
-            ctx.addStep(TEKCO_AnonymizationRunContext.PHASE_CD, contentDocConfig.DeveloperName);
-        }
-        for (String objectApiName : historyDevNamesByObject.keySet()) {
-            ctx.addStep(TEKCO_AnonymizationRunContext.PHASE_HISTORY, objectApiName);
-        }
-
-        Id batchJobId = TEKCO_AnonymizationChainRunner.startNext(ctx);
-        if (batchJobId != null) {
-            auditLog.TEKCO_JobId__c = String.valueOf(batchJobId);
-            update auditLog;
-        }
-
-        return auditLog.Id;
+        return TEKCO_AnonymizationLaunchService.launch(request);
     }
 
     /**

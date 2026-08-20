@@ -10,6 +10,7 @@
         <members>TEKCO_AnonymizationOrgConfigService</members>
         <members>TEKCO_AnonymizationConfigSelector</members>
         <members>TEKCO_AnonymizationGuard</members>
+        <members>TEKCO_AnonymizationLaunchService</members>
         <members>TEKCO_AnonymizationBypassService</members>
         <members>TEKCO_AnonymizationController</members>
         <members>TEKCO_AnonymizationPatternService</members>

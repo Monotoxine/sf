@@ -8,6 +8,8 @@
         <members>TEKCO_AnonymizationByIdController</members>
         <members>TEKCO_AnonymizationConfigSelector</members>
         <members>TEKCO_AnonymizationGuard</members>
+        <members>TEKCO_AnonymizationLaunchService</members>
+        <members>TEKCO_AnonymizationLaunchServiceTest</members>
         <members>TEKCO_AnonymizationConfigSelectorTest</members>
         <members>TEKCO_AnonymizationGuardTest</members>
         <members>TEKCO_AnonymizationBypassService</members>
