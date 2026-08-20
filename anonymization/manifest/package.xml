@@ -12,6 +12,10 @@
         <members>TEKCO_AnonymizationController</members>
         <members>TEKCO_AnonymizationExecuteService</members>
         <members>TEKCO_AnonymizationExecuteServiceTest</members>
+        <members>TEKCO_ContentDocumentDeleteService</members>
+        <members>TEKCO_ContentDocumentDeleteServiceTest</members>
+        <members>TEKCO_FieldHistoryDeleteService</members>
+        <members>TEKCO_FieldHistoryDeleteServiceTest</members>
         <members>TEKCO_AnonymizationOrgConfigService</members>
         <members>TEKCO_AnonymizationOrgConfigServiceTest</members>
         <members>TEKCO_AnonymizationPatternService</members>

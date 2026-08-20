@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Removes the obsolete Portugal_ALH org-config record (superseded by ALH_Portugal).
+     Only relevant for orgs that deployed the old package.xml — the record matches no org
+     domain, so it is inert, but there is no reason to keep shipping or keeping it.
+     Use as a post-destructive companion to package-review-fixes.xml (see its header). -->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>TEKCO_AnonymizationOrgConfig.Portugal_ALH</members>
+        <name>CustomMetadata</name>
+    </types>
+    <version>65.0</version>
+</Package>
