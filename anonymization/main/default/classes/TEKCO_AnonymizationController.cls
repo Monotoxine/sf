@@ -295,6 +295,11 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
 
+    /**
+     * Runs scoped by criteria. TEKCO_RunMode__c is blank on logs written before that field
+     * existed, so the mode falls back to the old discriminant — a LIKE on the brand-filter
+     * label, which is a display field and exactly why the mode became a field of its own.
+     */
     @AuraEnabled(cacheable=false)
     public static List<TEKCO_AnonymizationAuditLog__c> getAuditLogs() {
         TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
@@ -312,10 +317,12 @@ public with sharing class TEKCO_AnonymizationController {
                 TEKCO_StartTime__c,
                 TEKCO_EndTime__c,
                 TEKCO_JobId__c,
+                TEKCO_RunMode__c,
                 TEKCO_TriggeredBy__r.Name,
                 TEKCO_ErrorMessage__c
             FROM TEKCO_AnonymizationAuditLog__c
-            WHERE (NOT TEKCO_BrandFilter__c LIKE 'BY_ID%')
+            WHERE (TEKCO_RunMode__c = 'BY_CRITERIA'
+                   OR (TEKCO_RunMode__c = null AND (NOT TEKCO_BrandFilter__c LIKE 'BY_ID%')))
             ORDER BY TEKCO_StartTime__c DESC
             LIMIT 20
         ];
@@ -466,6 +473,7 @@ public with sharing class TEKCO_AnonymizationController {
             TEKCO_BrandFilter__c   = brandLabel,
             TEKCO_ObjectApiName__c = String.join(selectedObjects, ', '),
             TEKCO_Status__c        = 'Running',
+            TEKCO_RunMode__c       = 'BY_CRITERIA',
             TEKCO_StartTime__c     = Datetime.now()
         );
         insert auditLog;

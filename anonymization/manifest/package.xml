@@ -130,6 +130,7 @@
     </types>
     <types>
         <members>TEKCO_AnonymizationAuditLog__c.TEKCO_DocumentsDeleted__c</members>
+        <members>TEKCO_AnonymizationAuditLog__c.TEKCO_RunMode__c</members>
         <members>TEKCO_AnonymizationAuditLog__c.TEKCO_HistoryRecordsDeleted__c</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ParentObjectApiName__c</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ParentLookupFieldApiName__c</members>

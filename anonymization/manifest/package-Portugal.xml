@@ -91,6 +91,7 @@
 	</types>
     <types>
         <members>TEKCO_AnonymizationAuditLog__c.TEKCO_BrandFilter__c</members>
+        <members>TEKCO_AnonymizationAuditLog__c.TEKCO_RunMode__c</members>
         <members>TEKCO_AnonymizationAuditLog__c.TEKCO_EndTime__c</members>
         <members>TEKCO_AnonymizationAuditLog__c.TEKCO_ErrorMessage__c</members>
         <members>TEKCO_AnonymizationAuditLog__c.TEKCO_FieldsAnonymized__c</members>

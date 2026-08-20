@@ -6,6 +6,17 @@ public with sharing class TEKCO_AnonymizationByIdController {
     private static final String PATTERN_DELETE_CD  = 'DELETE_CONTENT_DOCUMENT';
     private static final String MODE_EXTERNAL_ID   = 'EXTERNAL_ID';
 
+    /**
+     * Ceiling on how many records one By ID run may resolve, parents and children together.
+     *
+     * The child resolution below is unbounded by nature: a handful of pasted parent IDs can pull
+     * in an arbitrary number of children, and every resolved Id is then carried in the batch's
+     * serialized state from chunk to chunk. Without a ceiling that is a silent scalability wall —
+     * the run simply fails somewhere in the middle. Above this, the user is asked to narrow the
+     * list, or to use the By Criteria tab, which streams through a QueryLocator instead.
+     */
+    private static final Integer MAX_BY_ID_RECORDS = 50000;
+
     @AuraEnabled(cacheable=false)
     public static ResolveResultDTO resolveIds(
         List<String> rawIds,
@@ -172,6 +183,16 @@ public with sharing class TEKCO_AnonymizationByIdController {
             );
         }
 
+        Integer resolvedCount = 0;
+        for (List<Id> ids : allIdsByObject.values()) resolvedCount += ids.size();
+        if (resolvedCount > MAX_BY_ID_RECORDS) {
+            throw new AuraHandledException(
+                resolvedCount + ' records resolved (parents and children), maximum '
+                + MAX_BY_ID_RECORDS + '. Narrow the ID list, or use the By Criteria tab for a '
+                + 'scope of this size.'
+            );
+        }
+
         List<String> objectsToProcess = new List<String>(allIdsByObject.keySet());
 
         List<TEKCO_AnonymizationFieldConfig__mdt> scopedConfigs = [
@@ -229,6 +250,11 @@ public with sharing class TEKCO_AnonymizationByIdController {
             historyDevNamesByObject.get(obj).add(historyConfig.DeveloperName);
         }
 
+        // Raised only once the scope is known to be valid, and put back by the guard below or
+        // by TEKCO_AnonymizationChainRunner at the end of the chain.
+        TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot =
+            TEKCO_AnonymizationBypassService.activate();
+
         List<String> fieldObjects = new List<String>();
         for (String obj : objectsToProcess) {
             if (configsByObject.containsKey(obj)) fieldObjects.add(obj);
@@ -249,6 +275,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
             TEKCO_BrandFilter__c   = 'BY_ID (' + totalIds + ' record(s))',
             TEKCO_ObjectApiName__c = String.join(objectsToProcess, ', '),
             TEKCO_Status__c        = 'Running',
+            TEKCO_RunMode__c       = 'BY_ID',
             TEKCO_StartTime__c     = Datetime.now()
         );
         insert auditLog;
@@ -283,6 +310,11 @@ public with sharing class TEKCO_AnonymizationByIdController {
         return auditLog.Id;
     }
 
+    /**
+     * Runs scoped by ID list. Same backward-compatible fallback as getAuditLogs(): a blank
+     * TEKCO_RunMode__c means the log predates the field, and only the 'BY_ID (...)' label put
+     * in the brand filter identified it.
+     */
     @AuraEnabled(cacheable=false)
     public static List<TEKCO_AnonymizationAuditLog__c> getAuditLogsByid() {
         TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
@@ -290,10 +322,11 @@ public with sharing class TEKCO_AnonymizationByIdController {
             SELECT Name, TEKCO_ObjectApiName__c, TEKCO_BrandFilter__c, TEKCO_Status__c,
                    TEKCO_RecordsProcessed__c, TEKCO_RecordsFailed__c,
                    TEKCO_DocumentsDeleted__c, TEKCO_HistoryRecordsDeleted__c,
-                   TEKCO_StartTime__c, TEKCO_EndTime__c, TEKCO_JobId__c,
+                   TEKCO_StartTime__c, TEKCO_EndTime__c, TEKCO_JobId__c, TEKCO_RunMode__c,
                    TEKCO_TriggeredBy__r.Name, TEKCO_ErrorMessage__c
             FROM TEKCO_AnonymizationAuditLog__c
-            WHERE TEKCO_BrandFilter__c LIKE 'BY_ID%'
+            WHERE (TEKCO_RunMode__c = 'BY_ID'
+                   OR (TEKCO_RunMode__c = null AND TEKCO_BrandFilter__c LIKE 'BY_ID%'))
             ORDER BY TEKCO_StartTime__c DESC
             LIMIT 20
         ];
