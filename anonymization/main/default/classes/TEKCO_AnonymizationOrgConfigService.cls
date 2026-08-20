@@ -88,11 +88,15 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
         cachedConfig = null;
         describeCache = new Map<String, Schema.DescribeSObjectResult>();
         countriesByBrandsKey = new Map<String, List<String>>();
+        externalIdFieldsCache = new Map<String, List<String>>();
     }
 
     @TestVisible
     private static void setConfigForTest(OrgConfig cfg) {
         cachedConfig = cfg;
+        // Derived from the config, so it must go with it — otherwise a test swapping the org
+        // config would read the previous org's external ID fields.
+        externalIdFieldsCache = new Map<String, List<String>>();
     }
 
     // ─── Sandbox guard ───────────────────────────────────────────────────────
@@ -160,16 +164,32 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
      * the object. Single parser for TEKCO_ExternalIdFields__c: the By ID selector, the batch
      * SELECT builders and the pattern service all read the setting through here.
      */
+    /**
+     * Cached per object: this runs once per RECORD on the fallback path of
+     * TEKCO_AnonymizationPatternService.getExternalId() — the path that exists for orgs whose
+     * patterns name no external ID field of their own. Without the cache, every record paid a
+     * String.split (which compiles a regex) plus one hasField per configured name.
+     *
+     * Cleared by resetCache() and by setConfigForTest(), the only two ways the underlying
+     * configuration can change inside a transaction.
+     */
+    private static Map<String, List<String>> externalIdFieldsCache = new Map<String, List<String>>();
+
     public static List<String> getExternalIdFieldsOn(String objectApiName) {
+        List<String> cached = externalIdFieldsCache.get(objectApiName);
+        if (cached != null) return cached;
+
         List<String> result = new List<String>();
         String configured = getConfig().externalIdFields;
-        if (String.isBlank(configured)) return result;
-        for (String raw : configured.split(',')) {
-            String trimmed = raw.trim();
-            if (String.isNotBlank(trimmed) && hasField(objectApiName, trimmed)) {
-                result.add(trimmed);
+        if (String.isNotBlank(configured)) {
+            for (String raw : configured.split(',')) {
+                String trimmed = raw.trim();
+                if (String.isNotBlank(trimmed) && hasField(objectApiName, trimmed)) {
+                    result.add(trimmed);
+                }
             }
         }
+        externalIdFieldsCache.put(objectApiName, result);
         return result;
     }
 

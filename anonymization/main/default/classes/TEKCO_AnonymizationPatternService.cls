@@ -26,6 +26,41 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
     private static final Integer ADDRESS_RANDOM_MAX    = 20;
     private static final Integer SSN_DEFAULT_LENGTH    = 15;
 
+    // ─── Mémoïsation du chemin chaud ─────────────────────────────────────────
+    //
+    // applyPattern() tourne une fois par champ configuré ET par enregistrement. Sur un objet
+    // portant 69 configurations actives, cela représentait une soixantaine de compilations de
+    // regex par enregistrement, soit plus de treize mille par chunk de 200 — pour des motifs
+    // constants pendant tout le run. Un batch Apex ne dispose que de 60 secondes de CPU par
+    // transaction, et cette dépense était sa principale consommation évitable.
+    //
+    // Ces statiques se réinitialisent à chaque transaction, donc aucune valeur ne peut survivre
+    // d'un chunk au suivant : la mémoïsation ne porte que sur des calculs purs.
+
+    /** Format accepté pour un identifiant externe : littéral constant, compilé une seule fois. */
+    private static final System.Pattern EXTERNAL_ID_FORMAT =
+        System.Pattern.compile('^[a-zA-Z0-9_\\-]+$');
+
+    /** Premier nombre d'une adresse. Constant lui aussi. */
+    private static final System.Pattern LEADING_NUMBER =
+        System.Pattern.compile('(\\d+)');
+
+    /** Regex venues de la CMDT, compilées une fois chacune. Clé = la regex elle-même. */
+    private static Map<String, System.Pattern> compiledPatterns =
+        new Map<String, System.Pattern>();
+
+    /** Suites SSN déjà construites, indexées par longueur — le résultat n'en dépend que. */
+    private static Map<Integer, String> ssnSequenceByLength = new Map<Integer, String>();
+
+    private static System.Pattern compiled(String regex) {
+        System.Pattern result = compiledPatterns.get(regex);
+        if (result == null) {
+            result = System.Pattern.compile(regex);
+            compiledPatterns.put(regex, result);
+        }
+        return result;
+    }
+
     private static String orgSubdomain {
         get {
             if (orgSubdomain == null) {
@@ -163,9 +198,20 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
         String domain    = baseEmail.substring(atIndex);
 
         if (appendSubdomain) {
-            return localPart + '+' + externalId + domain + '.' + parseOrgSuffix(orgSubdomain);
+            return localPart + '+' + externalId + domain + '.' + orgSuffix();
         }
         return localPart + '+' + externalId + domain;
+    }
+
+    /**
+     * Derived from orgSubdomain, itself constant for the transaction — so this is computed once
+     * instead of once per record. parseOrgSuffix() splits on '--', which compiles a regex.
+     */
+    private static String cachedOrgSuffix;
+
+    private static String orgSuffix() {
+        if (cachedOrgSuffix == null) cachedOrgSuffix = parseOrgSuffix(orgSubdomain);
+        return cachedOrgSuffix;
     }
 
     /**
@@ -199,10 +245,17 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
             : (pattern.TEKCO_SsnLength__c != null
                 ? Integer.valueOf(pattern.TEKCO_SsnLength__c)
                 : SSN_DEFAULT_LENGTH);
-        String result = '';
+        String cached = ssnSequenceByLength.get(targetLength);
+        if (cached != null) return cached;
+
+        // Le résultat ne dépend que de la longueur : construit une fois par longueur
+        // rencontrée, au lieu d'une boucle de concaténation par enregistrement.
+        List<String> digits = new List<String>();
         for (Integer index = 0; index < targetLength; index++) {
-            result += String.valueOf(Math.mod(index, 9) + 1);
+            digits.add(String.valueOf(Math.mod(index, 9) + 1));
         }
+        String result = String.join(digits, '');
+        ssnSequenceByLength.put(targetLength, result);
         return result;
     }
 
@@ -220,9 +273,7 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
             return replacement;
         }
         try {
-            return System.Pattern.compile(pattern.TEKCO_RegexFind__c)
-                                .matcher(currentValue)
-                                .replaceAll(replacement);
+            return compiled(pattern.TEKCO_RegexFind__c).matcher(currentValue).replaceAll(replacement);
         } catch (Exception e) {
             return currentValue;
         }
@@ -237,7 +288,7 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
      */
     private static String applyAddressStreetRandom(String currentValue) {
         if (String.isBlank(currentValue)) return currentValue;
-        Matcher numMatcher = Pattern.compile('(\\d+)').matcher(currentValue);
+        Matcher numMatcher = LEADING_NUMBER.matcher(currentValue);
         if (!numMatcher.find()) return currentValue;
         Integer streetNumber;
         try {
@@ -246,7 +297,11 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
             return currentValue;
         }
         Integer randomOffset = Integer.valueOf(Math.random() * ADDRESS_RANDOM_MAX) + 1;
-        return currentValue.replaceFirst('\\d+', String.valueOf(streetNumber + randomOffset));
+        // Le matcher a déjà localisé le nombre : le remplacer ici évite la seconde compilation
+        // que replaceFirst('\\d+', ...) déclenchait derrière.
+        return currentValue.substring(0, numMatcher.start())
+            + String.valueOf(streetNumber + randomOffset)
+            + currentValue.substring(numMatcher.end());
     }
 
     /** Patterns that deliberately key on the record Id — never divert them to a business key. */
@@ -291,7 +346,7 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
             Object fieldValue = record.get(fieldApiName);
             if (fieldValue == null) return '';
             String externalId = String.valueOf(fieldValue);
-            if (!System.Pattern.compile('^[a-zA-Z0-9_\\-]+$').matcher(externalId).matches()) return '';
+            if (!EXTERNAL_ID_FORMAT.matcher(externalId).matches()) return '';
             return externalId;
         } catch (Exception e) {
             return '';

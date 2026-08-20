@@ -321,4 +321,77 @@ private class TEKCO_AnonymizationPatternServiceTest {
         System.assertEquals(false, TEKCO_AnonymizationOrgConfigService.hasField('Account', ''));
         System.assertEquals(false, TEKCO_AnonymizationOrgConfigService.hasField(null, null));
     }
+
+    // ─── Mémoïsation : le cache ne doit jamais mélanger deux entrées ─────────────
+
+    private static TEKCO_AnonymizationPattern__mdt regexPattern(String find, String replace) {
+        return new TEKCO_AnonymizationPattern__mdt(
+            DeveloperName         = 'REGEX',
+            MasterLabel           = 'REGEX',
+            TEKCO_IsActive__c     = true,
+            TEKCO_RegexFind__c    = find,
+            TEKCO_RegexReplace__c = replace
+        );
+    }
+
+    /**
+     * applyRegex() compile désormais une fois par regex et garde le résultat dans une map. Deux
+     * regex différentes appliquées à la même valeur doivent produire deux résultats différents :
+     * si le cache était indexé par erreur sur autre chose que la regex, la seconde réutiliserait
+     * la compilation de la première et masquerait silencieusement des données avec le mauvais
+     * motif.
+     */
+    @isTest
+    static void applyRegex_twoDifferentPatterns_doNotShareTheirCompilation() {
+        String value = 'abc123';
+
+        String digitsMasked = TEKCO_AnonymizationPatternService.applyPattern(
+            'REGEX', value, null, regexPattern('\\d', '0')
+        );
+        String lettersMasked = TEKCO_AnonymizationPatternService.applyPattern(
+            'REGEX', value, null, regexPattern('[a-z]', 'x')
+        );
+
+        System.assertEquals('abc000', digitsMasked, 'La premiere regex ne touche que les chiffres');
+        System.assertEquals('xxx123', lettersMasked, 'La seconde a bien sa propre compilation');
+    }
+
+    /** Le même motif réutilisé doit rester correct au second appel. */
+    @isTest
+    static void applyRegex_samePatternTwice_isStable() {
+        TEKCO_AnonymizationPattern__mdt pattern = regexPattern('\\d', '0');
+
+        String first  = TEKCO_AnonymizationPatternService.applyPattern('REGEX', 'a1b2', null, pattern);
+        String second = TEKCO_AnonymizationPatternService.applyPattern('REGEX', 'a1b2', null, pattern);
+
+        System.assertEquals('a0b0', first, 'Premier appel : compilation');
+        System.assertEquals(first, second, 'Second appel : lecture du cache, meme resultat');
+    }
+
+    /**
+     * La suite SSN est mémoïsée par longueur. Deux longueurs différentes ne doivent pas se
+     * renvoyer l'une l'autre.
+     */
+    @isTest
+    static void applySsnSequential_twoLengths_doNotShareTheirCache() {
+        TEKCO_AnonymizationPattern__mdt ssn = new TEKCO_AnonymizationPattern__mdt(
+            DeveloperName = 'SSN_SEQUENTIAL', MasterLabel = 'SSN_SEQUENTIAL',
+            TEKCO_IsActive__c = true
+        );
+
+        String short5 = TEKCO_AnonymizationPatternService.applyPattern(
+            'SSN_SEQUENTIAL', '12345', null, ssn
+        );
+        String long9 = TEKCO_AnonymizationPatternService.applyPattern(
+            'SSN_SEQUENTIAL', '123456789', null, ssn
+        );
+        String short5Again = TEKCO_AnonymizationPatternService.applyPattern(
+            'SSN_SEQUENTIAL', 'abcde', null, ssn
+        );
+
+        System.assertEquals(5, short5.length(), 'La longueur suit celle de la valeur d\'entree');
+        System.assertEquals(9, long9.length(), 'Une autre longueur produit une autre suite');
+        System.assertEquals('12345', short5, 'La suite reste 1,2,3... a partir de 1');
+        System.assertEquals(short5, short5Again, 'Meme longueur : meme suite, servie par le cache');
+    }
 }
