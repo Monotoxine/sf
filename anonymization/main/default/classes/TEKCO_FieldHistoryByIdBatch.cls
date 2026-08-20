@@ -64,47 +64,39 @@ public without sharing class TEKCO_FieldHistoryByIdBatch implements Database.Bat
     public Database.QueryLocator start(Database.BatchableContext bc) {
         if (!TEKCO_AnonymizationBatchUtils.assertSandboxOrClose(auditLogId, bypassSnapshot)) {
             aborted = true;
-            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
         }
 
         String historyObjectName = TEKCO_AnonymizationBatchUtils.computeHistoryObjectName(objectApiName);
         String parentIdFieldName = TEKCO_AnonymizationBatchUtils.computeParentIdFieldName(objectApiName);
 
-        try { Schema.describeSObjects(new List<String>{ historyObjectName }); }
-        catch (Exception e) {
+        if (!TEKCO_AnonymizationOrgConfigService.hasObject(historyObjectName)) {
             errors.add('Field history not enabled for object, skipped: ' + objectApiName);
-            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
         }
 
         try {
             // Re-query locally — only devNames were carried through serialization.
-            List<TEKCO_AnonymizationFieldConfig__mdt> objectHistoryConfigs =
-                TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(objectHistoryConfigDevNames);
-
-            Set<String> fieldApiNames = new Set<String>();
-            for (TEKCO_AnonymizationFieldConfig__mdt fc : objectHistoryConfigs) {
-                if (String.isNotBlank(fc.TEKCO_FieldApiName__c)) fieldApiNames.add(fc.TEKCO_FieldApiName__c);
+            Set<String> historyFieldNames = new Set<String>();
+            for (TEKCO_AnonymizationFieldConfig__mdt fc :
+                    TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(objectHistoryConfigDevNames)) {
+                if (String.isNotBlank(fc.TEKCO_FieldApiName__c)) {
+                    historyFieldNames.add(fc.TEKCO_FieldApiName__c);
+                }
             }
 
-            // No fields to target would produce 'Field IN ()' — invalid SOQL. Skip instead.
-            if (fieldApiNames.isEmpty()) {
-                errors.add('No history fields configured for object, skipped: ' + objectApiName);
-                return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
-            }
-
-            List<String> escapedFields = new List<String>();
-            for (String fn : fieldApiNames) {
-                escapedFields.add('\'' + String.escapeSingleQuotes(fn) + '\'');
-            }
-
-            return Database.getQueryLocator(
-                'SELECT Id FROM ' + historyObjectName
-                + ' WHERE Field IN (' + String.join(escapedFields, ', ') + ')'
-                + ' AND ' + parentIdFieldName + ' IN :recordIds'
+            String soqlQuery = TEKCO_AnonymizationScopeQueryBuilder.buildHistoryByIdScopeQuery(
+                historyObjectName, parentIdFieldName, historyFieldNames, 'recordIds'
             );
+            if (soqlQuery == null) {
+                errors.add('No history fields configured for object, skipped: ' + objectApiName);
+                return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
+            }
+
+            return Database.getQueryLocator(soqlQuery);
         } catch (Exception e) {
             errors.add('Failed to build query for ' + objectApiName + ': ' + e.getMessage());
-            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
         }
     }
 

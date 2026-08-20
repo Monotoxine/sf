@@ -103,6 +103,142 @@ public inherited sharing class TEKCO_AnonymizationScopeQueryBuilder {
         return selection;
     }
 
+    // ─── Scope queries ───────────────────────────────────────────────────────
+    //
+    // These return SOQL strings; Database.getQueryLocator() stays in the batches. That is
+    // deliberate and not an oversight: the emitted queries carry bind variables (:selectedBrands,
+    // :recordIds, :parentIds) that Apex resolves against the CALLING scope, i.e. the batch's own
+    // fields. Building the string here and binding there keeps the two concerns apart while
+    // leaving the binds working — and keeps the strings assertable in a test.
+
+    /** Locator that matches nothing, for the skip paths. */
+    public static final String EMPTY_LOCATOR_QUERY = 'SELECT Id FROM User WHERE Id = null';
+
+    /**
+     * By Criteria field phase.
+     *
+     * @param hasEmailMessageLorem enables the EmailMessage fallback: that object carries no brand
+     *        field of its own, so when no brand condition can be built for it the scope goes
+     *        through the parent Case. Guarded on the field existing — it does not in every org.
+     *        Emits the bind :selectedBrands, which the caller must expose.
+     */
+    public static String buildFieldScopeQuery(
+        String objectApiName,
+        Set<String> fields,
+        List<String> selectedBrands,
+        String additionalFilter,
+        Boolean hasEmailMessageLorem
+    ) {
+        List<String> conditions = new List<String>();
+
+        if (selectedBrands != null && !selectedBrands.isEmpty()) {
+            String brandCondition = TEKCO_AnonymizationOrgConfigService.buildBrandCondition(
+                objectApiName, selectedBrands
+            );
+            if (brandCondition != null) {
+                conditions.add(brandCondition);
+            } else if (hasEmailMessageLorem == true
+                    && TEKCO_AnonymizationOrgConfigService.hasField('Case', 'TEKCO_Brand__c')) {
+                conditions.add('Parent.TEKCO_Brand__c IN :selectedBrands');
+            }
+        }
+        conditions.add(additionalFilter);
+
+        return selectClause(fields) + ' FROM ' + objectApiName + whereClause(conditions);
+    }
+
+    /**
+     * By ID field phase — and any other "these exact records" scope.
+     * @param idBindName name of the batch field holding the Ids, emitted as a bind.
+     */
+    public static String buildByIdScopeQuery(
+        String objectApiName, Set<String> fields, String idBindName
+    ) {
+        return selectClause(fields) + ' FROM ' + objectApiName + ' WHERE Id IN :' + idBindName;
+    }
+
+    /** By Criteria ContentDocument phase: the parent records whose files are to be removed. */
+    public static String buildContentDocScopeQuery(
+        String objectApiName,
+        List<String> selectedBrands,
+        String recordTypeDevName,
+        String additionalFilter
+    ) {
+        List<String> conditions = new List<String>();
+        conditions.add(
+            TEKCO_AnonymizationOrgConfigService.buildBrandCondition(objectApiName, selectedBrands)
+        );
+        if (String.isNotBlank(recordTypeDevName)) {
+            conditions.add(
+                'RecordType.DeveloperName = \'' + String.escapeSingleQuotes(recordTypeDevName) + '\''
+            );
+        }
+        conditions.add(additionalFilter);
+
+        return 'SELECT Id FROM ' + objectApiName + whereClause(conditions);
+    }
+
+    /**
+     * By Criteria history phase: history rows of the targeted fields, on the parent records
+     * matching the run's scope.
+     *
+     * @return null when no field is targeted. Building it anyway would emit 'Field IN ()', which
+     *         is invalid SOQL: the By Criteria batch used to do exactly that and reported the
+     *         resulting parse error as a run failure, while the By ID batch skipped cleanly.
+     */
+    public static String buildHistoryScopeQuery(
+        String objectApiName,
+        String historyObjectName,
+        String parentIdFieldName,
+        Set<String> historyFieldNames,
+        List<String> selectedBrands,
+        String additionalFilter
+    ) {
+        String fieldInClause = escapedInClause(historyFieldNames);
+        if (fieldInClause == null) return null;
+
+        List<String> parentConditions = new List<String>();
+        parentConditions.add(
+            TEKCO_AnonymizationOrgConfigService.buildBrandCondition(objectApiName, selectedBrands)
+        );
+        parentConditions.add(additionalFilter);
+
+        return 'SELECT Id FROM ' + historyObjectName
+            + ' WHERE Field IN (' + fieldInClause + ')'
+            + ' AND ' + parentIdFieldName
+            + ' IN (SELECT Id FROM ' + objectApiName + whereClause(parentConditions) + ')';
+    }
+
+    /**
+     * By ID history phase. Same null contract as buildHistoryScopeQuery.
+     * @param idBindName name of the batch field holding the parent Ids, emitted as a bind.
+     */
+    public static String buildHistoryByIdScopeQuery(
+        String historyObjectName,
+        String parentIdFieldName,
+        Set<String> historyFieldNames,
+        String idBindName
+    ) {
+        String fieldInClause = escapedInClause(historyFieldNames);
+        if (fieldInClause == null) return null;
+
+        return 'SELECT Id FROM ' + historyObjectName
+            + ' WHERE Field IN (' + fieldInClause + ')'
+            + ' AND ' + parentIdFieldName + ' IN :' + idBindName;
+    }
+
+    /** Quoted, escaped, sorted literal list; null when there is nothing to put in the IN. */
+    private static String escapedInClause(Set<String> values) {
+        if (values == null || values.isEmpty()) return null;
+        List<String> sorted = new List<String>(values);
+        sorted.sort();
+        List<String> escaped = new List<String>();
+        for (String value : sorted) {
+            escaped.add('\'' + String.escapeSingleQuotes(value) + '\'');
+        }
+        return String.join(escaped, ', ');
+    }
+
     /** SELECT clause from a field set, in a stable order so queries are comparable in tests. */
     public static String selectClause(Set<String> fields) {
         List<String> sorted = new List<String>(fields);

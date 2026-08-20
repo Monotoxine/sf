@@ -63,66 +63,51 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
     public Database.QueryLocator start(Database.BatchableContext bc) {
         if (!TEKCO_AnonymizationBatchUtils.assertSandboxOrClose(auditLogId, bypassSnapshot)) {
             aborted = true;
-            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
         }
 
-        try { Schema.describeSObjects(new List<String>{ objectApiName }); }
-        catch (Exception e) {
+        if (!TEKCO_AnonymizationOrgConfigService.hasObject(objectApiName)) {
             errors.add('Object not found in org, skipped: ' + objectApiName);
-            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
         }
 
         String historyObjectName = TEKCO_AnonymizationBatchUtils.computeHistoryObjectName(objectApiName);
         String parentIdFieldName = TEKCO_AnonymizationBatchUtils.computeParentIdFieldName(objectApiName);
 
-        try { Schema.describeSObjects(new List<String>{ historyObjectName }); }
-        catch (Exception e) {
+        if (!TEKCO_AnonymizationOrgConfigService.hasObject(historyObjectName)) {
             errors.add('Field history not enabled for object, skipped: ' + objectApiName);
-            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
         }
 
         try {
-
-        List<TEKCO_AnonymizationFieldConfig__mdt> objectHistoryConfigs =
-            TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(objectHistoryConfigDevNames);
-
-        Set<String> fieldApiNames = new Set<String>();
-        for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : objectHistoryConfigs) {
-            if (String.isNotBlank(fieldConfig.TEKCO_FieldApiName__c)) {
-                fieldApiNames.add(fieldConfig.TEKCO_FieldApiName__c);
+            Set<String> historyFieldNames = new Set<String>();
+            for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig :
+                    TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(objectHistoryConfigDevNames)) {
+                if (String.isNotBlank(fieldConfig.TEKCO_FieldApiName__c)) {
+                    historyFieldNames.add(fieldConfig.TEKCO_FieldApiName__c);
+                }
             }
-        }
 
-        List<String> escapedFieldNames = new List<String>();
-        for (String fieldName : fieldApiNames) {
-            escapedFieldNames.add('\'' + String.escapeSingleQuotes(fieldName) + '\'');
-        }
+            String soqlQuery = TEKCO_AnonymizationScopeQueryBuilder.buildHistoryScopeQuery(
+                objectApiName,
+                historyObjectName,
+                parentIdFieldName,
+                historyFieldNames,
+                selectedBrands,
+                additionalFiltersByObject.get(objectApiName)
+            );
 
-        String fieldPrefix = ' WHERE Field IN (' + String.join(escapedFieldNames, ',') + ')'
-            + ' AND ' + parentIdFieldName;
+            // No targeted field would produce 'Field IN ()' — invalid SOQL. The By ID chain
+            // already skipped in that case; this one used to report a parse error instead.
+            if (soqlQuery == null) {
+                errors.add('No history fields configured for object, skipped: ' + objectApiName);
+                return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
+            }
 
-        String additionalFilter = additionalFiltersByObject.get(objectApiName);
-
-        List<String> childConditions = new List<String>();
-        String brandCondition = TEKCO_AnonymizationOrgConfigService.buildBrandCondition(
-            objectApiName, selectedBrands
-        );
-        if (brandCondition != null) {
-            childConditions.add(brandCondition);
-        }
-        if (String.isNotBlank(additionalFilter)) {
-            childConditions.add(additionalFilter);
-        }
-        String childWhere = childConditions.isEmpty()
-            ? ''
-            : ' WHERE ' + String.join(childConditions, ' AND ');
-        String soqlQuery = 'SELECT Id FROM ' + historyObjectName + fieldPrefix
-            + ' IN (SELECT Id FROM ' + objectApiName + childWhere + ')';
-
-        return Database.getQueryLocator(soqlQuery);
+            return Database.getQueryLocator(soqlQuery);
         } catch (Exception e) {
             errors.add('Failed to build query for ' + objectApiName + ': ' + e.getMessage());
-            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
         }
     }
 

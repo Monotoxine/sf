@@ -71,41 +71,26 @@ public without sharing class TEKCO_ContentDocumentBatch implements Database.Batc
     public Database.QueryLocator start(Database.BatchableContext bc) {
         if (!TEKCO_AnonymizationBatchUtils.assertSandboxOrClose(auditLogId, bypassSnapshot)) {
             aborted = true;
-            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
         }
 
-        try { Schema.describeSObjects(new List<String>{ objectApiName }); }
-        catch (Exception e) {
+        if (!TEKCO_AnonymizationOrgConfigService.hasObject(objectApiName)) {
             errors.add('Object not found in org, skipped: ' + objectApiName);
-            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
         }
 
         try {
-            String additionalFilter = additionalFiltersByObject.get(objectApiName);
-            List<String> conditions = new List<String>();
-
-            String brandCondition = TEKCO_AnonymizationOrgConfigService.buildBrandCondition(
-                objectApiName, selectedBrands
+            return Database.getQueryLocator(
+                TEKCO_AnonymizationScopeQueryBuilder.buildContentDocScopeQuery(
+                    objectApiName,
+                    selectedBrands,
+                    recordTypeDvName,
+                    additionalFiltersByObject.get(objectApiName)
+                )
             );
-            if (brandCondition != null) {
-                conditions.add(brandCondition);
-            }
-            if (String.isNotBlank(recordTypeDvName)) {
-                conditions.add(
-                    'RecordType.DeveloperName = \'' + String.escapeSingleQuotes(recordTypeDvName) + '\''
-                );
-            }
-            if (String.isNotBlank(additionalFilter)) {
-                conditions.add(additionalFilter);
-            }
-
-            String soqlQuery = 'SELECT Id FROM ' + objectApiName
-                + (conditions.isEmpty() ? '' : ' WHERE ' + String.join(conditions, ' AND '));
-
-            return Database.getQueryLocator(soqlQuery);
         } catch (Exception e) {
             errors.add('Failed to build query for ' + objectApiName + ': ' + e.getMessage());
-            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
         }
     }
 

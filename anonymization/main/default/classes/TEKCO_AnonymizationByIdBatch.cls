@@ -14,8 +14,6 @@ public without sharing class TEKCO_AnonymizationByIdBatch implements Database.Ba
 
     public static final Integer DEFAULT_BATCH_SIZE   = 200;
     private static final Integer MAX_ACCUMULATED_ERRORS = 200;
-    private static final String  PATTERN_DELETE_CD   = 'DELETE_CONTENT_DOCUMENT';
-    private static final String  PATTERN_EMAIL_LOREM = 'EMAIL_MESSAGE_LOREM';
 
     private String                                       objectApiName;
     private List<Id>                                     recordIds;
@@ -86,84 +84,35 @@ public without sharing class TEKCO_AnonymizationByIdBatch implements Database.Ba
     public Database.QueryLocator start(Database.BatchableContext bc) {
         if (!TEKCO_AnonymizationBatchUtils.assertSandboxOrClose(auditLogId, bypassSnapshot)) {
             aborted = true;
-            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
-        }
-
-        Schema.DescribeSObjectResult sObjectDescribe;
-        try {
-            sObjectDescribe = Schema.describeSObjects(new List<String>{ objectApiName })[0];
-        } catch (Exception e) {
-            errors.add('Object not found in org, skipped: ' + objectApiName);
-            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
         }
 
         try {
-            Set<String> fieldApiNames    = new Set<String>{ 'Id' };
-            Boolean needsRecordTypeId    = false;
-
-            Map<String, Schema.SObjectField> objectFieldMap =
-                sObjectDescribe.fields.getMap();
-            List<TEKCO_AnonymizationFieldConfig__mdt> validFieldConfigs =
-                new List<TEKCO_AnonymizationFieldConfig__mdt>();
-
             List<TEKCO_AnonymizationFieldConfig__mdt> startConfigs =
-                this.fieldConfigs != null ? this.fieldConfigs : TEKCO_AnonymizationBatchUtils.loadFieldConfigs(objectApiName);
+                this.fieldConfigs != null
+                    ? this.fieldConfigs
+                    : TEKCO_AnonymizationBatchUtils.loadFieldConfigs(objectApiName);
             Map<String, TEKCO_AnonymizationPattern__mdt> startPatterns =
-                this.patternsByType != null ? this.patternsByType : TEKCO_AnonymizationBatchUtils.buildPatternMap();
+                this.patternsByType != null
+                    ? this.patternsByType
+                    : TEKCO_AnonymizationBatchUtils.buildPatternMap();
 
-            for (TEKCO_AnonymizationFieldConfig__mdt fc : startConfigs) {
-                String patternType  = fc.TEKCO_PatternType__c;
-                String fieldApiName = fc.TEKCO_FieldApiName__c;
+            // Same field selection as the By Criteria chain — only the record scope differs.
+            TEKCO_AnonymizationScopeQueryBuilder.FieldSelection selection =
+                TEKCO_AnonymizationScopeQueryBuilder.buildFieldSelection(
+                    objectApiName, startConfigs, startPatterns
+                );
+            errors.addAll(selection.errors);
 
-                // DELETE_CONTENT_DOCUMENT is handled by TEKCO_ContentDocumentByIdBatch
-                if (patternType == PATTERN_DELETE_CD) continue;
-
-                if (String.isNotBlank(fieldApiName)
-                        && !objectFieldMap.containsKey(fieldApiName.toLowerCase())) {
-                    errors.add('Field not found on ' + objectApiName + ', skipped: ' + fieldApiName);
-                    continue;
-                }
-
-                validFieldConfigs.add(fc);
-                if (String.isNotBlank(fieldApiName)) {
-                    fieldApiNames.add(fieldApiName);
-                }
-
-                if (patternType == PATTERN_EMAIL_LOREM) {
-                    fieldApiNames.add('Status');
-                }
-
-                TEKCO_AnonymizationPattern__mdt pattern = startPatterns.get(patternType);
-                if (pattern != null && String.isNotBlank(pattern.TEKCO_ExternalIdField__c)
-                        && objectFieldMap.containsKey(pattern.TEKCO_ExternalIdField__c.toLowerCase())) {
-                    fieldApiNames.add(pattern.TEKCO_ExternalIdField__c);
-                }
-                if (patternType == 'NAME_FIRST_LETTER' || patternType == 'NAME_FIRST_LETTER_SFID') {
-                    String funcField = TEKCO_AnonymizationOrgConfigService.getConfig().functionalIdField;
-                    if (String.isNotBlank(funcField) && objectFieldMap.containsKey(funcField.toLowerCase())) {
-                        fieldApiNames.add(funcField);
-                    }
-                }
-                if (String.isNotBlank(fc.TEKCO_RecordTypeDeveloperName__c)) {
-                    needsRecordTypeId = true;
-                }
-            }
-
-            // Same reason as the By Criteria batch: the org's own external ID fields must be
-            // selected, or getExternalId()'s fallback has nothing to read.
-            fieldApiNames.addAll(
-                TEKCO_AnonymizationOrgConfigService.getExternalIdFieldsOn(objectApiName)
-            );
-
-            validFieldConfigDevNames = new List<String>();
-            for (TEKCO_AnonymizationFieldConfig__mdt fc : validFieldConfigs) {
-                if (String.isNotBlank(fc.DeveloperName)) validFieldConfigDevNames.add(fc.DeveloperName);
-            }
+            validFieldConfigDevNames = selection.validConfigDevNames;
             this.fieldConfigs   = null;
             this.patternsByType = null;
 
-            if (needsRecordTypeId) {
-                fieldApiNames.add('RecordTypeId');
+            if (selection.validConfigs.isEmpty()) {
+                return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
+            }
+
+            if (selection.needsRecordTypeId) {
                 for (RecordType rt : [
                     SELECT Id, DeveloperName FROM RecordType WHERE SobjectType = :objectApiName
                 ]) {
@@ -172,13 +121,13 @@ public without sharing class TEKCO_AnonymizationByIdBatch implements Database.Ba
             }
 
             return Database.getQueryLocator(
-                'SELECT ' + String.join(new List<String>(fieldApiNames), ', ')
-                + ' FROM ' + objectApiName
-                + ' WHERE Id IN :recordIds'
+                TEKCO_AnonymizationScopeQueryBuilder.buildByIdScopeQuery(
+                    objectApiName, selection.fields, 'recordIds'
+                )
             );
         } catch (Exception e) {
             errors.add('Failed to build query for ' + objectApiName + ': ' + e.getMessage());
-            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
         }
     }
 

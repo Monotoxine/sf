@@ -66,10 +66,12 @@ public without sharing class TEKCO_ContentDocumentByIdBatch implements Database.
     public Database.QueryLocator start(Database.BatchableContext bc) {
         if (!TEKCO_AnonymizationBatchUtils.assertSandboxOrClose(auditLogId, bypassSnapshot)) {
             aborted = true;
-            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
         }
         return Database.getQueryLocator(
-            'SELECT Id FROM ' + objectApiName + ' WHERE Id IN :parentIds'
+            TEKCO_AnonymizationScopeQueryBuilder.buildByIdScopeQuery(
+                objectApiName, new Set<String>{ 'Id' }, 'parentIds'
+            )
         );
     }
 
