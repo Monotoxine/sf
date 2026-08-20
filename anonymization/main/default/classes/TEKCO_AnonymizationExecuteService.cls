@@ -116,7 +116,7 @@ public inherited sharing class TEKCO_AnonymizationExecuteService {
                     if (result.errors.size() < MAX_CAPTURED_ERRORS) {
                         List<String> msgs = new List<String>();
                         for (Database.Error e : sr.getErrors()) msgs.add(e.getMessage());
-                        result.errors.add(TEKCO_AnonymizationBatchUtils.cap(sr.getId() + ': ' + String.join(msgs, '; ')));
+                        result.errors.add(TEKCO_AnonymizationRunContext.cap(sr.getId() + ': ' + String.join(msgs, '; ')));
                     }
                 }
             }
@@ -131,7 +131,7 @@ public inherited sharing class TEKCO_AnonymizationExecuteService {
                     if (result.errors.size() < MAX_CAPTURED_ERRORS) {
                         List<String> msgs = new List<String>();
                         for (Database.Error e : dr.getErrors()) msgs.add(e.getMessage());
-                        result.errors.add(TEKCO_AnonymizationBatchUtils.cap('Delete ' + dr.getId() + ': ' + String.join(msgs, '; ')));
+                        result.errors.add(TEKCO_AnonymizationRunContext.cap('Delete ' + dr.getId() + ': ' + String.join(msgs, '; ')));
                     }
                 }
             }

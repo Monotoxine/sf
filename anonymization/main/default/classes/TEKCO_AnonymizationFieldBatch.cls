@@ -27,7 +27,7 @@ public without sharing class TEKCO_AnonymizationFieldBatch implements Database.B
     /**
      * Only developer names are kept across chunks. Carrying the CMDT rows themselves in stateful
      * fields is what used to blow the heap; execute() reloads them through the per-transaction
-     * cache in TEKCO_AnonymizationBatchUtils.
+     * cache in TEKCO_AnonymizationConfigSelector.
      */
     private List<String>    validFieldConfigDevNames = new List<String>();
     private Map<Id, String> recordTypeDevNameById    = new Map<Id, String>();
@@ -45,7 +45,7 @@ public without sharing class TEKCO_AnonymizationFieldBatch implements Database.B
     }
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
-        if (!TEKCO_AnonymizationBatchUtils.assertSandboxOrClose(ctx.auditLogId, ctx.bypassSnapshot)) {
+        if (!TEKCO_AnonymizationGuard.assertSandboxOrClose(ctx.auditLogId, ctx.bypassSnapshot)) {
             aborted = true;
             return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
         }
@@ -56,12 +56,12 @@ public without sharing class TEKCO_AnonymizationFieldBatch implements Database.B
             // user unchecked.
             List<String> devNames = ctx.configDevNamesFor(objectApiName);
             List<TEKCO_AnonymizationFieldConfig__mdt> startConfigs = devNames.isEmpty()
-                ? TEKCO_AnonymizationBatchUtils.loadFieldConfigs(objectApiName)
-                : TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(devNames);
+                ? TEKCO_AnonymizationConfigSelector.loadFieldConfigs(objectApiName)
+                : TEKCO_AnonymizationConfigSelector.loadFieldConfigsByDevNames(devNames);
 
             TEKCO_AnonymizationScopeQueryBuilder.FieldSelection selection =
                 TEKCO_AnonymizationScopeQueryBuilder.buildFieldSelection(
-                    objectApiName, startConfigs, TEKCO_AnonymizationBatchUtils.buildPatternMap()
+                    objectApiName, startConfigs, TEKCO_AnonymizationConfigSelector.buildPatternMap()
                 );
             errors.addAll(selection.errors);
             validFieldConfigDevNames = selection.validConfigDevNames;
@@ -109,8 +109,8 @@ public without sharing class TEKCO_AnonymizationFieldBatch implements Database.B
         TEKCO_AnonymizationExecuteService.ExecuteResult result =
             TEKCO_AnonymizationExecuteService.executeFieldAnonymization(
                 scope,
-                TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(validFieldConfigDevNames),
-                TEKCO_AnonymizationBatchUtils.buildPatternMap(),
+                TEKCO_AnonymizationConfigSelector.loadFieldConfigsByDevNames(validFieldConfigDevNames),
+                TEKCO_AnonymizationConfigSelector.buildPatternMap(),
                 recordTypeDevNameById
             );
         recordsProcessed += result.recordsProcessed;

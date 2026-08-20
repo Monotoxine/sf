@@ -45,7 +45,6 @@
         <members>TEKCO_AnonymizationScopeQueryBuilder</members>
         <!-- Changed by this work -->
         <members>TEKCO_AnonymizationFieldBatch</members>
-        <members>TEKCO_AnonymizationBatchUtils</members>
         <members>TEKCO_AnonymizationByIdController</members>
         <members>TEKCO_AnonymizationController</members>
         <members>TEKCO_AnonymizationExecuteService</members>
@@ -54,6 +53,8 @@
         <!-- Dependency closure: unchanged here, but the org's copies may be older than the
              API this work compiles against. -->
         <members>TEKCO_AnonymizationAuditService</members>
+        <members>TEKCO_AnonymizationConfigSelector</members>
+        <members>TEKCO_AnonymizationGuard</members>
         <members>TEKCO_AnonymizationBypassService</members>
         <members>TEKCO_AnonymizationOrgConfigService</members>
         <members>TEKCO_AnonymizationPatternService</members>

@@ -7,7 +7,7 @@ public with sharing class TEKCO_AnonymizationController {
 
     @AuraEnabled(cacheable=false)
     public static List<Map<String, String>> getBrands() {
-        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
+        TEKCO_AnonymizationGuard.assertCanAnonymize();
         TEKCO_AnonymizationOrgConfigService.OrgConfig cfg = TEKCO_AnonymizationOrgConfigService.getConfig();
         List<Map<String, String>> brandOptions = new List<Map<String, String>>();
 
@@ -62,7 +62,7 @@ public with sharing class TEKCO_AnonymizationController {
 
     @AuraEnabled(cacheable=true)
     public static List<Map<String, String>> getObjects() {
-        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
+        TEKCO_AnonymizationGuard.assertCanAnonymize();
         Set<String> objectNames = new Set<String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fc : [
             SELECT TEKCO_ObjectApiName__c
@@ -93,7 +93,7 @@ public with sharing class TEKCO_AnonymizationController {
 
     @AuraEnabled(cacheable=true)
     public static List<Map<String, String>> getRecordTypes(List<String> selectedObjects) {
-        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
+        TEKCO_AnonymizationGuard.assertCanAnonymize();
         if (selectedObjects == null || selectedObjects.isEmpty()) return new List<Map<String, String>>();
         Map<String, String> lowerToOriginal = new Map<String, String>();
         Map<String, Set<String>> rtsByObject = new Map<String, Set<String>>();
@@ -130,7 +130,7 @@ public with sharing class TEKCO_AnonymizationController {
 
     @AuraEnabled(cacheable=true)
     public static List<FieldConfigDTO> getFieldConfigs(List<String> selectedObjects) {
-        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
+        TEKCO_AnonymizationGuard.assertCanAnonymize();
         List<TEKCO_AnonymizationFieldConfig__mdt> fieldConfigRecords;
         if (selectedObjects == null || selectedObjects.isEmpty()) {
             fieldConfigRecords = [
@@ -201,13 +201,13 @@ public with sharing class TEKCO_AnonymizationController {
         List<String> selectedObjects,
         List<String> selectedRecordTypes
     ) {
-        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
+        TEKCO_AnonymizationGuard.assertCanAnonymize();
 
         // Object names are concatenated into dynamic SOQL below — only configured names pass.
         List<String> objectsToCount = new List<String>();
         if (selectedObjects != null && !selectedObjects.isEmpty()) {
             for (String obj : selectedObjects) {
-                objectsToCount.add(TEKCO_AnonymizationBatchUtils.requireConfiguredObject(obj));
+                objectsToCount.add(TEKCO_AnonymizationGuard.requireConfiguredObject(obj));
             }
         } else {
             objectsToCount = getObjectApiNames();
@@ -302,7 +302,7 @@ public with sharing class TEKCO_AnonymizationController {
      */
     @AuraEnabled(cacheable=false)
     public static List<TEKCO_AnonymizationAuditLog__c> getAuditLogs() {
-        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
+        TEKCO_AnonymizationGuard.assertCanAnonymize();
         // BY_ID runs have their own tab and their own listing (getAuditLogsByid).
         return [
             SELECT
@@ -336,7 +336,7 @@ public with sharing class TEKCO_AnonymizationController {
         List<String> selectedRecordTypes,
         List<String> disabledHistoryFields
     ) {
-        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
+        TEKCO_AnonymizationGuard.assertCanAnonymize();
 
         TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
 
@@ -346,7 +346,7 @@ public with sharing class TEKCO_AnonymizationController {
             // Object names end up in dynamic SOQL in the batches — only configured names pass.
             List<String> validated = new List<String>();
             for (String obj : selectedObjects) {
-                validated.add(TEKCO_AnonymizationBatchUtils.requireConfiguredObject(obj));
+                validated.add(TEKCO_AnonymizationGuard.requireConfiguredObject(obj));
             }
             selectedObjects = validated;
         }
@@ -442,7 +442,7 @@ public with sharing class TEKCO_AnonymizationController {
                 objectsToProcess.add(objectApiName);
                 configDevNamesByObject.put(
                     objectApiName,
-                    TEKCO_AnonymizationBatchUtils.toDevNames(configsByObject.get(objectApiName))
+                    TEKCO_AnonymizationConfigSelector.toDevNames(configsByObject.get(objectApiName))
                 );
             }
         }
@@ -490,7 +490,7 @@ public with sharing class TEKCO_AnonymizationController {
         ctx.historyConfigDevNamesByObject = historyDevNamesByObject;
         // Configs whose pattern type resolves to nothing would be skipped silently at
         // execute() time — surface them at launch as warnings seeded into the audit trail.
-        ctx.addErrors(TEKCO_AnonymizationBatchUtils.validatePatternTypes(allFieldConfigs));
+        ctx.addErrors(TEKCO_AnonymizationGuard.validatePatternTypes(allFieldConfigs));
 
         for (String objectApiName : objectsToProcess) {
             ctx.addStep(TEKCO_AnonymizationRunContext.PHASE_FIELD, objectApiName);
@@ -523,7 +523,7 @@ public with sharing class TEKCO_AnonymizationController {
         List<String> excludedFields,
         Integer sampleSize
     ) {
-        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
+        TEKCO_AnonymizationGuard.assertCanAnonymize();
         try {
             return TEKCO_AnonymizationPreviewService.previewByCriteria(
                 objectApiName, selectedBrands, selectedRecordTypes, excludedFields, sampleSize
@@ -536,7 +536,7 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     private static Map<String, TEKCO_AnonymizationPattern__mdt> buildPatternMap() {
-        return TEKCO_AnonymizationBatchUtils.buildPatternMap();
+        return TEKCO_AnonymizationConfigSelector.buildPatternMap();
     }
 
       public class PreviewCountDTO {

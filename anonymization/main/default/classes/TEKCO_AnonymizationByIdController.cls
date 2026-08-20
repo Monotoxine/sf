@@ -24,7 +24,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
         String targetObject,
         String externalIdField
     ) {
-        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
+        TEKCO_AnonymizationGuard.assertCanAnonymize();
 
         ResolveResultDTO result = new ResolveResultDTO();
         result.directObjects   = new List<ObjectScopeDTO>();
@@ -127,7 +127,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
         List<String> excludedFields,
         List<String> noHistoryFields
     ) {
-        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
+        TEKCO_AnonymizationGuard.assertCanAnonymize();
         TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
 
         if (rawIds == null || rawIds.isEmpty()) {
@@ -237,7 +237,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
         Map<String, List<String>> configDevNamesByObject = new Map<String, List<String>>();
         for (String obj : configsByObject.keySet()) {
             configDevNamesByObject.put(
-                obj, TEKCO_AnonymizationBatchUtils.toDevNames(configsByObject.get(obj))
+                obj, TEKCO_AnonymizationConfigSelector.toDevNames(configsByObject.get(obj))
             );
         }
 
@@ -289,7 +289,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
         ctx.recordIdsByObject             = allIdsByObject;
         ctx.configDevNamesByObject        = configDevNamesByObject;
         ctx.historyConfigDevNamesByObject = historyDevNamesByObject;
-        ctx.addErrors(TEKCO_AnonymizationBatchUtils.validatePatternTypes(scopedConfigs));
+        ctx.addErrors(TEKCO_AnonymizationGuard.validatePatternTypes(scopedConfigs));
 
         for (String obj : fieldObjects) {
             ctx.addStep(TEKCO_AnonymizationRunContext.PHASE_FIELD, obj);
@@ -317,7 +317,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
      */
     @AuraEnabled(cacheable=false)
     public static List<TEKCO_AnonymizationAuditLog__c> getAuditLogsByid() {
-        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
+        TEKCO_AnonymizationGuard.assertCanAnonymize();
         return [
             SELECT Name, TEKCO_ObjectApiName__c, TEKCO_BrandFilter__c, TEKCO_Status__c,
                    TEKCO_RecordsProcessed__c, TEKCO_RecordsFailed__c,
@@ -334,7 +334,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
 
     @AuraEnabled(cacheable=true)
     public static List<Map<String, String>> getDirectObjects() {
-        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
+        TEKCO_AnonymizationGuard.assertCanAnonymize();
         Set<String> seen = new Set<String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fc : [
             SELECT TEKCO_ObjectApiName__c
@@ -356,7 +356,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
 
     @AuraEnabled(cacheable=true)
     public static List<String> getExternalIdFieldsForObject(String objectApiName) {
-        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
+        TEKCO_AnonymizationGuard.assertCanAnonymize();
         if (String.isBlank(objectApiName)) return new List<String>();
 
         Set<String> patternTypesForObj = new Set<String>();
@@ -398,8 +398,8 @@ public with sharing class TEKCO_AnonymizationByIdController {
         Map<String, List<Id>> result = new Map<String, List<Id>>();
         // Both names are concatenated into dynamic SOQL below and come from client input —
         // reject anything that is not a configured object with a real field on it.
-        String canonicalObject = TEKCO_AnonymizationBatchUtils.requireConfiguredObject(objectApiName);
-        TEKCO_AnonymizationBatchUtils.requireFieldOnObject(canonicalObject, fieldApiName);
+        String canonicalObject = TEKCO_AnonymizationGuard.requireConfiguredObject(objectApiName);
+        TEKCO_AnonymizationGuard.requireFieldOnObject(canonicalObject, fieldApiName);
         try {
             List<SObject> records = Database.query(
                 'SELECT Id FROM ' + canonicalObject
@@ -514,7 +514,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
         List<String> excludedFields,
         Integer sampleSize
     ) {
-        TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
+        TEKCO_AnonymizationGuard.assertCanAnonymize();
         if (rawIds == null || rawIds.isEmpty() || String.isBlank(objectApiName)) {
             throw new AuraHandledException('Provide at least one ID and an object to preview.');
         }

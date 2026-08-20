@@ -8,6 +8,8 @@
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
     <types>
         <members>TEKCO_AnonymizationOrgConfigService</members>
+        <members>TEKCO_AnonymizationConfigSelector</members>
+        <members>TEKCO_AnonymizationGuard</members>
         <members>TEKCO_AnonymizationBypassService</members>
         <members>TEKCO_AnonymizationController</members>
         <members>TEKCO_AnonymizationPatternService</members>
@@ -16,7 +18,6 @@
         <members>TEKCO_AnonymizationAuditService</members>
         <members>TEKCO_AnonymizationByIdController</members>
         <members>TEKCO_AnonymizationFieldBatch</members>
-        <members>TEKCO_AnonymizationBatchUtils</members>
         <members>TEKCO_AnonymizationExecuteService</members>
         <members>TEKCO_AnonymizationScopeQueryBuilder</members>
         <members>TEKCO_AnonymizationRunContext</members>

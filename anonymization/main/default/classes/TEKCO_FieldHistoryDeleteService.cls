@@ -28,7 +28,7 @@ public inherited sharing class TEKCO_FieldHistoryDeleteService {
                         messages.add(dmlError.getMessage());
                     }
                     outcome.errors.add(
-                        TEKCO_AnonymizationBatchUtils.cap(String.join(messages, '; '))
+                        TEKCO_AnonymizationRunContext.cap(String.join(messages, '; '))
                     );
                 }
             }

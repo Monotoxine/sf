@@ -28,7 +28,7 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
     }
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
-        if (!TEKCO_AnonymizationBatchUtils.assertSandboxOrClose(ctx.auditLogId, ctx.bypassSnapshot)) {
+        if (!TEKCO_AnonymizationGuard.assertSandboxOrClose(ctx.auditLogId, ctx.bypassSnapshot)) {
             aborted = true;
             return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
         }
@@ -41,8 +41,8 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
             return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
         }
 
-        String historyObjectName = TEKCO_AnonymizationBatchUtils.computeHistoryObjectName(objectApiName);
-        String parentIdFieldName = TEKCO_AnonymizationBatchUtils.computeParentIdFieldName(objectApiName);
+        String historyObjectName = TEKCO_AnonymizationScopeQueryBuilder.historyObjectNameFor(objectApiName);
+        String parentIdFieldName = TEKCO_AnonymizationScopeQueryBuilder.historyParentIdFieldFor(objectApiName);
 
         if (!TEKCO_AnonymizationOrgConfigService.hasObject(historyObjectName)) {
             errors.add('Field history not enabled for object, skipped: ' + objectApiName);
@@ -84,7 +84,7 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
     private Set<String> historyFieldNames() {
         Set<String> fieldApiNames = new Set<String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig :
-                TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(
+                TEKCO_AnonymizationConfigSelector.loadFieldConfigsByDevNames(
                     ctx.historyConfigDevNamesFor(objectApiName)
                 )) {
             if (String.isNotBlank(fieldConfig.TEKCO_FieldApiName__c)) {

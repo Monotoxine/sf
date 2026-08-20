@@ -113,7 +113,7 @@ public inherited sharing class TEKCO_ContentDocumentDeleteService {
 
     private static void addError(DeleteOutcome outcome, String message) {
         if (outcome.errors.size() < MAX_CAPTURED_ERRORS) {
-            outcome.errors.add(TEKCO_AnonymizationBatchUtils.cap(message));
+            outcome.errors.add(TEKCO_AnonymizationRunContext.cap(message));
         }
     }
 }

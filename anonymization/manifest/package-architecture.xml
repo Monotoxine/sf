@@ -56,8 +56,6 @@
         <!-- Changed by this work -->
         <members>TEKCO_AnonymizationBatchTest</members>
         <members>TEKCO_AnonymizationFieldBatch</members>
-        <members>TEKCO_AnonymizationBatchUtils</members>
-        <members>TEKCO_AnonymizationBatchUtilsTest</members>
         <members>TEKCO_AnonymizationByIdController</members>
         <members>TEKCO_AnonymizationController</members>
         <members>TEKCO_AnonymizationExecuteService</members>
@@ -69,6 +67,10 @@
              first attempt; the rest come with it. -->
         <members>TEKCO_AnonymizationAuditService</members>
         <members>TEKCO_AnonymizationAuditServiceTest</members>
+        <members>TEKCO_AnonymizationConfigSelector</members>
+        <members>TEKCO_AnonymizationGuard</members>
+        <members>TEKCO_AnonymizationConfigSelectorTest</members>
+        <members>TEKCO_AnonymizationGuardTest</members>
         <members>TEKCO_AnonymizationBypassService</members>
         <members>TEKCO_AnonymizationBypassServiceTest</members>
         <members>TEKCO_AnonymizationOrgConfigService</members>

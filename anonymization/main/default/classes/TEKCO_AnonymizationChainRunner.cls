@@ -109,7 +109,7 @@ public without sharing class TEKCO_AnonymizationChainRunner {
 
     public static TEKCO_AnonymizationFieldConfig__mdt configByDevName(String developerName) {
         List<TEKCO_AnonymizationFieldConfig__mdt> configs =
-            TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(new List<String>{ developerName });
+            TEKCO_AnonymizationConfigSelector.loadFieldConfigsByDevNames(new List<String>{ developerName });
         return configs.isEmpty() ? null : configs[0];
     }
 }

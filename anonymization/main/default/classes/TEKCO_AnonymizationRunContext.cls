@@ -21,6 +21,8 @@ public class TEKCO_AnonymizationRunContext {
 
     /** Same ceiling the batches applied individually, now enforced in one place. */
     public static final Integer MAX_ACCUMULATED_ERRORS = 200;
+    /** Per-message ceiling. This class owns the error contract in both dimensions. */
+    public static final Integer MAX_ERROR_MSG_LENGTH   = 200;
 
     public static final String PHASE_FIELD   = 'FIELD';
     public static final String PHASE_CD      = 'CD';
@@ -114,12 +116,22 @@ public class TEKCO_AnonymizationRunContext {
         if (count != null) historyRecordsDeleted += count;
     }
 
+    /**
+     * Truncates one message to MAX_ERROR_MSG_LENGTH. Public because the error producers —
+     * the execute service and the two delete services — cap before handing their lists over.
+     */
+    public static String cap(String message) {
+        return (message != null && message.length() > MAX_ERROR_MSG_LENGTH)
+            ? message.substring(0, MAX_ERROR_MSG_LENGTH)
+            : message;
+    }
+
     /** Capped in length and in count, so a failing run cannot grow the stateful payload. */
     public void addErrors(List<String> newErrors) {
         if (newErrors == null) return;
         for (String message : newErrors) {
             if (errors.size() >= MAX_ACCUMULATED_ERRORS) return;
-            errors.add(TEKCO_AnonymizationBatchUtils.cap(message));
+            errors.add(cap(message));
         }
     }
 

@@ -44,7 +44,7 @@ public without sharing class TEKCO_ContentDocumentBatch implements Database.Batc
     }
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
-        if (!TEKCO_AnonymizationBatchUtils.assertSandboxOrClose(ctx.auditLogId, ctx.bypassSnapshot)) {
+        if (!TEKCO_AnonymizationGuard.assertSandboxOrClose(ctx.auditLogId, ctx.bypassSnapshot)) {
             aborted = true;
             return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
         }

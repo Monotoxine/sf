@@ -103,6 +103,25 @@ public inherited sharing class TEKCO_AnonymizationScopeQueryBuilder {
         return selection;
     }
 
+    // ─── History object naming ───────────────────────────────────────────────
+    //
+    // Pure derivations, kept next to the history query builders that consume them rather than
+    // in a general-purpose helper: naming a history object is part of deciding what to read.
+
+    private static final String CUSTOM_OBJECT_SUFFIX = '__c';
+
+    /** Account -> AccountHistory ; My_Object__c -> My_Object__History */
+    public static String historyObjectNameFor(String objectApiName) {
+        return objectApiName.endsWith(CUSTOM_OBJECT_SUFFIX)
+            ? objectApiName.replace(CUSTOM_OBJECT_SUFFIX, '__History')
+            : objectApiName + 'History';
+    }
+
+    /** Account -> AccountId ; My_Object__c -> ParentId */
+    public static String historyParentIdFieldFor(String objectApiName) {
+        return objectApiName.endsWith(CUSTOM_OBJECT_SUFFIX) ? 'ParentId' : objectApiName + 'Id';
+    }
+
     // ─── Scope queries ───────────────────────────────────────────────────────
     //
     // These return SOQL strings; Database.getQueryLocator() stays in the batches. That is

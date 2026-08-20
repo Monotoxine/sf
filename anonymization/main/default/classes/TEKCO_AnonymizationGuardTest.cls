@@ -1,81 +1,12 @@
+/**
+ * Covers every gate the tool applies before it reads or destroys anything: the custom
+ * permission, the object and field names that reach dynamic SOQL, the pattern types that would
+ * otherwise be skipped in silence, and the sandbox check in the form a batch start() survives.
+ *
+ * Split out of TEKCO_AnonymizationBatchUtilsTest along with the class it covers.
+ */
 @isTest
-private class TEKCO_AnonymizationBatchUtilsTest {
-
-    @isTest
-    static void computeHistoryObjectName_customObject() {
-        String result = TEKCO_AnonymizationBatchUtils.computeHistoryObjectName('MyObj__c');
-        System.assertEquals('MyObj__History', result, 'Custom object history suffix');
-    }
-
-    @isTest
-    static void computeHistoryObjectName_standardObject() {
-        String result = TEKCO_AnonymizationBatchUtils.computeHistoryObjectName('Account');
-        System.assertEquals('AccountHistory', result, 'Standard object history suffix');
-    }
-
-    @isTest
-    static void computeParentIdFieldName_customObject() {
-        System.assertEquals('ParentId', TEKCO_AnonymizationBatchUtils.computeParentIdFieldName('MyObj__c'));
-    }
-
-    @isTest
-    static void computeParentIdFieldName_standardObject() {
-        System.assertEquals('AccountId', TEKCO_AnonymizationBatchUtils.computeParentIdFieldName('Account'));
-    }
-
-    // ─── cap ───────────────────────────────────────────────────────────────────
-
-    @isTest
-    static void cap_truncatesLongStrings() {
-        String long400 = 'x'.repeat(400);
-        String result  = TEKCO_AnonymizationBatchUtils.cap(long400);
-        System.assertEquals(200, result.length(), 'Capped at 200 characters');
-    }
-
-    @isTest
-    static void cap_leavesShortStringsAndNullAlone() {
-        System.assertEquals('short', TEKCO_AnonymizationBatchUtils.cap('short'), 'Under the cap');
-        System.assertEquals(null, TEKCO_AnonymizationBatchUtils.cap(null), 'Null passes through');
-    }
-
-    // ─── toDevNames ────────────────────────────────────────────────────────────
-
-    @isTest
-    static void toDevNames_extractsAndSkipsBlanks() {
-        List<TEKCO_AnonymizationFieldConfig__mdt> configs = new List<TEKCO_AnonymizationFieldConfig__mdt>{
-            new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName = 'Cfg_A'),
-            new TEKCO_AnonymizationFieldConfig__mdt(),                          // no DeveloperName
-            new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName = 'Cfg_B')
-        };
-
-        List<String> names = TEKCO_AnonymizationBatchUtils.toDevNames(configs);
-
-        System.assertEquals(2, names.size(), 'Blank DeveloperName skipped');
-        System.assert(names.contains('Cfg_A') && names.contains('Cfg_B'));
-    }
-
-    @isTest
-    static void toDevNames_nullList_returnsEmpty() {
-        System.assertEquals(0, TEKCO_AnonymizationBatchUtils.toDevNames(null).size());
-    }
-
-    // ─── loadFieldConfigsByDevNames ────────────────────────────────────────────
-
-    @isTest
-    static void loadFieldConfigsByDevNames_emptyInput_shortCircuits() {
-        System.assertEquals(
-            0,
-            TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(new List<String>()).size(),
-            'Empty devName list returns empty without querying'
-        );
-        System.assertEquals(
-            0,
-            TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(null).size(),
-            'Null devName list returns empty'
-        );
-    }
-
-    // ─── validatePatternTypes ──────────────────────────────────────────────────
+private class TEKCO_AnonymizationGuardTest {
 
     @isTest
     static void validatePatternTypes_flagsUnknownType() {
@@ -87,7 +18,7 @@ private class TEKCO_AnonymizationBatchUtilsTest {
             )
         };
 
-        List<String> warnings = TEKCO_AnonymizationBatchUtils.validatePatternTypes(configs);
+        List<String> warnings = TEKCO_AnonymizationGuard.validatePatternTypes(configs);
 
         System.assertEquals(1, warnings.size(), 'Unknown pattern type reported');
         System.assert(
@@ -107,7 +38,7 @@ private class TEKCO_AnonymizationBatchUtilsTest {
                 TEKCO_PatternType__c='BOGUS_TYPE_ABC')
         };
 
-        List<String> warnings = TEKCO_AnonymizationBatchUtils.validatePatternTypes(configs);
+        List<String> warnings = TEKCO_AnonymizationGuard.validatePatternTypes(configs);
 
         System.assertEquals(1, warnings.size(), 'Same unknown type reported once, not per field');
     }
@@ -123,7 +54,7 @@ private class TEKCO_AnonymizationBatchUtilsTest {
 
         System.assertEquals(
             0,
-            TEKCO_AnonymizationBatchUtils.validatePatternTypes(configs).size(),
+            TEKCO_AnonymizationGuard.validatePatternTypes(configs).size(),
             'Types handled by dedicated batches need no pattern record'
         );
     }
@@ -131,10 +62,10 @@ private class TEKCO_AnonymizationBatchUtilsTest {
     @isTest
     static void validatePatternTypes_emptyAndNull_returnEmpty() {
         System.assertEquals(0,
-            TEKCO_AnonymizationBatchUtils.validatePatternTypes(
+            TEKCO_AnonymizationGuard.validatePatternTypes(
                 new List<TEKCO_AnonymizationFieldConfig__mdt>()).size());
         System.assertEquals(0,
-            TEKCO_AnonymizationBatchUtils.validatePatternTypes(null).size());
+            TEKCO_AnonymizationGuard.validatePatternTypes(null).size());
     }
 
     // ─── requireConfiguredObject / requireFieldOnObject ────────────────────────
@@ -142,7 +73,7 @@ private class TEKCO_AnonymizationBatchUtilsTest {
     @isTest
     static void requireConfiguredObject_rejectsBlank() {
         try {
-            TEKCO_AnonymizationBatchUtils.requireConfiguredObject('');
+            TEKCO_AnonymizationGuard.requireConfiguredObject('');
             System.assert(false, 'Blank object name should throw');
         } catch (Exception e) {
             System.assert(true, 'Blank rejected');
@@ -153,7 +84,7 @@ private class TEKCO_AnonymizationBatchUtilsTest {
     static void requireConfiguredObject_rejectsUnconfiguredName() {
         // Independent of which CMDT records the org holds: this name is never configured.
         try {
-            TEKCO_AnonymizationBatchUtils.requireConfiguredObject('Not_A_Real_Object_ZZZ__c');
+            TEKCO_AnonymizationGuard.requireConfiguredObject('Not_A_Real_Object_ZZZ__c');
             System.assert(false, 'Unconfigured object should throw');
         } catch (Exception e) {
             System.assert(true, 'Unconfigured object rejected before reaching SOQL');
@@ -163,7 +94,7 @@ private class TEKCO_AnonymizationBatchUtilsTest {
     @isTest
     static void requireFieldOnObject_rejectsMissingField() {
         try {
-            TEKCO_AnonymizationBatchUtils.requireFieldOnObject('Account', 'No_Such_Field_ZZZ__c');
+            TEKCO_AnonymizationGuard.requireFieldOnObject('Account', 'No_Such_Field_ZZZ__c');
             System.assert(false, 'Missing field should throw');
         } catch (Exception e) {
             System.assert(true, 'Missing field rejected before reaching SOQL');
@@ -174,7 +105,7 @@ private class TEKCO_AnonymizationBatchUtilsTest {
     static void requireFieldOnObject_acceptsRealField() {
         System.assertEquals(
             'Name',
-            TEKCO_AnonymizationBatchUtils.requireFieldOnObject('Account', 'Name'),
+            TEKCO_AnonymizationGuard.requireFieldOnObject('Account', 'Name'),
             'Existing field passes through unchanged'
         );
     }
@@ -182,7 +113,7 @@ private class TEKCO_AnonymizationBatchUtilsTest {
     @isTest
     static void requireFieldOnObject_rejectsBlank() {
         try {
-            TEKCO_AnonymizationBatchUtils.requireFieldOnObject('Account', '');
+            TEKCO_AnonymizationGuard.requireFieldOnObject('Account', '');
             System.assert(false, 'Blank field name should throw');
         } catch (Exception e) {
             System.assert(true, 'Blank rejected');
@@ -195,7 +126,7 @@ private class TEKCO_AnonymizationBatchUtilsTest {
     static void assertCanAnonymize_throwsWithoutCustomPermission() {
         // The running test user has no custom permission assigned by default.
         try {
-            TEKCO_AnonymizationBatchUtils.assertCanAnonymize();
+            TEKCO_AnonymizationGuard.assertCanAnonymize();
             // If the org grants it broadly this will not throw — either outcome is valid,
             // the point is that the gate is reachable and does not error unexpectedly.
             System.assert(true, 'Permission present in this org');
@@ -214,7 +145,7 @@ private class TEKCO_AnonymizationBatchUtilsTest {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
 
         Test.startTest();
-        Boolean ok = TEKCO_AnonymizationBatchUtils.assertSandboxOrClose(null, null);
+        Boolean ok = TEKCO_AnonymizationGuard.assertSandboxOrClose(null, null);
         Test.stopTest();
 
         System.assertEquals(true, ok, 'Sandbox → batch proceeds');
@@ -230,7 +161,7 @@ private class TEKCO_AnonymizationBatchUtilsTest {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = false;
 
         Test.startTest();
-        Boolean ok = TEKCO_AnonymizationBatchUtils.assertSandboxOrClose(log.Id, null);
+        Boolean ok = TEKCO_AnonymizationGuard.assertSandboxOrClose(log.Id, null);
         Test.stopTest();
 
         System.assertEquals(false, ok, 'Production → batch must not proceed');

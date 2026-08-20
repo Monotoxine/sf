@@ -332,4 +332,31 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             'The By ID history scope is the same shape without the parent subquery'
         );
     }
+
+    // ─── History object naming (relocated from TEKCO_AnonymizationBatchUtilsTest) ────
+
+
+    @isTest
+    static void computeHistoryObjectName_customObject() {
+        String result = TEKCO_AnonymizationScopeQueryBuilder.historyObjectNameFor('MyObj__c');
+        System.assertEquals('MyObj__History', result, 'Custom object history suffix');
+    }
+
+    @isTest
+    static void computeHistoryObjectName_standardObject() {
+        String result = TEKCO_AnonymizationScopeQueryBuilder.historyObjectNameFor('Account');
+        System.assertEquals('AccountHistory', result, 'Standard object history suffix');
+    }
+
+    @isTest
+    static void computeParentIdFieldName_customObject() {
+        System.assertEquals('ParentId', TEKCO_AnonymizationScopeQueryBuilder.historyParentIdFieldFor('MyObj__c'));
+    }
+
+    @isTest
+    static void computeParentIdFieldName_standardObject() {
+        System.assertEquals('AccountId', TEKCO_AnonymizationScopeQueryBuilder.historyParentIdFieldFor('Account'));
+    }
+
+    // ─── cap ───────────────────────────────────────────────────────────────────
 }

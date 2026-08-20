@@ -62,7 +62,7 @@ public without sharing class TEKCO_AnonymizationPreviewService {
         List<String> excludedFields,
         Integer sampleSize
     ) {
-        String safeObject = TEKCO_AnonymizationBatchUtils.requireConfiguredObject(objectApiName);
+        String safeObject = TEKCO_AnonymizationGuard.requireConfiguredObject(objectApiName);
 
         List<TEKCO_AnonymizationFieldConfig__mdt> configs =
             filterConfigs(loadConfigs(safeObject), selectedRecordTypes, excludedFields);
@@ -85,7 +85,7 @@ public without sharing class TEKCO_AnonymizationPreviewService {
         List<String> excludedFields,
         Integer sampleSize
     ) {
-        String safeObject = TEKCO_AnonymizationBatchUtils.requireConfiguredObject(objectApiName);
+        String safeObject = TEKCO_AnonymizationGuard.requireConfiguredObject(objectApiName);
 
         PreviewSampleDTO empty = new PreviewSampleDTO();
         empty.objectApiName = safeObject;
@@ -127,7 +127,7 @@ public without sharing class TEKCO_AnonymizationPreviewService {
         result.objectApiName    = objectApiName;
 
         Map<String, TEKCO_AnonymizationPattern__mdt> patternsByType =
-            TEKCO_AnonymizationBatchUtils.buildPatternMap();
+            TEKCO_AnonymizationConfigSelector.buildPatternMap();
 
         TEKCO_AnonymizationScopeQueryBuilder.FieldSelection selection =
             TEKCO_AnonymizationScopeQueryBuilder.buildFieldSelection(

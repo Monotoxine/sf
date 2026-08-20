@@ -128,4 +128,21 @@ private class TEKCO_AnonymizationRunContextTest {
         System.assertEquals(1, restored.errors.size(), 'Errors are preserved');
         System.assertEquals('FIELD:Account', restored.popStep(), 'The plan is preserved');
     }
+
+    // ─── cap (relocated from TEKCO_AnonymizationBatchUtilsTest) ──────────────────────
+
+    @isTest
+    static void cap_truncatesLongStrings() {
+        String long400 = 'x'.repeat(400);
+        String result  = TEKCO_AnonymizationRunContext.cap(long400);
+        System.assertEquals(200, result.length(), 'Capped at 200 characters');
+    }
+
+    @isTest
+    static void cap_leavesShortStringsAndNullAlone() {
+        System.assertEquals('short', TEKCO_AnonymizationRunContext.cap('short'), 'Under the cap');
+        System.assertEquals(null, TEKCO_AnonymizationRunContext.cap(null), 'Null passes through');
+    }
+
+    // ─── toDevNames ────────────────────────────────────────────────────────────
 }
