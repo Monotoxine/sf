@@ -1,18 +1,35 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<!-- Delta package for the architectural work (commits 654936c, 3e893d2, d1fd9d1, 25ed70e).
-     Target: any org that already carries the anonymization package AND its test classes
-     (TEKCO). For an org without the test classes, use package-architecture-Portugal.xml.
+<!-- Anonymization tool, architectural work (commits 654936c, 3e893d2, d1fd9d1, 25ed70e),
+     for a standard TEKCO org.
 
-     Contents, and nothing else: the components those four commits touched.
-       - Preview of what a run would write, on a bounded sample and with no DML
-       - Scope queries and field selection extracted out of the six start() methods
-       - One run context and one owner of the batch chain
-       - TEKCO_RunMode__c on the audit log, and the By ID scope ceiling
+     THIS IS NOT A SMALL DELTA, AND IT CANNOT BE. A first attempt listed only the components
+     those four commits touched; it failed with 17 errors, all cascading from one:
+       "Method does not exist or incorrect signature: buildBrandCondition(String, List<String>)
+        from the type TEKCO_AnonymizationOrgConfigService"
+     buildBrandCondition arrived with 5e068c8 (the code-review corrective work), which the org
+     never received. Closing the dependency graph of this work on an org at that level pulls in
+     the whole class set: 32 classes, every one of them.
 
-     THE TEST CLASSES ARE NOT OPTIONAL HERE. The org currently carries
-     TEKCO_AnonymizationBatchTest, which calls the 14-parameter batch constructor, and
-     TEKCO_AnonymizationBatchUtilsTest, which calls popConfigsForObject. Both are gone.
-     Deploying the batches without the updated tests does not compile.
+     What this manifest deploys:
+       - all 32 Apex classes, production and test
+       - the LWC bundle and the custom permission its @salesforce/customPermission import needs
+       - the four objects, WITH their fields — which is how TEKCO_BypassObjectApiName__c
+         (read in a typed SOQL query, OrgConfigService.cls:47) and TEKCO_RunMode__c get created
+       - the audit log layout and the permission set carrying the new field's FLS
+
+     What it deliberately does NOT deploy: the CustomMetadata RECORDS. Field configs, patterns
+     and org config stay exactly as the org has them. Only the schema is pushed, and a metadata
+     deploy is additive, so nothing org-side is removed.
+       Note for a TEKCO org: the repo carries no TEKCO org-config record — only ALH_Portugal.
+       getConfig() therefore matches nothing on the org domain and falls back to the code
+       default, bypassObjectApiName = 'TEKCO_BypassSettings__c'. No post-deploy step needed.
+       If someone created an org-config record directly in the org, fill in its
+       TEKCO_BypassObjectApiName__c or the bypass stays off silently.
+
+     The test classes are not optional. The org currently carries TEKCO_AnonymizationBatchTest,
+     which calls the 14-parameter batch constructor, and TEKCO_AnonymizationBatchUtilsTest,
+     which calls popConfigsForObject. Both are gone. Leaving the old tests in place breaks the
+     compile — that is the same failure mode as the one above, one level down.
 
      No component is deleted, so there is no destructiveChanges file to pair with this one.
 
@@ -23,12 +40,12 @@
            ~-target-org <alias>
      (replace ~- with double dashes; XML comments cannot contain them)
 
-     The deploy is atomic: the new field, the layout and the permission set travel in the
-     same transaction, so no deployment order has to be respected.
+     The deploy is atomic: classes, fields, layout and permission set travel in the same
+     transaction, so no deployment order has to be respected.
 -->
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
     <types>
-        <!-- New -->
+        <!-- Introduced by this work -->
         <members>TEKCO_AnonymizationChainRunner</members>
         <members>TEKCO_AnonymizationPreviewService</members>
         <members>TEKCO_AnonymizationPreviewServiceTest</members>
@@ -36,7 +53,7 @@
         <members>TEKCO_AnonymizationRunContextTest</members>
         <members>TEKCO_AnonymizationScopeQueryBuilder</members>
         <members>TEKCO_AnonymizationScopeQueryBuilderTest</members>
-        <!-- Modified -->
+        <!-- Changed by this work -->
         <members>TEKCO_AnonymizationBatch</members>
         <members>TEKCO_AnonymizationBatchTest</members>
         <members>TEKCO_AnonymizationBatchUtils</members>
@@ -50,18 +67,44 @@
         <members>TEKCO_ContentDocumentByIdBatch</members>
         <members>TEKCO_FieldHistoryBatch</members>
         <members>TEKCO_FieldHistoryByIdBatch</members>
+        <!-- Dependency closure: unchanged here, but the org's copies are older than the
+             API this work compiles against. OrgConfigService is the one that broke the
+             first attempt; the rest come with it. -->
+        <members>TEKCO_AnonymizationAuditService</members>
+        <members>TEKCO_AnonymizationAuditServiceTest</members>
+        <members>TEKCO_AnonymizationBypassService</members>
+        <members>TEKCO_AnonymizationBypassServiceTest</members>
+        <members>TEKCO_AnonymizationOrgConfigService</members>
+        <members>TEKCO_AnonymizationOrgConfigServiceTest</members>
+        <members>TEKCO_AnonymizationPatternService</members>
+        <members>TEKCO_AnonymizationPatternServiceTest</members>
+        <members>TEKCO_ContentDocumentDeleteService</members>
+        <members>TEKCO_ContentDocumentDeleteServiceTest</members>
+        <members>TEKCO_FieldHistoryDeleteService</members>
+        <members>TEKCO_FieldHistoryDeleteServiceTest</members>
         <name>ApexClass</name>
     </types>
     <types>
-        <!-- Before/after sample panel in both tabs; its Apex imports are hard deploy
+        <!-- Before/after sample panel in both tabs. Its Apex imports are hard deploy
              dependencies on previewSample / previewSampleByIds, both shipped above. -->
         <members>tekcoDataAnonymizationAdmin</members>
         <name>LightningComponentBundle</name>
     </types>
     <types>
-        <!-- Replaces the LIKE 'BY_ID%' read of the brand-filter label as the run discriminant. -->
-        <members>TEKCO_AnonymizationAuditLog__c.TEKCO_RunMode__c</members>
-        <name>CustomField</name>
+        <!-- Hard deploy dependency of the LWC's @salesforce/customPermission import and of
+             the permission set below. -->
+        <members>TEKCO_AnonymizeData</members>
+        <name>CustomPermission</name>
+    </types>
+    <types>
+        <!-- Object definitions and every field they declare — records excluded on purpose,
+             see the header. This is what creates TEKCO_BypassObjectApiName__c on the org
+             config and TEKCO_RunMode__c on the audit log. -->
+        <members>TEKCO_AnonymizationAuditLog__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt</members>
+        <members>TEKCO_AnonymizationOrgConfig__mdt</members>
+        <members>TEKCO_AnonymizationPattern__mdt</members>
+        <name>CustomObject</name>
     </types>
     <types>
         <members>TEKCO_AnonymizationAuditLog__c-TEKCO Anonymization Audit Log Layout</members>
