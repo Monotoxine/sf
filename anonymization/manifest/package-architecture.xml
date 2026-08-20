@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Delta package for the architectural work (commits 654936c, 3e893d2, d1fd9d1, 25ed70e).
+     Target: any org that already carries the anonymization package AND its test classes
+     (TEKCO). For an org without the test classes, use package-architecture-Portugal.xml.
+
+     Contents, and nothing else: the components those four commits touched.
+       - Preview of what a run would write, on a bounded sample and with no DML
+       - Scope queries and field selection extracted out of the six start() methods
+       - One run context and one owner of the batch chain
+       - TEKCO_RunMode__c on the audit log, and the By ID scope ceiling
+
+     THE TEST CLASSES ARE NOT OPTIONAL HERE. The org currently carries
+     TEKCO_AnonymizationBatchTest, which calls the 14-parameter batch constructor, and
+     TEKCO_AnonymizationBatchUtilsTest, which calls popConfigsForObject. Both are gone.
+     Deploying the batches without the updated tests does not compile.
+
+     No component is deleted, so there is no destructiveChanges file to pair with this one.
+
+     Validate first, deploy second:
+       sf project deploy start ~-manifest anonymization/manifest/package-architecture.xml
+           ~-dry-run ~-target-org <alias>
+       sf project deploy start ~-manifest anonymization/manifest/package-architecture.xml
+           ~-target-org <alias>
+     (replace ~- with double dashes; XML comments cannot contain them)
+
+     The deploy is atomic: the new field, the layout and the permission set travel in the
+     same transaction, so no deployment order has to be respected.
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <!-- New -->
+        <members>TEKCO_AnonymizationChainRunner</members>
+        <members>TEKCO_AnonymizationPreviewService</members>
+        <members>TEKCO_AnonymizationPreviewServiceTest</members>
+        <members>TEKCO_AnonymizationRunContext</members>
+        <members>TEKCO_AnonymizationRunContextTest</members>
+        <members>TEKCO_AnonymizationScopeQueryBuilder</members>
+        <members>TEKCO_AnonymizationScopeQueryBuilderTest</members>
+        <!-- Modified -->
+        <members>TEKCO_AnonymizationBatch</members>
+        <members>TEKCO_AnonymizationBatchTest</members>
+        <members>TEKCO_AnonymizationBatchUtils</members>
+        <members>TEKCO_AnonymizationBatchUtilsTest</members>
+        <members>TEKCO_AnonymizationByIdBatch</members>
+        <members>TEKCO_AnonymizationByIdController</members>
+        <members>TEKCO_AnonymizationController</members>
+        <members>TEKCO_AnonymizationExecuteService</members>
+        <members>TEKCO_AnonymizationExecuteServiceTest</members>
+        <members>TEKCO_ContentDocumentBatch</members>
+        <members>TEKCO_ContentDocumentByIdBatch</members>
+        <members>TEKCO_FieldHistoryBatch</members>
+        <members>TEKCO_FieldHistoryByIdBatch</members>
+        <name>ApexClass</name>
+    </types>
+    <types>
+        <!-- Before/after sample panel in both tabs; its Apex imports are hard deploy
+             dependencies on previewSample / previewSampleByIds, both shipped above. -->
+        <members>tekcoDataAnonymizationAdmin</members>
+        <name>LightningComponentBundle</name>
+    </types>
+    <types>
+        <!-- Replaces the LIKE 'BY_ID%' read of the brand-filter label as the run discriminant. -->
+        <members>TEKCO_AnonymizationAuditLog__c.TEKCO_RunMode__c</members>
+        <name>CustomField</name>
+    </types>
+    <types>
+        <members>TEKCO_AnonymizationAuditLog__c-TEKCO Anonymization Audit Log Layout</members>
+        <name>Layout</name>
+    </types>
+    <types>
+        <!-- Carries the field-level security for TEKCO_RunMode__c. -->
+        <members>TEKCO_AnonymizationAdmin</members>
+        <name>PermissionSet</name>
+    </types>
+    <version>65.0</version>
+</Package>
