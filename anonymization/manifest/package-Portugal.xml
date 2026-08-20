@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <!-- Portugal (ALH) org deployment package.
-     Before deploying, replace TEKCO_OrgDomain__c in:
-     anonymization/main/default/customMetadata/TEKCO_AnonymizationOrgConfig.ALH_Portugal.md-meta.xml
-     Run in Execute Anonymous to find the correct value:
+     TEKCO_OrgDomain__c in TEKCO_AnonymizationOrgConfig.ALH_Portugal.md-meta.xml must match the
+     target org's domain prefix. It changes with the sandbox name, so re-check after every
+     sandbox refresh or rename, with Execute Anonymous:
        System.debug(URL.getOrgDomainUrl().getHost().substringBefore('.'));
 -->
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
@@ -120,6 +120,7 @@
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BrandLookupFieldOnRecord__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BrandObjectApiName__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BypassEnabled__c</members>
+        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BypassObjectApiName__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_ExternalIdFields__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_FunctionalIdField__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_OrgDomain__c</members>
@@ -143,16 +144,5 @@
 		<members>Data_Anonymization</members>
 		<name>CustomApplication</name>
 	</types>
-    <types>
-        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BrandCodeField__c</members>
-        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BrandCountryField__c</members>
-        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BrandLookupFieldOnRecord__c</members>
-        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BrandObjectApiName__c</members>
-        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BypassEnabled__c</members>
-        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_ExternalIdFields__c</members>
-        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_FunctionalIdField__c</members>
-        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_OrgDomain__c</members>
-        <name>CustomField</name>
-    </types>
     <version>65.0</version>
 </Package>

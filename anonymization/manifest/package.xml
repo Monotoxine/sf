@@ -107,7 +107,6 @@
         <members>TEKCO_AnonymizationPattern__mdt.NAME_FIRST_LETTER_SFID</members>
         <members>TEKCO_AnonymizationPattern__mdt.PHONE_MASK</members>
         <members>TEKCO_AnonymizationPattern__mdt.SSN_SEQUENTIAL</members>
-        <members>TEKCO_AnonymizationOrgConfig__mdt.Portugal_ALH</members>
         <name>CustomMetadata</name>
     </types>
     <types>
@@ -129,6 +128,7 @@
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_OrgDomain__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_FunctionalIdField__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BypassEnabled__c</members>
+        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BypassObjectApiName__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BrandObjectApiName__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BrandCodeField__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BrandCountryField__c</members>

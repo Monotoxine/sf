@@ -18,6 +18,26 @@ import getDirectObjects              from '@salesforce/apex/TEKCO_AnonymizationB
 
 const AUDIT_POLL_INTERVAL_MS = 5000;
 
+/**
+ * Extracts a human-readable message from anything a promise chain can reject with:
+ * Apex AuraHandledException ({body: {message}}), body as an array, pageErrors, plain
+ * Error objects, thrown strings. The JSON fallback guarantees an opaque 'Unknown error'
+ * never reaches the user again.
+ */
+function extractErrorMessage(err) {
+    if (!err) return 'Unknown error';
+    if (typeof err === 'string') return err;
+    const body = err.body ?? err;
+    if (Array.isArray(body)) {
+        const joined = body.map(e => e?.message).filter(Boolean).join(', ');
+        if (joined) return joined;
+    }
+    return body?.message
+        ?? err.message
+        ?? body?.pageErrors?.[0]?.message
+        ?? JSON.stringify(err);
+}
+
 function buildDeleteStatsLine(docs, hist) {
     const parts = [];
     if (docs > 0)  parts.push(`${docs} docs`);
@@ -262,16 +282,21 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             selectedRecordTypes:   this.selectedRecordTypes.length > 0 ? this.selectedRecordTypes : null,
             disabledHistoryFields: this._pendingDisabledHistoryFields.length > 0 ? this._pendingDisabledHistoryFields : null
         })
-        .then(auditLogId => {
-            this.isRunning = false;
-            this.showToast('Anonymization Started', `Audit log: ${auditLogId}`, 'success');
-            this.startAuditPoll();
-        })
-        .catch(err => {
-            this.isRunning    = false;
-            this.errorMessage = err?.body?.message ?? err?.message ?? 'Unknown error';
-            this.showToast('Error', this.errorMessage, 'error');
-        });
+        // Two-argument then(): the rejection handler must only see the Apex failure.
+        // A chained .catch would also swallow throws from the success handler (e.g. the
+        // Lightning container's toast instrumentation) and report a started run as failed.
+        .then(
+            auditLogId => {
+                this.isRunning = false;
+                this.startAuditPoll(); // before the toast, so a toast-layer throw cannot skip it
+                this.showToast('Anonymization Started', `Audit log: ${auditLogId}`, 'success');
+            },
+            err => {
+                this.isRunning    = false;
+                this.errorMessage = extractErrorMessage(err);
+                this.showToast('Error', this.errorMessage, 'error');
+            }
+        );
     }
 
     startAuditPoll() {
@@ -445,16 +470,19 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             excludedFields:  excludedFields.length  > 0 ? excludedFields  : null,
             noHistoryFields: noHistoryFields.length > 0 ? noHistoryFields : null
         })
-            .then(auditLogId => {
-                this.isByIdRunning = false;
-                this.showToast('Anonymization Started', `Audit log: ${auditLogId}`, 'success');
-                this.startByIdAuditPoll();
-            })
-            .catch(err => {
-                this.isByIdRunning    = false;
-                this.byIdErrorMessage = err?.body?.message ?? err?.message ?? 'Unknown error';
-                this.showToast('Error', this.byIdErrorMessage, 'error');
-            });
+            // Same two-argument shape as handleConfirmLaunch — see the comment there.
+            .then(
+                auditLogId => {
+                    this.isByIdRunning = false;
+                    this.startByIdAuditPoll();
+                    this.showToast('Anonymization Started', `Audit log: ${auditLogId}`, 'success');
+                },
+                err => {
+                    this.isByIdRunning    = false;
+                    this.byIdErrorMessage = extractErrorMessage(err);
+                    this.showToast('Error', this.byIdErrorMessage, 'error');
+                }
+            );
     }
 
     handleByIdRefreshLogs() { this.loadByIdAuditLogs(); }
@@ -627,7 +655,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     }
 
     showError(context, err) {
-        console.error(`[TekcoAnonymizationAdmin] ${context}:`, err?.body?.message ?? err?.message ?? err);
+        console.error(`[TekcoAnonymizationAdmin] ${context}:`, extractErrorMessage(err));
     }
 
     showToast(title, message, variant) {

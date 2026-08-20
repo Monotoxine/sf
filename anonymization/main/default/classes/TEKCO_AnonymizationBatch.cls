@@ -2,7 +2,10 @@
  * @author
  * @description Chain order: TEKCO_AnonymizationBatch → TEKCO_ContentDocumentBatch → TEKCO_FieldHistoryBatch
  */
-public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Database.Stateful {
+// Deliberately 'without sharing': anonymization must reach every record matching the
+// configured scope. Running with sharing would silently skip records the launching
+// user cannot see, leaving PII in place with no error.
+public without sharing class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Database.Stateful {
 
     public static final Integer DEFAULT_BATCH_SIZE      = 200;
     public static final Integer MAX_ACCUMULATED_ERRORS  = 200;
@@ -19,7 +22,12 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     private List<String>                                  historyConfigDevNames;
     private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
 
-    private Map<String, List<String>>                     parentFiltersByObject;
+    /**
+     * Config DeveloperNames per object, as filtered by the controller (user exclusions and
+     * record-type selection applied). finish() loads the next object's configs from here —
+     * reloading everything active would silently resurrect the fields the user unchecked.
+     */
+    private Map<String, List<String>>                     configDevNamesByObject;
     private Map<String, String>                           additionalFiltersByObject;
     private Map<Id, String>                               recordTypeDevNameById =
         new Map<Id, String>();
@@ -27,6 +35,10 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     private Integer recordsProcessed        = 0;
     private Integer recordsFailed           = 0;
     private Integer accumulatedRecordsProcessed = 0;
+    private Integer accumulatedRecordsFailed    = 0;
+    /** Set when the sandbox guard trips in start(); finish() must not re-finalize
+     *  the audit log that assertSandboxOrClose() already closed as Failed. */
+    private Boolean aborted = false;
     private List<String> errors             = new List<String>();
     private List<String> accumulatedErrors  = new List<String>();
 
@@ -43,7 +55,8 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
         List<String> accumulatedErrors,
         Integer accumulatedRecordsProcessed,
-        Map<String, List<String>> parentFiltersByObject,
+        Integer accumulatedRecordsFailed,
+        Map<String, List<String>> configDevNamesByObject,
         Map<String, String> additionalFiltersByObject
     ) {
         this.objectApiName        = objectApiName;
@@ -57,14 +70,18 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         this.bypassSnapshot             = bypassSnapshot;
         this.accumulatedErrors          = accumulatedErrors != null ? accumulatedErrors : new List<String>();
         this.accumulatedRecordsProcessed = accumulatedRecordsProcessed != null ? accumulatedRecordsProcessed : 0;
-        this.parentFiltersByObject = parentFiltersByObject != null
-            ? parentFiltersByObject : new Map<String, List<String>>();
+        this.accumulatedRecordsFailed    = accumulatedRecordsFailed    != null ? accumulatedRecordsFailed    : 0;
+        this.configDevNamesByObject = configDevNamesByObject != null
+            ? configDevNamesByObject : new Map<String, List<String>>();
         this.additionalFiltersByObject = additionalFiltersByObject != null
             ? additionalFiltersByObject : new Map<String, String>();
     }
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
-        TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
+        if (!TEKCO_AnonymizationBatchUtils.assertSandboxOrClose(auditLogId, bypassSnapshot)) {
+            aborted = true;
+            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+        }
 
         Schema.DescribeSObjectResult sObjectDescribe;
         try {
@@ -155,46 +172,21 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
             String soqlQuery = 'SELECT ' + String.join(new List<String>(fieldApiNames), ', ')
                 + ' FROM ' + objectApiName;
 
-            List<String> parentFilter         = parentFiltersByObject.get(objectApiName);
-            String parentObjectApiName    = (parentFilter != null && parentFilter.size() > 0) ? parentFilter.get(0) : null;
-            String parentLookupField      = (parentFilter != null && parentFilter.size() > 1) ? parentFilter.get(1) : null;
-            String parentRecordTypeDvName = (parentFilter != null && parentFilter.size() > 2) ? parentFilter.get(2) : null;
-            String additionalFilter       = additionalFiltersByObject.get(objectApiName);
+            String additionalFilter = additionalFiltersByObject.get(objectApiName);
 
             List<String> topConditions = new List<String>();
 
-            if (String.isNotBlank(parentObjectApiName)) {
-                List<String> parentConditions = new List<String>();
-                if (!selectedBrands.isEmpty()) {
-                    parentConditions.add('TEKCO_Brand__c IN :selectedBrands');
-                }
-                if (String.isNotBlank(parentRecordTypeDvName)) {
-                    parentConditions.add(
-                        'RecordType.DeveloperName = \'' + String.escapeSingleQuotes(parentRecordTypeDvName) + '\''
-                    );
-                }
-                String parentSubquery = 'SELECT Id FROM ' + parentObjectApiName;
-                if (!parentConditions.isEmpty()) {
-                    parentSubquery += ' WHERE ' + String.join(parentConditions, ' AND ');
-                }
-                topConditions.add(parentLookupField + ' IN (' + parentSubquery + ')');
-            } else if (!selectedBrands.isEmpty()) {
-                TEKCO_AnonymizationOrgConfigService.OrgConfig orgCfg = TEKCO_AnonymizationOrgConfigService.getConfig();
-                if (orgCfg.usesBrandObject() && String.isNotBlank(orgCfg.brandLookupFieldOnRecord)
-                        && TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, orgCfg.brandLookupFieldOnRecord)) {
-                    List<String> escaped = new List<String>();
-                    for (String b : selectedBrands) escaped.add('\'' + String.escapeSingleQuotes(b) + '\'');
-                    topConditions.add(orgCfg.brandLookupFieldOnRecord + '.' + orgCfg.brandCodeField
-                        + ' IN (' + String.join(escaped, ', ') + ')');
-                } else if (hasEmailMessageLorem) {
+            if (!selectedBrands.isEmpty()) {
+                String brandCondition = TEKCO_AnonymizationOrgConfigService.buildBrandCondition(
+                    objectApiName, selectedBrands
+                );
+                if (brandCondition != null) {
+                    topConditions.add(brandCondition);
+                } else if (hasEmailMessageLorem
+                        && TEKCO_AnonymizationOrgConfigService.hasField('Case', 'TEKCO_Brand__c')) {
+                    // EmailMessage carries no brand field of its own — scope through the parent
+                    // Case. Guarded, because that field does not exist in every org.
                     topConditions.add('Parent.TEKCO_Brand__c IN :selectedBrands');
-                } else if (TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, 'tekco_brand__c')) {
-                    topConditions.add('TEKCO_Brand__c IN :selectedBrands');
-                } else if (TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, 'tekco_country__c')) {
-                    List<String> countryValues = TEKCO_AnonymizationOrgConfigService.getCountriesForBrands(selectedBrands);
-                    if (!countryValues.isEmpty()) {
-                        topConditions.add('TEKCO_Country__c IN :countryValues');
-                    }
                 }
             }
 
@@ -228,12 +220,16 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     }
 
     public void finish(Database.BatchableContext bc) {
+        // The sandbox guard already closed the audit log as Failed — do not overwrite it.
+        if (aborted) return;
+
         for (String e : errors) {
             if (accumulatedErrors.size() < MAX_ACCUMULATED_ERRORS) {
                 accumulatedErrors.add(TEKCO_AnonymizationBatchUtils.cap(e));
             }
         }
         Integer totalProcessed = accumulatedRecordsProcessed + recordsProcessed;
+        Integer totalFailed    = accumulatedRecordsFailed    + recordsFailed;
         List<TEKCO_AnonymizationFieldConfig__mdt> contentDocConfigs =
             TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(contentDocConfigDevNames);
         List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs =
@@ -241,8 +237,13 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         try {
             if (!remainingObjects.isEmpty()) {
                 String nextObjectApiName = remainingObjects.remove(0);
+                // The controller filtered these configs (user exclusions, record types).
+                // Reloading everything active would resurrect the unchecked fields.
+                List<String> nextDevNames = configDevNamesByObject.get(nextObjectApiName);
                 List<TEKCO_AnonymizationFieldConfig__mdt> nextObjectConfigs =
-                    TEKCO_AnonymizationBatchUtils.loadFieldConfigs(nextObjectApiName);
+                    (nextDevNames != null && !nextDevNames.isEmpty())
+                        ? TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(nextDevNames)
+                        : TEKCO_AnonymizationBatchUtils.loadFieldConfigs(nextObjectApiName);
                 Database.executeBatch(
                     new TEKCO_AnonymizationBatch(
                         nextObjectApiName,
@@ -256,7 +257,8 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         bypassSnapshot,
                         accumulatedErrors,
                         totalProcessed,
-                        parentFiltersByObject,
+                        totalFailed,
+                        configDevNamesByObject,
                         additionalFiltersByObject
                     ),
                     DEFAULT_BATCH_SIZE
@@ -273,8 +275,8 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         bypassSnapshot,
                         accumulatedErrors,
                         totalProcessed,
+                        totalFailed,
                         0,
-                        parentFiltersByObject,
                         additionalFiltersByObject
                     ),
                     TEKCO_ContentDocumentBatch.DEFAULT_BATCH_SIZE
@@ -293,24 +295,26 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         bypassSnapshot,
                         accumulatedErrors,
                         totalProcessed,
+                        totalFailed,
                         0,
                         0,
-                        parentFiltersByObject,
                         additionalFiltersByObject
                     ),
                     TEKCO_FieldHistoryBatch.DEFAULT_BATCH_SIZE
                 );
             } else {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-                TEKCO_AnonymizationAuditService.finalize(auditLogId, totalProcessed, recordsFailed, 0, 0, accumulatedErrors);
+                TEKCO_AnonymizationAuditService.finalize(auditLogId, totalProcessed, totalFailed, 0, 0, accumulatedErrors);
                 return;
             }
-            TEKCO_AnonymizationAuditService.markRunning(auditLogId, totalProcessed, recordsFailed, accumulatedErrors);
+            TEKCO_AnonymizationAuditService.markRunning(auditLogId, totalProcessed, totalFailed, accumulatedErrors);
         } catch (Exception e) {
             try {
                 TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-            } catch (Exception restoreEx) {  }
-            TEKCO_AnonymizationAuditService.closeFailed(auditLogId, totalProcessed, recordsFailed, 0, 0, accumulatedErrors, e.getMessage());
+            } catch (Exception restoreEx) {
+                System.debug(LoggingLevel.ERROR, 'Bypass restore failed; flags may remain enabled: ' + restoreEx.getMessage());
+            }
+            TEKCO_AnonymizationAuditService.closeFailed(auditLogId, totalProcessed, totalFailed, 0, 0, accumulatedErrors, e.getMessage());
         }
     }
 

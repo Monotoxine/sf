@@ -1,4 +1,4 @@
-public class TEKCO_AnonymizationAuditService {
+public inherited sharing class TEKCO_AnonymizationAuditService {
 
     public static void finalize(
         Id auditLogId, Integer recordsProcessed, Integer recordsFailed,
@@ -50,6 +50,10 @@ public class TEKCO_AnonymizationAuditService {
             if (documentsDeleted      != null) log.TEKCO_DocumentsDeleted__c      = documentsDeleted;
             if (historyRecordsDeleted != null) log.TEKCO_HistoryRecordsDeleted__c = historyRecordsDeleted;
             update log;
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            // Nothing else can record this — the audit log IS the reporting channel.
+            System.debug(LoggingLevel.ERROR,
+                'Failed to persist audit log ' + auditLogId + ': ' + e.getMessage());
+        }
     }
 }

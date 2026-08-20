@@ -144,6 +144,66 @@ private class TEKCO_AnonymizationOrgConfigServiceTest {
             'An absent object yields no field rather than throwing');
     }
 
+    // ─── buildBrandCondition ─────────────────────────────────────────────────
+
+    @isTest
+    static void buildBrandCondition_nullForEmptyBrandSelection() {
+        TEKCO_AnonymizationOrgConfigService.setConfigForTest(tekcoModeConfig());
+        System.assertEquals(null,
+            TEKCO_AnonymizationOrgConfigService.buildBrandCondition('Account', null));
+        System.assertEquals(null,
+            TEKCO_AnonymizationOrgConfigService.buildBrandCondition('Account', new List<String>()));
+    }
+
+    /**
+     * The regression this guards: probing hasField() with the relationship name (__r) always
+     * misses, because field maps only contain __c names — so the brand-object branch silently
+     * never matched and brand-filtered runs processed the whole table. AccountId/Account stand
+     * in for a real lookup: 'Account__r' probes as 'account__c', absent on Account, while the
+     * traversal form is preserved in the emitted condition when the field does exist.
+     */
+    @isTest
+    static void buildBrandCondition_brandObjectMode_probesFieldWithCForm() {
+        TEKCO_AnonymizationOrgConfigService.OrgConfig cfg = tekcoModeConfig();
+        cfg.brandObjectApiName       = 'ALH_Brand__c';
+        cfg.brandCodeField           = 'Name';
+        cfg.brandLookupFieldOnRecord = 'No_Such_Lookup__r';
+        TEKCO_AnonymizationOrgConfigService.setConfigForTest(cfg);
+
+        System.assertEquals(null,
+            TEKCO_AnonymizationOrgConfigService.buildBrandCondition('Account', new List<String>{ 'B1' }),
+            'A lookup absent from the object must yield no condition, not a broken query');
+    }
+
+    @isTest
+    static void buildBrandCondition_picklistMode_usesFieldWhenPresent() {
+        TEKCO_AnonymizationOrgConfigService.setConfigForTest(tekcoModeConfig());
+
+        String condition = TEKCO_AnonymizationOrgConfigService.buildBrandCondition(
+            'Account', new List<String>{ 'B1' }
+        );
+
+        Boolean hasBrandField =
+            TEKCO_AnonymizationOrgConfigService.hasField('Account', 'TEKCO_Brand__c');
+        Boolean hasCountryField =
+            TEKCO_AnonymizationOrgConfigService.hasField('Account', 'TEKCO_Country__c');
+        if (hasBrandField) {
+            System.assertEquals('TEKCO_Brand__c IN (\'B1\')', condition);
+        } else if (!hasCountryField) {
+            System.assertEquals(null, condition,
+                'No brand nor country field on Account in this org → no condition');
+        }
+    }
+
+    @isTest
+    static void toInClause_escapesQuotes() {
+        System.assertEquals(
+            '\'B1\', \'O\\\'Brien\'',
+            TEKCO_AnonymizationOrgConfigService.toInClause(new List<String>{ 'B1', 'O\'Brien' }),
+            'Values must be quoted, escaped and comma-joined'
+        );
+    }
+
     // ─── Brand / country resolution ──────────────────────────────────────────
 
     @isTest

@@ -3,10 +3,12 @@
  *              Both TEKCO_AnonymizationBatch and TEKCO_AnonymizationByIdBatch apply the same
  *              record-level patterns — only the QueryLocator scope differs between them.
  */
-public class TEKCO_AnonymizationExecuteService {
+public inherited sharing class TEKCO_AnonymizationExecuteService {
 
     private static final String  PATTERN_EMAIL_LOREM = 'EMAIL_MESSAGE_LOREM';
     private static final Integer MAX_CAPTURED_ERRORS = 50;
+    /** EmailMessage.Status picklist value for Draft. Non-draft messages are deleted, not masked. */
+    private static final String  EMAIL_STATUS_DRAFT  = '5';
 
     public class ExecuteResult {
         public Integer      recordsProcessed = 0;
@@ -33,7 +35,7 @@ public class TEKCO_AnonymizationExecuteService {
 
                 if (patternType == PATTERN_EMAIL_LOREM) {
                     String emailStatus = (String) record.get('Status');
-                    if (emailStatus == '5') {
+                    if (emailStatus == EMAIL_STATUS_DRAFT) {
                         String currentValue;
                         try { currentValue = (String) record.get(fc.TEKCO_FieldApiName__c); }
                         catch (Exception e) { continue; }

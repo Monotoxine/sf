@@ -9,6 +9,8 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
         public String  orgDomain;
         public String  functionalIdField;
         public Boolean bypassEnabled;
+        /** Hierarchy Custom Setting carrying the bypass flags. Blank = TEKCO_BypassSettings__c. */
+        public String  bypassObjectApiName;
         public String  brandObjectApiName;
         public String  brandCodeField;
         public String  brandCountryField;
@@ -40,6 +42,7 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
                     TEKCO_OrgDomain__c,
                     TEKCO_FunctionalIdField__c,
                     TEKCO_BypassEnabled__c,
+                    TEKCO_BypassObjectApiName__c,
                     TEKCO_BrandObjectApiName__c,
                     TEKCO_BrandCodeField__c,
                     TEKCO_BrandCountryField__c,
@@ -58,6 +61,7 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
         if (mdtRecord != null) {
             cfg.functionalIdField          = mdtRecord.TEKCO_FunctionalIdField__c;
             cfg.bypassEnabled              = mdtRecord.TEKCO_BypassEnabled__c == true;
+            cfg.bypassObjectApiName        = mdtRecord.TEKCO_BypassObjectApiName__c;
             cfg.brandObjectApiName         = mdtRecord.TEKCO_BrandObjectApiName__c;
             cfg.brandCodeField             = mdtRecord.TEKCO_BrandCodeField__c;
             cfg.brandCountryField          = mdtRecord.TEKCO_BrandCountryField__c;
@@ -67,6 +71,7 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
             // Default: TEKCO standard config
             cfg.functionalIdField          = 'TEKCO_FunctionalId__c';
             cfg.bypassEnabled              = true;
+            cfg.bypassObjectApiName        = null; // blank = TEKCO_BypassSettings__c
             cfg.brandObjectApiName         = null;
             cfg.brandCodeField             = null;
             cfg.brandCountryField          = null;
@@ -82,6 +87,7 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
     private static void resetCache() {
         cachedConfig = null;
         describeCache = new Map<String, Schema.DescribeSObjectResult>();
+        countriesByBrandsKey = new Map<String, List<String>>();
     }
 
     @TestVisible
@@ -176,9 +182,26 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
     @TestVisible
     private static final String COUNTRY_BRAND_BRAND_FIELD   = 'TEKCO_Brand__c';
 
+    /**
+     * Per-transaction cache: buildBrandCondition() runs once per object (preview loops over
+     * every selected object in one transaction), and each miss costs a SOQL query.
+     */
+    private static Map<String, List<String>> countriesByBrandsKey = new Map<String, List<String>>();
+
     public static List<String> getCountriesForBrands(List<String> brands) {
         if (brands == null || brands.isEmpty()) return new List<String>();
 
+        List<String> sortedBrands = new List<String>(brands);
+        sortedBrands.sort();
+        String cacheKey = String.join(sortedBrands, '|');
+        if (countriesByBrandsKey.containsKey(cacheKey)) return countriesByBrandsKey.get(cacheKey);
+
+        List<String> countries = resolveCountriesForBrands(brands);
+        countriesByBrandsKey.put(cacheKey, countries);
+        return countries;
+    }
+
+    private static List<String> resolveCountriesForBrands(List<String> brands) {
         OrgConfig cfg = getConfig();
 
         if (cfg.usesBrandObject()) {
@@ -194,6 +217,48 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
         return queryCountryColumn(
             COUNTRY_BRAND_OBJECT, COUNTRY_BRAND_BRAND_FIELD, COUNTRY_BRAND_COUNTRY_FIELD, brands
         );
+    }
+
+    /**
+     * SOQL condition restricting objectApiName records to the selected brands, or null when no
+     * brand condition applies to this object. Single implementation for the three By Criteria
+     * batches and the preview count — they each carried a copy, and every copy probed
+     * hasField() with the relationship name (__r), which a field map never contains, so the
+     * brand-object branch silently never matched and brand-filtered runs processed the whole
+     * table. The field map is probed with the __c form; the SOQL traversal keeps __r.
+     */
+    public static String buildBrandCondition(String objectApiName, List<String> selectedBrands) {
+        if (selectedBrands == null || selectedBrands.isEmpty()) return null;
+        OrgConfig cfg = getConfig();
+
+        if (cfg.usesBrandObject()) {
+            if (String.isBlank(cfg.brandLookupFieldOnRecord) || String.isBlank(cfg.brandCodeField)) {
+                return null;
+            }
+            String lookupFieldApiName = cfg.brandLookupFieldOnRecord.replaceAll('__r$', '__c');
+            if (!hasField(objectApiName, lookupFieldApiName)) return null;
+            return cfg.brandLookupFieldOnRecord + '.' + cfg.brandCodeField
+                + ' IN (' + toInClause(selectedBrands) + ')';
+        }
+
+        if (hasField(objectApiName, 'TEKCO_Brand__c')) {
+            return 'TEKCO_Brand__c IN (' + toInClause(selectedBrands) + ')';
+        }
+        if (hasField(objectApiName, 'TEKCO_Country__c')) {
+            List<String> countries = getCountriesForBrands(selectedBrands);
+            if (countries.isEmpty()) return null;
+            return 'TEKCO_Country__c IN (' + toInClause(countries) + ')';
+        }
+        return null;
+    }
+
+    /** Escaped, quoted, comma-joined values for a dynamic SOQL IN clause. */
+    public static String toInClause(List<String> values) {
+        List<String> escaped = new List<String>();
+        for (String value : values) {
+            escaped.add('\'' + String.escapeSingleQuotes(value) + '\'');
+        }
+        return String.join(escaped, ', ');
     }
 
     private static List<String> queryCountryColumn(
