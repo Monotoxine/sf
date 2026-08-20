@@ -47,6 +47,19 @@ function buildDeleteStatsLine(docs, hist) {
     return parts.length ? parts.join(' · ') + ' deleted' : null;
 }
 
+/**
+ * The identity of one field configuration: Object.Field.RecordType, empty last segment when
+ * the config is not record-type scoped.
+ *
+ * THIS IS A CONTRACT WITH APEX. The key travels back as excludedFields / disabledHistoryFields
+ * and is re-derived server-side to decide what to skip. Its mirror is
+ * TEKCO_AnonymizationConfigSelector.configKey(). Change one and you must change the other —
+ * a silent disagreement means the user unticks a field and the run anonymizes it anyway.
+ */
+function buildConfigKey(cfg) {
+    return `${cfg.objectApiName}.${cfg.fieldApiName}.${cfg.recordTypeDeveloperName || ''}`;
+}
+
 /** Records read per before/after sample. Apex caps it again server-side. */
 const SAMPLE_SIZE = 5;
 
@@ -193,7 +206,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             .then(configs => {
                 this.fieldConfigs = configs.map(cfg => ({
                     ...cfg,
-                    configKey:             `${cfg.objectApiName}.${cfg.fieldApiName}.${cfg.recordTypeDeveloperName || ''}`,
+                    configKey:             buildConfigKey(cfg),
                     enabled:               true,
                     originalDeleteHistory: cfg.deleteHistory,
                     isContentDoc:          cfg.patternType === 'DELETE_CONTENT_DOCUMENT'
@@ -494,7 +507,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             .then(configs => {
                 this.byIdFieldConfigs = configs.map(cfg => ({
                     ...cfg,
-                    configKey:             `${cfg.objectApiName}.${cfg.fieldApiName}.${cfg.recordTypeDeveloperName || ''}`,
+                    configKey:             buildConfigKey(cfg),
                     enabled:               true,
                     deleteHistory:         cfg.deleteHistory !== false,
                     originalDeleteHistory: cfg.deleteHistory !== false,

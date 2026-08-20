@@ -406,8 +406,7 @@ public with sharing class TEKCO_AnonymizationController {
 
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : allFieldConfigs) {
             String obj      = fieldConfig.TEKCO_ObjectApiName__c;
-            String fieldKey = obj + '.' + fieldConfig.TEKCO_FieldApiName__c + '.'
-                + (fieldConfig.TEKCO_RecordTypeDeveloperName__c != null ? fieldConfig.TEKCO_RecordTypeDeveloperName__c : '');
+            String fieldKey = TEKCO_AnonymizationConfigSelector.configKey(fieldConfig);
 
             if (!additionalFiltersByObject.containsKey(obj)
                     && String.isNotBlank(fieldConfig.TEKCO_AdditionalFilter__c)) {

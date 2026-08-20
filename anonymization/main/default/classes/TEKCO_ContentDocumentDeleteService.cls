@@ -13,7 +13,6 @@
  */
 public inherited sharing class TEKCO_ContentDocumentDeleteService {
 
-    private static final Integer MAX_CAPTURED_ERRORS = 50;
     /** Leave headroom so the caller can still write its audit log update. */
     private static final Integer DML_ROW_RESERVE = 200;
 
@@ -112,7 +111,7 @@ public inherited sharing class TEKCO_ContentDocumentDeleteService {
     }
 
     private static void addError(DeleteOutcome outcome, String message) {
-        if (outcome.errors.size() < MAX_CAPTURED_ERRORS) {
+        if (outcome.errors.size() < TEKCO_AnonymizationRunContext.MAX_CAPTURED_ERRORS) {
             outcome.errors.add(TEKCO_AnonymizationRunContext.cap(message));
         }
     }

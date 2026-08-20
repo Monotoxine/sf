@@ -44,4 +44,40 @@ private class TEKCO_AnonymizationConfigSelectorTest {
     }
 
     // ─── validatePatternTypes ──────────────────────────────────────────────────
+
+    // ─── configKey : le contrat partagé avec le LWC ──────────────────────────────
+
+    /**
+     * Ce format est écrit par le LWC quand l'utilisateur décoche un champ et relu côté serveur
+     * pour décider quoi exclure. Le figer ici : un changement silencieux ferait que les
+     * exclusions cessent de correspondre et qu'un champ décoché soit anonymisé quand même.
+     */
+    @isTest
+    static void configKey_recordTypeScoped() {
+        TEKCO_AnonymizationFieldConfig__mdt config = new TEKCO_AnonymizationFieldConfig__mdt(
+            TEKCO_ObjectApiName__c           = 'Account',
+            TEKCO_FieldApiName__c            = 'PersonEmail',
+            TEKCO_RecordTypeDeveloperName__c = 'Patient'
+        );
+        System.assertEquals('Account.PersonEmail.Patient',
+            TEKCO_AnonymizationConfigSelector.configKey(config),
+            'Objet.Champ.RecordType — le format que le LWC construit de son côté');
+    }
+
+    @isTest
+    static void configKey_withoutRecordType_endsWithAnEmptySegment() {
+        TEKCO_AnonymizationFieldConfig__mdt config = new TEKCO_AnonymizationFieldConfig__mdt(
+            TEKCO_ObjectApiName__c = 'Account',
+            TEKCO_FieldApiName__c  = 'Phone'
+        );
+        System.assertEquals('Account.Phone.',
+            TEKCO_AnonymizationConfigSelector.configKey(config),
+            'Le segment vide est significatif : le LWC produit la meme chose avec || \'\'');
+    }
+
+    @isTest
+    static void configKey_nullConfig_returnsEmpty() {
+        System.assertEquals('', TEKCO_AnonymizationConfigSelector.configKey(null),
+            'Aucune exception sur une config nulle');
+    }
 }

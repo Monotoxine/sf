@@ -118,10 +118,7 @@ private class TEKCO_AnonymizationPreviewServiceTest {
             FROM TEKCO_AnonymizationFieldConfig__mdt
             WHERE TEKCO_IsActive__c = true AND TEKCO_ObjectApiName__c = :objectApiName
         ]) {
-            allKeys.add(
-                fc.TEKCO_ObjectApiName__c + '.' + fc.TEKCO_FieldApiName__c + '.'
-                + (fc.TEKCO_RecordTypeDeveloperName__c != null ? fc.TEKCO_RecordTypeDeveloperName__c : '')
-            );
+            allKeys.add(TEKCO_AnonymizationConfigSelector.configKey(fc));
         }
 
         Test.startTest();

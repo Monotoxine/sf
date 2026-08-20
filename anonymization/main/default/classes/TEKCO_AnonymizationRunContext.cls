@@ -21,8 +21,15 @@ public class TEKCO_AnonymizationRunContext {
 
     /** Same ceiling the batches applied individually, now enforced in one place. */
     public static final Integer MAX_ACCUMULATED_ERRORS = 200;
-    /** Per-message ceiling. This class owns the error contract in both dimensions. */
+    /** Per-message ceiling. */
     public static final Integer MAX_ERROR_MSG_LENGTH   = 200;
+    /**
+     * Ceiling on what one producer collects before handing its list over — the execute service
+     * and the two delete services each stop here. Distinct from MAX_ACCUMULATED_ERRORS, which
+     * bounds the whole run. This class owns the error contract in all three dimensions:
+     * message length, per-producer count, and run total.
+     */
+    public static final Integer MAX_CAPTURED_ERRORS    = 50;
 
     public static final String PHASE_FIELD   = 'FIELD';
     public static final String PHASE_CD      = 'CD';

@@ -10,7 +10,6 @@
 public inherited sharing class TEKCO_AnonymizationExecuteService {
 
     private static final String  PATTERN_EMAIL_LOREM = 'EMAIL_MESSAGE_LOREM';
-    private static final Integer MAX_CAPTURED_ERRORS = 50;
     /** EmailMessage.Status picklist value for Draft. Non-draft messages are deleted, not masked. */
     private static final String  EMAIL_STATUS_DRAFT  = '5';
 
@@ -113,7 +112,7 @@ public inherited sharing class TEKCO_AnonymizationExecuteService {
                     result.recordsProcessed++;
                 } else {
                     result.recordsFailed++;
-                    if (result.errors.size() < MAX_CAPTURED_ERRORS) {
+                    if (result.errors.size() < TEKCO_AnonymizationRunContext.MAX_CAPTURED_ERRORS) {
                         List<String> msgs = new List<String>();
                         for (Database.Error e : sr.getErrors()) msgs.add(e.getMessage());
                         result.errors.add(TEKCO_AnonymizationRunContext.cap(sr.getId() + ': ' + String.join(msgs, '; ')));
@@ -128,7 +127,7 @@ public inherited sharing class TEKCO_AnonymizationExecuteService {
                     result.recordsProcessed++;
                 } else {
                     result.recordsFailed++;
-                    if (result.errors.size() < MAX_CAPTURED_ERRORS) {
+                    if (result.errors.size() < TEKCO_AnonymizationRunContext.MAX_CAPTURED_ERRORS) {
                         List<String> msgs = new List<String>();
                         for (Database.Error e : dr.getErrors()) msgs.add(e.getMessage());
                         result.errors.add(TEKCO_AnonymizationRunContext.cap('Delete ' + dr.getId() + ': ' + String.join(msgs, '; ')));

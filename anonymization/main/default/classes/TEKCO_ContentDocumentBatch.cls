@@ -14,7 +14,6 @@
 // Deliberately 'without sharing': see TEKCO_AnonymizationFieldBatch.
 public without sharing class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, Database.Stateful {
 
-    private static final Integer MAX_CAPTURED_ERRORS = 50;
 
     /**
      * Parents per chunk. The two chains have never agreed on this number and this class does not
@@ -97,7 +96,7 @@ public without sharing class TEKCO_ContentDocumentBatch implements Database.Batc
         recordsDeleted += outcome.recordsDeleted;
         recordsFailed  += outcome.recordsFailed;
         for (String e : outcome.errors) {
-            if (errors.size() < MAX_CAPTURED_ERRORS) errors.add(e);
+            if (errors.size() < TEKCO_AnonymizationRunContext.MAX_CAPTURED_ERRORS) errors.add(e);
         }
     }
 

@@ -5,7 +5,6 @@
  */
 public inherited sharing class TEKCO_FieldHistoryDeleteService {
 
-    private static final Integer MAX_CAPTURED_ERRORS = 50;
 
     public class DeleteOutcome {
         public Integer      recordsDeleted = 0;
@@ -22,7 +21,7 @@ public inherited sharing class TEKCO_FieldHistoryDeleteService {
                 outcome.recordsDeleted++;
             } else {
                 outcome.recordsFailed++;
-                if (outcome.errors.size() < MAX_CAPTURED_ERRORS) {
+                if (outcome.errors.size() < TEKCO_AnonymizationRunContext.MAX_CAPTURED_ERRORS) {
                     List<String> messages = new List<String>();
                     for (Database.Error dmlError : deleteResult.getErrors()) {
                         messages.add(dmlError.getMessage());

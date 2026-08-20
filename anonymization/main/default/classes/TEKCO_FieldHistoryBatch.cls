@@ -12,7 +12,6 @@
 public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Database.Stateful {
 
     public static final Integer DEFAULT_BATCH_SIZE   = 2000;
-    private static final Integer MAX_CAPTURED_ERRORS = 50;
 
     private String objectApiName;
     private TEKCO_AnonymizationRunContext ctx;
@@ -101,7 +100,7 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
         recordsDeleted += outcome.recordsDeleted;
         recordsFailed  += outcome.recordsFailed;
         for (String e : outcome.errors) {
-            if (errors.size() < MAX_CAPTURED_ERRORS) errors.add(e);
+            if (errors.size() < TEKCO_AnonymizationRunContext.MAX_CAPTURED_ERRORS) errors.add(e);
         }
     }
 

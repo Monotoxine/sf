@@ -212,8 +212,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
 
         for (TEKCO_AnonymizationFieldConfig__mdt fc : scopedConfigs) {
             String obj      = fc.TEKCO_ObjectApiName__c;
-            String fieldKey = obj + '.' + fc.TEKCO_FieldApiName__c + '.'
-                + (fc.TEKCO_RecordTypeDeveloperName__c != null ? fc.TEKCO_RecordTypeDeveloperName__c : '');
+            String fieldKey = TEKCO_AnonymizationConfigSelector.configKey(fc);
 
             if (excludedFieldKeys.contains(fieldKey)) continue;
 

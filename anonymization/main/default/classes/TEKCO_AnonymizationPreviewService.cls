@@ -250,8 +250,7 @@ public without sharing class TEKCO_AnonymizationPreviewService {
             if (rtFilter != null && String.isNotBlank(rtDevName) && !rtFilter.contains(rtDevName)) {
                 continue;
             }
-            String fieldKey = fc.TEKCO_ObjectApiName__c + '.' + fc.TEKCO_FieldApiName__c + '.'
-                + (rtDevName != null ? rtDevName : '');
+            String fieldKey = TEKCO_AnonymizationConfigSelector.configKey(fc);
             if (excluded.contains(fieldKey)) continue;
             kept.add(fc);
         }

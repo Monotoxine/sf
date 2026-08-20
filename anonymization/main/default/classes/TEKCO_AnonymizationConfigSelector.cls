@@ -91,6 +91,26 @@ public inherited sharing class TEKCO_AnonymizationConfigSelector {
     }
 
     /**
+     * The identity of one field configuration, as a single string: Object.Field.RecordType,
+     * with an empty last segment when the config is not record-type scoped.
+     *
+     * THIS IS A CONTRACT, NOT A CONVENIENCE. The key is written by the LWC when the user
+     * unticks a field, sent back to the controllers as excludedFields / disabledHistoryFields,
+     * and re-derived here to decide what to skip. If the two sides ever disagree on the format
+     * — a separator, a null handled differently — the exclusions stop matching in silence: the
+     * user unticks a field, the UI shows it excluded, and the run anonymizes it anyway.
+     *
+     * The mirror of this method in JavaScript is buildConfigKey() in
+     * lwc/tekcoDataAnonymizationAdmin. Change one and you must change the other.
+     */
+    public static String configKey(TEKCO_AnonymizationFieldConfig__mdt config) {
+        if (config == null) return '';
+        String recordType = config.TEKCO_RecordTypeDeveloperName__c;
+        return config.TEKCO_ObjectApiName__c + '.' + config.TEKCO_FieldApiName__c + '.'
+            + (recordType != null ? recordType : '');
+    }
+
+    /**
      * Developer names of a config list, so callers keep lightweight strings in stateful batch
      * fields instead of full SObjects.
      */
