@@ -12,6 +12,9 @@
         <members>TEKCO_AnonymizationController</members>
         <members>TEKCO_AnonymizationExecuteService</members>
         <members>TEKCO_AnonymizationScopeQueryBuilder</members>
+        <members>TEKCO_AnonymizationRunContext</members>
+        <members>TEKCO_AnonymizationRunContextTest</members>
+        <members>TEKCO_AnonymizationChainRunner</members>
         <members>TEKCO_AnonymizationScopeQueryBuilderTest</members>
         <members>TEKCO_AnonymizationPreviewService</members>
         <members>TEKCO_AnonymizationPreviewServiceTest</members>

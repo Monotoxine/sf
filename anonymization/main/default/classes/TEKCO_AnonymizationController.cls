@@ -358,8 +358,6 @@ public with sharing class TEKCO_AnonymizationController {
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot =
             TEKCO_AnonymizationBypassService.activate();
 
-        Map<String, TEKCO_AnonymizationPattern__mdt> patternsByType = buildPatternMap();
-
         List<TEKCO_AnonymizationFieldConfig__mdt> allFieldConfigs = [
             SELECT
                 DeveloperName,
@@ -427,14 +425,10 @@ public with sharing class TEKCO_AnonymizationController {
             }
         }
 
-        // Configs whose pattern type resolves to nothing would be skipped silently at
-        // execute() time — surface them at launch as warnings seeded into the audit trail.
-        List<String> startupWarnings =
-            TEKCO_AnonymizationBatchUtils.validatePatternTypes(allFieldConfigs);
-
         List<String> objectsToProcess = new List<String>();
-        // What finish() reloads for each next object — carries the user's exclusions and
-        // record-type filtering across the chain instead of reloading everything active.
+        // Carries the user's exclusions and record-type filtering across the whole chain:
+        // every batch reloads its configs from these developer names instead of reloading
+        // everything active, which would resurrect the fields the user unchecked.
         Map<String, List<String>> configDevNamesByObject = new Map<String, List<String>>();
         for (String objectApiName : selectedObjects) {
             if (configsByObject.containsKey(objectApiName)) {
@@ -446,76 +440,65 @@ public with sharing class TEKCO_AnonymizationController {
             }
         }
 
+        // History is planned per object, in the order the objects are processed.
+        Map<String, List<String>> historyDevNamesByObject = new Map<String, List<String>>();
+        for (TEKCO_AnonymizationFieldConfig__mdt historyConfig : historyConfigs) {
+            String obj = historyConfig.TEKCO_ObjectApiName__c;
+            if (!historyDevNamesByObject.containsKey(obj)) {
+                historyDevNamesByObject.put(obj, new List<String>());
+            }
+            historyDevNamesByObject.get(obj).add(historyConfig.DeveloperName);
+        }
+
+        if (objectsToProcess.isEmpty() && contentDocConfigs.isEmpty()) {
+            TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
+            throw new AuraHandledException(
+                'No active field configurations found for selected scope.'
+            );
+        }
+
         String brandLabel = (selectedBrands == null || selectedBrands.isEmpty())
             ? 'ALL'
             : String.join(selectedBrands, ', ');
 
         TEKCO_AnonymizationAuditLog__c auditLog = new TEKCO_AnonymizationAuditLog__c(
-            TEKCO_TriggeredBy__c    = UserInfo.getUserId(),
-            TEKCO_BrandFilter__c    = brandLabel,
+            TEKCO_TriggeredBy__c   = UserInfo.getUserId(),
+            TEKCO_BrandFilter__c   = brandLabel,
             TEKCO_ObjectApiName__c = String.join(selectedObjects, ', '),
-            TEKCO_Status__c          = 'Running',
-            TEKCO_StartTime__c      = Datetime.now()
+            TEKCO_Status__c        = 'Running',
+            TEKCO_StartTime__c     = Datetime.now()
         );
         insert auditLog;
 
-        Id batchJobId;
+        // Everything the chain needs, in one object: what to run, in what scope, and the
+        // counters it accumulates. TEKCO_AnonymizationChainRunner owns the sequencing.
+        TEKCO_AnonymizationRunContext ctx = new TEKCO_AnonymizationRunContext();
+        ctx.auditLogId                = auditLog.Id;
+        ctx.byId                      = false;
+        ctx.bypassSnapshot            = bypassSnapshot;
+        ctx.selectedBrands            = selectedBrands != null ? selectedBrands : new List<String>();
+        ctx.configDevNamesByObject    = configDevNamesByObject;
+        ctx.additionalFiltersByObject = additionalFiltersByObject;
+        ctx.historyConfigDevNamesByObject = historyDevNamesByObject;
+        // Configs whose pattern type resolves to nothing would be skipped silently at
+        // execute() time — surface them at launch as warnings seeded into the audit trail.
+        ctx.addErrors(TEKCO_AnonymizationBatchUtils.validatePatternTypes(allFieldConfigs));
 
-        if (!objectsToProcess.isEmpty()) {
-            // Phase 1: regular field anonymization
-            String firstObjectApiName = objectsToProcess.remove(0);
-            List<TEKCO_AnonymizationFieldConfig__mdt> firstObjectConfigs =
-                configsByObject.get(firstObjectApiName);
-            batchJobId = Database.executeBatch(
-                new TEKCO_AnonymizationBatch(
-                    firstObjectApiName,
-                    firstObjectConfigs,
-                    patternsByType,
-                    selectedBrands,
-                    auditLog.Id,
-                    objectsToProcess,
-                    contentDocConfigs,
-                    historyConfigs,
-                    bypassSnapshot,
-                    startupWarnings,
-                    0,
-                    0,
-                    configDevNamesByObject,
-                    additionalFiltersByObject
-                ),
-                TEKCO_AnonymizationBatch.DEFAULT_BATCH_SIZE
-            );
-        } else if (!contentDocConfigs.isEmpty()) {
-            TEKCO_AnonymizationFieldConfig__mdt firstContentDocConfig = contentDocConfigs.remove(0);
-            batchJobId = Database.executeBatch(
-                new TEKCO_ContentDocumentBatch(
-                    firstContentDocConfig,
-                    selectedBrands,
-                    auditLog.Id,
-                    contentDocConfigs,
-                    historyConfigs,
-                    bypassSnapshot,
-                    startupWarnings,
-                    0,
-                    0,
-                    0,
-                    additionalFiltersByObject
-                ),
-                TEKCO_ContentDocumentBatch.DEFAULT_BATCH_SIZE
-            );
-        } else {
-            TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-            update new TEKCO_AnonymizationAuditLog__c(
-                Id              = auditLog.Id,
-                TEKCO_Status__c = 'Success',
-                TEKCO_EndTime__c = Datetime.now(),
-                TEKCO_ErrorMessage__c = 'No active field configurations found for selected scope.'
-            );
-            return auditLog.Id;
+        for (String objectApiName : objectsToProcess) {
+            ctx.addStep(TEKCO_AnonymizationRunContext.PHASE_FIELD, objectApiName);
+        }
+        for (TEKCO_AnonymizationFieldConfig__mdt contentDocConfig : contentDocConfigs) {
+            ctx.addStep(TEKCO_AnonymizationRunContext.PHASE_CD, contentDocConfig.DeveloperName);
+        }
+        for (String objectApiName : historyDevNamesByObject.keySet()) {
+            ctx.addStep(TEKCO_AnonymizationRunContext.PHASE_HISTORY, objectApiName);
         }
 
-        auditLog.TEKCO_JobId__c = String.valueOf(batchJobId);
-        update auditLog;
+        Id batchJobId = TEKCO_AnonymizationChainRunner.startNext(ctx);
+        if (batchJobId != null) {
+            auditLog.TEKCO_JobId__c = String.valueOf(batchJobId);
+            update auditLog;
+        }
 
         return auditLog.Id;
     }

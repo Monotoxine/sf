@@ -1,7 +1,7 @@
 /**
  * @description Shared utilities for the anonymization batch chain.
- *              Eliminates duplication of history-object helpers, popConfigsForObject,
- *              toDevNames, and cap across the batch classes and their By-ID mirrors.
+ *              Eliminates duplication of history-object helpers, toDevNames, and cap
+ *              across the batch classes and their By-ID mirrors.
  */
 public inherited sharing class TEKCO_AnonymizationBatchUtils {
 
@@ -210,23 +210,5 @@ public inherited sharing class TEKCO_AnonymizationBatchUtils {
         }
         patternMapCache = result;
         return result;
-    }
-
-    /**
-     * Removes and returns all configs for objectApiName from the supplied list (mutated in place).
-     */
-    public static List<TEKCO_AnonymizationFieldConfig__mdt> popConfigsForObject(
-        String objectApiName,
-        List<TEKCO_AnonymizationFieldConfig__mdt> configs
-    ) {
-        List<TEKCO_AnonymizationFieldConfig__mdt> forObj    = new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        List<TEKCO_AnonymizationFieldConfig__mdt> remaining = new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        for (TEKCO_AnonymizationFieldConfig__mdt fc : configs) {
-            if (fc.TEKCO_ObjectApiName__c == objectApiName) forObj.add(fc);
-            else remaining.add(fc);
-        }
-        configs.clear();
-        configs.addAll(remaining);
-        return forObj;
     }
 }

@@ -186,10 +186,8 @@ public with sharing class TEKCO_AnonymizationByIdController {
             new Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>>();
         List<TEKCO_AnonymizationFieldConfig__mdt> contentDocConfigs =
             new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        Map<String, List<Id>> contentDocIdsByObject  = new Map<String, List<Id>>();
         List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs =
             new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        Map<String, List<Id>> historyIdsByObject = new Map<String, List<Id>>();
 
         for (TEKCO_AnonymizationFieldConfig__mdt fc : scopedConfigs) {
             String obj      = fc.TEKCO_ObjectApiName__c;
@@ -200,9 +198,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
 
             if (fc.TEKCO_PatternType__c == PATTERN_DELETE_CD) {
                 contentDocConfigs.add(fc);
-                if (!contentDocIdsByObject.containsKey(obj)) {
-                    contentDocIdsByObject.put(obj, allIdsByObject.get(obj));
-                }
                 continue;
             }
 
@@ -213,14 +208,11 @@ public with sharing class TEKCO_AnonymizationByIdController {
 
             if (fc.TEKCO_DeleteHistory__c && !noHistoryFieldKeys.contains(fieldKey)) {
                 historyConfigs.add(fc);
-                if (!historyIdsByObject.containsKey(obj)) {
-                    historyIdsByObject.put(obj, allIdsByObject.get(obj));
-                }
             }
         }
 
-        // What finish() reloads for each next object — carries the user's exclusions
-        // across the chain instead of reloading everything active.
+        // Carries the user's exclusions across the chain: every batch reloads its configs from
+        // these developer names instead of reloading everything active.
         Map<String, List<String>> configDevNamesByObject = new Map<String, List<String>>();
         for (String obj : configsByObject.keySet()) {
             configDevNamesByObject.put(
@@ -228,9 +220,26 @@ public with sharing class TEKCO_AnonymizationByIdController {
             );
         }
 
-        Map<String, TEKCO_AnonymizationPattern__mdt> patternsByType = buildPatternMap();
-        TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot =
-            TEKCO_AnonymizationBypassService.activate();
+        Map<String, List<String>> historyDevNamesByObject = new Map<String, List<String>>();
+        for (TEKCO_AnonymizationFieldConfig__mdt historyConfig : historyConfigs) {
+            String obj = historyConfig.TEKCO_ObjectApiName__c;
+            if (!historyDevNamesByObject.containsKey(obj)) {
+                historyDevNamesByObject.put(obj, new List<String>());
+            }
+            historyDevNamesByObject.get(obj).add(historyConfig.DeveloperName);
+        }
+
+        List<String> fieldObjects = new List<String>();
+        for (String obj : objectsToProcess) {
+            if (configsByObject.containsKey(obj)) fieldObjects.add(obj);
+        }
+
+        if (fieldObjects.isEmpty() && contentDocConfigs.isEmpty()) {
+            TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
+            throw new AuraHandledException(
+                'No active field configurations found for the provided records.'
+            );
+        }
 
         Integer totalIds = 0;
         for (List<Id> ids : allIdsByObject.values()) totalIds += ids.size();
@@ -244,54 +253,33 @@ public with sharing class TEKCO_AnonymizationByIdController {
         );
         insert auditLog;
 
-        Id batchJobId;
+        // Same context and same runner as the By Criteria chain — only the scope differs:
+        // recordIdsByObject instead of brands and per-object filters.
+        TEKCO_AnonymizationRunContext ctx = new TEKCO_AnonymizationRunContext();
+        ctx.auditLogId                    = auditLog.Id;
+        ctx.byId                          = true;
+        ctx.bypassSnapshot                = bypassSnapshot;
+        ctx.recordIdsByObject             = allIdsByObject;
+        ctx.configDevNamesByObject        = configDevNamesByObject;
+        ctx.historyConfigDevNamesByObject = historyDevNamesByObject;
+        ctx.addErrors(TEKCO_AnonymizationBatchUtils.validatePatternTypes(scopedConfigs));
 
-        List<String> fieldObjects = new List<String>();
-        for (String obj : objectsToProcess) {
-            if (configsByObject.containsKey(obj)) fieldObjects.add(obj);
+        for (String obj : fieldObjects) {
+            ctx.addStep(TEKCO_AnonymizationRunContext.PHASE_FIELD, obj);
+        }
+        for (TEKCO_AnonymizationFieldConfig__mdt contentDocConfig : contentDocConfigs) {
+            ctx.addStep(TEKCO_AnonymizationRunContext.PHASE_CD, contentDocConfig.DeveloperName);
+        }
+        for (String obj : historyDevNamesByObject.keySet()) {
+            ctx.addStep(TEKCO_AnonymizationRunContext.PHASE_HISTORY, obj);
         }
 
-        if (!fieldObjects.isEmpty()) {
-            String firstObj = fieldObjects.remove(0);
-            Map<String, List<Id>> remainingObjectIds = new Map<String, List<Id>>();
-            for (String obj : fieldObjects) remainingObjectIds.put(obj, allIdsByObject.get(obj));
-
-            batchJobId = Database.executeBatch(
-                new TEKCO_AnonymizationByIdBatch(
-                    firstObj, allIdsByObject.get(firstObj), configsByObject.get(firstObj),
-                    patternsByType, auditLog.Id, remainingObjectIds,
-                    contentDocConfigs, contentDocIdsByObject,
-                    historyConfigs, historyIdsByObject,
-                    bypassSnapshot, new List<String>(), 0, 0,
-                    configDevNamesByObject
-                ),
-                TEKCO_AnonymizationByIdBatch.DEFAULT_BATCH_SIZE
-            );
-        } else if (!contentDocConfigs.isEmpty()) {
-            TEKCO_AnonymizationFieldConfig__mdt firstConfig = contentDocConfigs.remove(0);
-            String firstObj = firstConfig.TEKCO_ObjectApiName__c;
-            batchJobId = Database.executeBatch(
-                new TEKCO_ContentDocumentByIdBatch(
-                    firstObj, contentDocIdsByObject.get(firstObj), auditLog.Id,
-                    contentDocConfigs, contentDocIdsByObject,
-                    historyConfigs, historyIdsByObject,
-                    bypassSnapshot, new List<String>(), 0, 0, 0
-                ),
-                TEKCO_ContentDocumentByIdBatch.DEFAULT_BATCH_SIZE
-            );
-        } else {
-            TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
-            update new TEKCO_AnonymizationAuditLog__c(
-                Id               = auditLog.Id,
-                TEKCO_Status__c  = 'Success',
-                TEKCO_EndTime__c = Datetime.now(),
-                TEKCO_ErrorMessage__c = 'No active field configurations found for provided records.'
-            );
-            return auditLog.Id;
+        Id batchJobId = TEKCO_AnonymizationChainRunner.startNext(ctx);
+        if (batchJobId != null) {
+            auditLog.TEKCO_JobId__c = String.valueOf(batchJobId);
+            update auditLog;
         }
 
-        auditLog.TEKCO_JobId__c = String.valueOf(batchJobId);
-        update auditLog;
         return auditLog.Id;
     }
 
@@ -542,10 +530,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
             );
         }
         return new List<Id>();
-    }
-
-    private static Map<String, TEKCO_AnonymizationPattern__mdt> buildPatternMap() {
-        return TEKCO_AnonymizationBatchUtils.buildPatternMap();
     }
 
     private class ChildRelationInfo {

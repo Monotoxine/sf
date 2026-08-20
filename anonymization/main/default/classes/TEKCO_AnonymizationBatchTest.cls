@@ -1,13 +1,13 @@
 /**
- * Covers the Phase 1 batch lifecycle: start() query construction, the finalize path in
- * finish(), the accumulated-counter contract, and the production guard.
+ * Covers the Phase 1 batch lifecycle: start() resilience, the terminal branch in finish(), the
+ * accumulated-counter contract carried by the run context, and the production guard.
  *
  * Two constraints shape what can be asserted here:
- *  - Custom Metadata cannot be inserted in a test, and the batch re-queries CMDT inside
- *    execute()/finish() (the serialization fix). Field-level transformation is therefore
- *    covered by TEKCO_AnonymizationExecuteServiceTest, which takes configs as parameters.
- *  - Only one Database.executeBatch may run per test, so chaining branches are exercised by
- *    leaving the remaining/contentDoc/history lists empty and asserting the terminal branch.
+ *  - Custom Metadata cannot be inserted in a test, and the batch loads its configs from CMDT by
+ *    developer name. Field selection and transformation are therefore asserted directly, without
+ *    a batch, in TEKCO_AnonymizationScopeQueryBuilderTest and TEKCO_AnonymizationExecuteServiceTest.
+ *  - Only one Database.executeBatch may run per test, so the chaining branches are exercised by
+ *    leaving the step list empty and asserting the terminal branch.
  */
 @isTest
 private class TEKCO_AnonymizationBatchTest {
@@ -23,41 +23,16 @@ private class TEKCO_AnonymizationBatchTest {
         return log;
     }
 
-    private static List<TEKCO_AnonymizationFieldConfig__mdt> phoneConfig() {
-        return new List<TEKCO_AnonymizationFieldConfig__mdt>{
-            new TEKCO_AnonymizationFieldConfig__mdt(
-                DeveloperName          = 'Test_Account_Phone',
-                TEKCO_ObjectApiName__c = 'Account',
-                TEKCO_FieldApiName__c  = 'Phone',
-                TEKCO_PatternType__c   = 'REGEX',
-                TEKCO_IsActive__c      = true
-            )
-        };
-    }
-
-    private static TEKCO_AnonymizationBatch buildBatch(
-        String objectApiName,
-        List<TEKCO_AnonymizationFieldConfig__mdt> configs,
-        Id auditLogId,
-        Integer accProcessed,
-        Integer accFailed
+    /** A context with no step left: the batch under test is the last link of the chain. */
+    private static TEKCO_AnonymizationRunContext contextFor(
+        Id auditLogId, Integer accProcessed, Integer accFailed
     ) {
-        return new TEKCO_AnonymizationBatch(
-            objectApiName,
-            configs,
-            new Map<String, TEKCO_AnonymizationPattern__mdt>(),
-            new List<String>(),                                   // selectedBrands
-            auditLogId,
-            new List<String>(),                                   // remainingObjects
-            new List<TEKCO_AnonymizationFieldConfig__mdt>(),      // contentDocConfigs
-            new List<TEKCO_AnonymizationFieldConfig__mdt>(),      // historyConfigs
-            null,                                                 // bypassSnapshot
-            new List<String>(),                                   // accumulatedErrors
-            accProcessed,
-            accFailed,
-            new Map<String, List<String>>(),
-            new Map<String, String>()
-        );
+        TEKCO_AnonymizationRunContext ctx = new TEKCO_AnonymizationRunContext();
+        ctx.auditLogId = auditLogId;
+        ctx.byId       = false;
+        ctx.addProcessed(accProcessed);
+        ctx.addFailed(accFailed);
+        return ctx;
     }
 
     // ─── Lifecycle ─────────────────────────────────────────────────────────────
@@ -69,7 +44,9 @@ private class TEKCO_AnonymizationBatchTest {
         TEKCO_AnonymizationAuditLog__c log = newLog();
 
         Test.startTest();
-        Database.executeBatch(buildBatch('Account', phoneConfig(), log.Id, 0, 0), 200);
+        Database.executeBatch(
+            new TEKCO_AnonymizationBatch('Account', contextFor(log.Id, 0, 0)), 200
+        );
         Test.stopTest();
 
         TEKCO_AnonymizationAuditLog__c result = [
@@ -83,15 +60,20 @@ private class TEKCO_AnonymizationBatchTest {
         System.assertNotEquals(null, result.TEKCO_EndTime__c, 'End time stamped on finalize');
     }
 
+    /**
+     * The counters live on the context now, which is what stops them being forgotten by one
+     * link of the chain — the bug that made multi-object runs report only the last object.
+     */
     @isTest
     static void batch_carriesAccumulatedCountersIntoAuditLog() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
         insert new Account(Name = 'Counter Target', Phone = '0611111111');
         TEKCO_AnonymizationAuditLog__c log = newLog();
 
-        // Seed counters as an earlier link in the chain would.
         Test.startTest();
-        Database.executeBatch(buildBatch('Account', phoneConfig(), log.Id, 100, 7), 200);
+        Database.executeBatch(
+            new TEKCO_AnonymizationBatch('Account', contextFor(log.Id, 100, 7)), 200
+        );
         Test.stopTest();
 
         TEKCO_AnonymizationAuditLog__c result = [
@@ -104,8 +86,8 @@ private class TEKCO_AnonymizationBatchTest {
         );
         System.assert(
             result.TEKCO_RecordsFailed__c >= 7,
-            'Prior failure count carried forward rather than reset — this is the bug that made '
-            + 'multi-object runs report only the last object. Got: ' + result.TEKCO_RecordsFailed__c
+            'Prior failure count carried forward rather than reset. Got: '
+            + result.TEKCO_RecordsFailed__c
         );
     }
 
@@ -118,7 +100,7 @@ private class TEKCO_AnonymizationBatchTest {
 
         Test.startTest();
         Database.executeBatch(
-            buildBatch('No_Such_Object_ZZZ__c', phoneConfig(), log.Id, 0, 0), 200
+            new TEKCO_AnonymizationBatch('No_Such_Object_ZZZ__c', contextFor(log.Id, 0, 0)), 200
         );
         Test.stopTest();
 
@@ -129,32 +111,25 @@ private class TEKCO_AnonymizationBatchTest {
             'Missing object is skipped via the empty locator, not left hanging');
     }
 
+    /** Developer names that match no CMDT record: nothing to apply, the run still terminates. */
     @isTest
-    static void batch_unknownField_isSkippedAndRunContinues() {
+    static void batch_unknownConfigDevNames_completeWithoutThrowing() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
-        insert new Account(Name = 'Field Skip');
+        insert new Account(Name = 'No Config');
         TEKCO_AnonymizationAuditLog__c log = newLog();
 
-        List<TEKCO_AnonymizationFieldConfig__mdt> badField =
-            new List<TEKCO_AnonymizationFieldConfig__mdt>{
-                new TEKCO_AnonymizationFieldConfig__mdt(
-                    DeveloperName          = 'Test_Bad_Field',
-                    TEKCO_ObjectApiName__c = 'Account',
-                    TEKCO_FieldApiName__c  = 'No_Such_Field_ZZZ__c',
-                    TEKCO_PatternType__c   = 'REGEX',
-                    TEKCO_IsActive__c      = true
-                )
-            };
+        TEKCO_AnonymizationRunContext ctx = contextFor(log.Id, 0, 0);
+        ctx.configDevNamesByObject.put('Account', new List<String>{ 'No_Such_Config_ZZZ' });
 
         Test.startTest();
-        Database.executeBatch(buildBatch('Account', badField, log.Id, 0, 0), 200);
+        Database.executeBatch(new TEKCO_AnonymizationBatch('Account', ctx), 200);
         Test.stopTest();
 
         TEKCO_AnonymizationAuditLog__c result = [
             SELECT TEKCO_Status__c FROM TEKCO_AnonymizationAuditLog__c WHERE Id = :log.Id
         ];
         System.assertNotEquals('Running', result.TEKCO_Status__c,
-            'Unknown field is recorded and skipped; the batch still reaches finish()');
+            'An empty config set skips the object and still reaches finish()');
     }
 
     // ─── Production guard ──────────────────────────────────────────────────────
@@ -165,7 +140,9 @@ private class TEKCO_AnonymizationBatchTest {
         TEKCO_AnonymizationAuditLog__c log = newLog();
 
         Test.startTest();
-        Database.executeBatch(buildBatch('Account', phoneConfig(), log.Id, 0, 0), 200);
+        Database.executeBatch(
+            new TEKCO_AnonymizationBatch('Account', contextFor(log.Id, 0, 0)), 200
+        );
         Test.stopTest();
 
         TEKCO_AnonymizationAuditLog__c result = [
@@ -178,19 +155,41 @@ private class TEKCO_AnonymizationBatchTest {
             'Reason recorded: ' + result.TEKCO_ErrorMessage__c);
     }
 
-    // ─── Constructor null-tolerance ────────────────────────────────────────────
+    // ─── Chain termination ─────────────────────────────────────────────────────
 
+    /**
+     * With no step left, the runner must restore the bypass and finalize the log rather than
+     * leave it Running. This is the single terminal path that used to be repeated in six
+     * finish() blocks.
+     */
     @isTest
-    static void constructor_nullCollections_defaultToEmpty() {
+    static void chainRunner_withNoStepLeft_finalizesTheRun() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
+        TEKCO_AnonymizationAuditLog__c log = newLog();
+
+        TEKCO_AnonymizationRunContext ctx = contextFor(log.Id, 42, 0);
 
         Test.startTest();
-        TEKCO_AnonymizationBatch batch = new TEKCO_AnonymizationBatch(
-            'Account', null, null, null, null, null, null, null, null, null, null, null, null, null
-        );
+        Id jobId = TEKCO_AnonymizationChainRunner.startNext(ctx);
         Test.stopTest();
 
-        System.assertNotEquals(null, batch,
-            'Every collection parameter is null-guarded, so construction never throws');
+        System.assertEquals(null, jobId, 'No batch is started when the plan is empty');
+
+        TEKCO_AnonymizationAuditLog__c result = [
+            SELECT TEKCO_Status__c, TEKCO_EndTime__c, TEKCO_RecordsProcessed__c
+            FROM TEKCO_AnonymizationAuditLog__c WHERE Id = :log.Id
+        ];
+        System.assertEquals('Success', result.TEKCO_Status__c, 'Run closed as Success');
+        System.assertNotEquals(null, result.TEKCO_EndTime__c, 'End time stamped');
+        System.assertEquals(42, result.TEKCO_RecordsProcessed__c,
+            'The context counters are what the audit log records');
+    }
+
+    @isTest
+    static void chainRunner_nullContext_isANoOp() {
+        Test.startTest();
+        Id jobId = TEKCO_AnonymizationChainRunner.startNext(null);
+        Test.stopTest();
+        System.assertEquals(null, jobId, 'A null context must not throw');
     }
 }
