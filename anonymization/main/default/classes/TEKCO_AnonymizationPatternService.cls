@@ -85,7 +85,7 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
                 return null; // handled by TEKCO_ContentDocumentBatch
             }
             when 'EMAIL_MESSAGE_LOREM' {
-                return null; // handled by TEKCO_AnonymizationBatch
+                return null; // handled by TEKCO_AnonymizationFieldBatch
             }
             when else {
                 return applyRegex(currentValue, pattern);

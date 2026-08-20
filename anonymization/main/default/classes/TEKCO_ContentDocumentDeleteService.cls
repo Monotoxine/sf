@@ -1,7 +1,7 @@
 /**
- * @description Shared Phase 2 delete logic. TEKCO_ContentDocumentBatch and
- *              TEKCO_ContentDocumentByIdBatch previously carried byte-identical copies of this
- *              in their execute() methods; only their start() scoping differs.
+ * @description Shared Phase 2 delete logic, called from TEKCO_ContentDocumentBatch. The two
+ *              chains once had a batch each, carrying byte-identical copies of this in their
+ *              execute() methods; extracting it here is what made merging them possible.
  *
  *              Deletes, in order: ServiceReport (must go before ContentDocument), then
  *              ContentDocument via ContentDocumentLink, then Attachment.

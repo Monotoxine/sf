@@ -1,15 +1,23 @@
 /**
- * @description Field-level anonymization of one object, for a run launched from criteria
- *              (brands, objects, record types).
+ * @description Field-level anonymization of one object. Serves both chains: a run scoped by
+ *              criteria (brands, objects, record types) and a run scoped by an explicit ID list
+ *              differ only in which records they read — the transformation, the guards, the
+ *              counters and the chaining are the same.
  *
- *              What to run next is not decided here: the run's plan lives in
+ *              Merged from TEKCO_AnonymizationBatch and TEKCO_AnonymizationByIdBatch, which had
+ *              drifted apart repeatedly: the heap fix, the error cap and the error truncation
+ *              landed on one side only (bc367b5), the DELETE_CONTENT_DOCUMENT skip on the other
+ *              (3e893d2). Keeping one class makes that family of bug impossible rather than
+ *              merely unlikely.
+ *
+ *              What to run next is not decided here: the plan lives in
  *              TEKCO_AnonymizationRunContext and TEKCO_AnonymizationChainRunner starts the next
  *              step. This class knows about one object and nothing else.
  */
-// Deliberately 'without sharing': anonymization must reach every record matching the
-// configured scope. Running with sharing would silently skip records the launching
-// user cannot see, leaving PII in place with no error.
-public without sharing class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Database.Stateful {
+// Deliberately 'without sharing': anonymization must reach every record in the configured
+// scope. Running with sharing would silently skip records the launching user cannot see,
+// leaving PII in place with no error.
+public without sharing class TEKCO_AnonymizationFieldBatch implements Database.Batchable<SObject>, Database.Stateful {
 
     public static final Integer DEFAULT_BATCH_SIZE = 200;
 
@@ -31,7 +39,7 @@ public without sharing class TEKCO_AnonymizationBatch implements Database.Batcha
      *  log that assertSandboxOrClose() already closed as Failed. */
     private Boolean      aborted          = false;
 
-    public TEKCO_AnonymizationBatch(String objectApiName, TEKCO_AnonymizationRunContext ctx) {
+    public TEKCO_AnonymizationFieldBatch(String objectApiName, TEKCO_AnonymizationRunContext ctx) {
         this.objectApiName = objectApiName;
         this.ctx           = ctx;
     }
@@ -70,20 +78,27 @@ public without sharing class TEKCO_AnonymizationBatch implements Database.Batcha
                 }
             }
 
-            // Local, not read from ctx inline: buildFieldScopeQuery may emit a
-            // ':selectedBrands' bind for EmailMessage, and Apex resolves binds against the scope
-            // that calls getQueryLocator() — a variable of that exact name has to exist here.
+            // Both bind names must exist as locals in THIS scope: Database.getQueryLocator
+            // resolves ':name' against the scope that calls it, and the query built below names
+            // exactly one of them. An unused local is harmless; a missing one is a runtime error.
             List<String> selectedBrands = ctx.selectedBrands;
+            List<Id>     recordIds      = ctx.recordIdsFor(objectApiName);
 
-            return Database.getQueryLocator(
-                TEKCO_AnonymizationScopeQueryBuilder.buildFieldScopeQuery(
-                    objectApiName,
-                    selection.fields,
-                    selectedBrands,
-                    ctx.additionalFilterFor(objectApiName),
-                    selection.hasEmailMessageLorem
-                )
-            );
+            // The mode is read from ctx.byId, never inferred from recordIds being non-empty:
+            // only the By ID controller fills that map, but the intent stays explicit.
+            String soqlQuery = ctx.byId
+                ? TEKCO_AnonymizationScopeQueryBuilder.buildByIdScopeQuery(
+                      objectApiName, selection.fields, 'recordIds'
+                  )
+                : TEKCO_AnonymizationScopeQueryBuilder.buildFieldScopeQuery(
+                      objectApiName,
+                      selection.fields,
+                      selectedBrands,
+                      ctx.additionalFilterFor(objectApiName),
+                      selection.hasEmailMessageLorem
+                  );
+
+            return Database.getQueryLocator(soqlQuery);
         } catch (Exception e) {
             errors.add('Failed to build query for ' + objectApiName + ': ' + e.getMessage());
             return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);

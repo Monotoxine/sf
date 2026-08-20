@@ -1,9 +1,14 @@
 /**
- * @description Deletes the field-history rows of the configured fields on one object, for a run
- *              launched from criteria. The parent records are scoped exactly as the field phase
- *              scoped them (brands, additional filter).
+ * @description Deletes the field-history rows of the configured fields on one object. Serves
+ *              both chains: a run scoped by criteria and a run scoped by an explicit ID list
+ *              differ only in how the parent records are selected.
+ *
+ *              Merged from TEKCO_FieldHistoryBatch and TEKCO_FieldHistoryByIdBatch. The guard
+ *              against an empty field set — which would emit 'Field IN ()', invalid SOQL — had
+ *              landed on the By ID side only until 3e893d2, and the object-existence guard on
+ *              the By Criteria side only until 62b3ef0.
  */
-// Deliberately 'without sharing': see TEKCO_AnonymizationBatch.
+// Deliberately 'without sharing': see TEKCO_AnonymizationFieldBatch.
 public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Database.Stateful {
 
     public static final Integer DEFAULT_BATCH_SIZE   = 2000;
@@ -28,6 +33,9 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
             return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
         }
 
+        // Checked before deriving the history object name: without it, a missing object yields a
+        // missing history object and the run reports 'field history not enabled' when the object
+        // itself is what is absent.
         if (!TEKCO_AnonymizationOrgConfigService.hasObject(objectApiName)) {
             errors.add('Object not found in org, skipped: ' + objectApiName);
             return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
@@ -42,16 +50,24 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
         }
 
         try {
-            String soqlQuery = TEKCO_AnonymizationScopeQueryBuilder.buildHistoryScopeQuery(
-                objectApiName,
-                historyObjectName,
-                parentIdFieldName,
-                historyFieldNames(),
-                ctx.selectedBrands,
-                ctx.additionalFilterFor(objectApiName)
-            );
+            // Must be a local of this exact name: the By ID query binds ':recordIds'.
+            List<Id> recordIds = ctx.recordIdsFor(objectApiName);
 
-            // No targeted field would produce 'Field IN ()' — invalid SOQL.
+            String soqlQuery = ctx.byId
+                ? TEKCO_AnonymizationScopeQueryBuilder.buildHistoryByIdScopeQuery(
+                      historyObjectName, parentIdFieldName, historyFieldNames(), 'recordIds'
+                  )
+                : TEKCO_AnonymizationScopeQueryBuilder.buildHistoryScopeQuery(
+                      objectApiName,
+                      historyObjectName,
+                      parentIdFieldName,
+                      historyFieldNames(),
+                      ctx.selectedBrands,
+                      ctx.additionalFilterFor(objectApiName)
+                  );
+
+            // No targeted field would produce 'Field IN ()' — invalid SOQL. Both builders return
+            // null in that case so the step is skipped rather than reported as a parse error.
             if (soqlQuery == null) {
                 errors.add('No history fields configured for object, skipped: ' + objectApiName);
                 return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);

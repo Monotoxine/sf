@@ -2,6 +2,9 @@
  * Covers the Phase 1 batch lifecycle: start() resilience, the terminal branch in finish(), the
  * accumulated-counter contract carried by the run context, and the production guard.
  *
+ * TEKCO_AnonymizationFieldBatch now serves both chains, so the By ID scope is exercised here
+ * too — the split classes had no test of that path at any level.
+ *
  * Two constraints shape what can be asserted here:
  *  - Custom Metadata cannot be inserted in a test, and the batch loads its configs from CMDT by
  *    developer name. Field selection and transformation are therefore asserted directly, without
@@ -45,7 +48,7 @@ private class TEKCO_AnonymizationBatchTest {
 
         Test.startTest();
         Database.executeBatch(
-            new TEKCO_AnonymizationBatch('Account', contextFor(log.Id, 0, 0)), 200
+            new TEKCO_AnonymizationFieldBatch('Account', contextFor(log.Id, 0, 0)), 200
         );
         Test.stopTest();
 
@@ -72,7 +75,7 @@ private class TEKCO_AnonymizationBatchTest {
 
         Test.startTest();
         Database.executeBatch(
-            new TEKCO_AnonymizationBatch('Account', contextFor(log.Id, 100, 7)), 200
+            new TEKCO_AnonymizationFieldBatch('Account', contextFor(log.Id, 100, 7)), 200
         );
         Test.stopTest();
 
@@ -100,7 +103,7 @@ private class TEKCO_AnonymizationBatchTest {
 
         Test.startTest();
         Database.executeBatch(
-            new TEKCO_AnonymizationBatch('No_Such_Object_ZZZ__c', contextFor(log.Id, 0, 0)), 200
+            new TEKCO_AnonymizationFieldBatch('No_Such_Object_ZZZ__c', contextFor(log.Id, 0, 0)), 200
         );
         Test.stopTest();
 
@@ -122,7 +125,7 @@ private class TEKCO_AnonymizationBatchTest {
         ctx.configDevNamesByObject.put('Account', new List<String>{ 'No_Such_Config_ZZZ' });
 
         Test.startTest();
-        Database.executeBatch(new TEKCO_AnonymizationBatch('Account', ctx), 200);
+        Database.executeBatch(new TEKCO_AnonymizationFieldBatch('Account', ctx), 200);
         Test.stopTest();
 
         TEKCO_AnonymizationAuditLog__c result = [
@@ -130,6 +133,62 @@ private class TEKCO_AnonymizationBatchTest {
         ];
         System.assertNotEquals('Running', result.TEKCO_Status__c,
             'An empty config set skips the object and still reaches finish()');
+    }
+
+    // ─── By ID scope ───────────────────────────────────────────────────────────
+
+    /**
+     * The same class serves both chains; only ctx.byId and the bound scope differ. A By ID run
+     * must reach its terminal branch exactly like a By Criteria one.
+     */
+    @isTest
+    static void batch_byIdScope_completesAndFinalizesAuditLog() {
+        TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
+        Account acc = new Account(Name = 'By Id Target', Phone = '0612345678');
+        insert acc;
+        TEKCO_AnonymizationAuditLog__c log = newLog();
+
+        TEKCO_AnonymizationRunContext ctx = contextFor(log.Id, 0, 0);
+        ctx.byId = true;
+        ctx.recordIdsByObject.put('Account', new List<Id>{ acc.Id });
+
+        Test.startTest();
+        Database.executeBatch(new TEKCO_AnonymizationFieldBatch('Account', ctx), 200);
+        Test.stopTest();
+
+        TEKCO_AnonymizationAuditLog__c result = [
+            SELECT TEKCO_Status__c, TEKCO_EndTime__c
+            FROM TEKCO_AnonymizationAuditLog__c WHERE Id = :log.Id
+        ];
+        System.assertNotEquals('Running', result.TEKCO_Status__c,
+            'A By ID run reaches its terminal branch. Got: ' + result.TEKCO_Status__c);
+        System.assertNotEquals(null, result.TEKCO_EndTime__c, 'End time stamped on finalize');
+    }
+
+    /**
+     * The runner skips a By ID step whose object resolved to no record, rather than starting a
+     * batch that would read nothing — and the chain must still terminate.
+     */
+    @isTest
+    static void chainRunner_byIdStepWithoutRecords_isSkippedAndRunStillFinalizes() {
+        TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
+        TEKCO_AnonymizationAuditLog__c log = newLog();
+
+        TEKCO_AnonymizationRunContext ctx = contextFor(log.Id, 0, 0);
+        ctx.byId = true;
+        ctx.addStep(TEKCO_AnonymizationRunContext.PHASE_FIELD, 'Account');  // no ids for Account
+
+        Test.startTest();
+        Id jobId = TEKCO_AnonymizationChainRunner.startNext(ctx);
+        Test.stopTest();
+
+        System.assertEquals(null, jobId, 'A By ID step with no resolved record starts no batch');
+
+        TEKCO_AnonymizationAuditLog__c result = [
+            SELECT TEKCO_Status__c FROM TEKCO_AnonymizationAuditLog__c WHERE Id = :log.Id
+        ];
+        System.assertEquals('Success', result.TEKCO_Status__c,
+            'Skipping the last step still closes the run instead of leaving it Running');
     }
 
     // ─── Production guard ──────────────────────────────────────────────────────
@@ -141,7 +200,7 @@ private class TEKCO_AnonymizationBatchTest {
 
         Test.startTest();
         Database.executeBatch(
-            new TEKCO_AnonymizationBatch('Account', contextFor(log.Id, 0, 0)), 200
+            new TEKCO_AnonymizationFieldBatch('Account', contextFor(log.Id, 0, 0)), 200
         );
         Test.stopTest();
 

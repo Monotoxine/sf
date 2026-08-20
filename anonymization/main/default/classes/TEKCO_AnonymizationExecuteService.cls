@@ -1,7 +1,7 @@
 /**
  * @description Shared field-anonymization logic for Phase 1 batches.
- *              Both TEKCO_AnonymizationBatch and TEKCO_AnonymizationByIdBatch apply the same
- *              record-level patterns — only the QueryLocator scope differs between them.
+ *              TEKCO_AnonymizationFieldBatch applies the same record-level patterns whichever
+ *              chain it serves — only the QueryLocator scope differs between them.
  *
  *              The transformation itself (applyPatternsTo) is separated from the DML so the
  *              preview can run it on a sample without writing anything. There is exactly one
