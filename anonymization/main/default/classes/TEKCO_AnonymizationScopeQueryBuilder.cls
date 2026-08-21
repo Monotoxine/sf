@@ -145,6 +145,8 @@ public inherited sharing class TEKCO_AnonymizationScopeQueryBuilder {
         String objectApiName,
         Set<String> fields,
         List<String> selectedBrands,
+        List<String> selectedRecordTypes,
+        List<TEKCO_AnonymizationFieldConfig__mdt> configs,
         String additionalFilter,
         Boolean hasEmailMessageLorem
     ) {
@@ -161,9 +163,44 @@ public inherited sharing class TEKCO_AnonymizationScopeQueryBuilder {
                 conditions.add('Parent.TEKCO_Brand__c IN :selectedBrands');
             }
         }
+        conditions.add(recordTypeCondition(objectApiName, selectedRecordTypes, configs));
         conditions.add(additionalFilter);
 
         return selectClause(fields) + ' FROM ' + objectApiName + whereClause(conditions);
+    }
+
+    /**
+     * The user's record-type selection, as a SOQL condition.
+     *
+     * A scope filter like the brand one: it decides which records a run reads. Every scope query
+     * applies it, and so does the preview count and the before/after sample, from this one
+     * definition — they used to disagree, the preview honouring the selection while the run
+     * ignored it entirely.
+     *
+     * @return null when there is nothing to add: no selection, an object with no RecordTypeId,
+     *         or a selection naming only record types this object does not declare.
+     */
+    public static String recordTypeCondition(
+        String objectApiName,
+        List<String> selectedRecordTypes,
+        List<TEKCO_AnonymizationFieldConfig__mdt> configs
+    ) {
+        if (selectedRecordTypes == null || selectedRecordTypes.isEmpty()) return null;
+        if (!TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, 'recordtypeid')) return null;
+        if (configs == null || configs.isEmpty()) return null;
+
+        // Only the record types this object actually declares — a Case record type must not end
+        // up filtering an Account query.
+        Set<String> declared = new Set<String>();
+        for (TEKCO_AnonymizationFieldConfig__mdt fc : configs) {
+            declared.addAll(TEKCO_AnonymizationConfigSelector.recordTypesOf(fc));
+        }
+        Set<String> kept = new Set<String>();
+        for (String rt : selectedRecordTypes) {
+            if (declared.contains(rt)) kept.add(rt);
+        }
+        String inClause = escapedInClause(kept);
+        return inClause == null ? null : 'RecordType.DeveloperName IN (' + inClause + ')';
     }
 
     /**
@@ -217,15 +254,29 @@ public inherited sharing class TEKCO_AnonymizationScopeQueryBuilder {
         String objectApiName,
         List<String> selectedBrands,
         Set<String> recordTypeDevNames,
+        List<String> selectedRecordTypes,
         String additionalFilter
     ) {
         List<String> conditions = new List<String>();
         conditions.add(
             TEKCO_AnonymizationOrgConfigService.buildBrandCondition(objectApiName, selectedBrands)
         );
-        String recordTypeIn = escapedInClause(recordTypeDevNames);
+        // The rule's own coverage, then the user's selection on top: a rule covering two
+        // populations must not delete the files of the one that was not selected.
+        Set<String> effective = new Set<String>(recordTypeDevNames);
+        if (selectedRecordTypes != null && !selectedRecordTypes.isEmpty() && !effective.isEmpty()) {
+            effective.retainAll(new Set<String>(selectedRecordTypes));
+        }
+        String recordTypeIn = escapedInClause(effective);
         if (recordTypeIn != null) {
             conditions.add('RecordType.DeveloperName IN (' + recordTypeIn + ')');
+        } else if (selectedRecordTypes != null && !selectedRecordTypes.isEmpty()
+                && recordTypeDevNames != null && recordTypeDevNames.isEmpty()) {
+            // Rule covering every record type, run narrowed to a selection: bound it.
+            String selectedIn = escapedInClause(new Set<String>(selectedRecordTypes));
+            if (selectedIn != null) {
+                conditions.add('RecordType.DeveloperName IN (' + selectedIn + ')');
+            }
         }
         conditions.add(additionalFilter);
 
@@ -246,6 +297,8 @@ public inherited sharing class TEKCO_AnonymizationScopeQueryBuilder {
         String parentIdFieldName,
         Set<String> historyFieldNames,
         List<String> selectedBrands,
+        List<String> selectedRecordTypes,
+        List<TEKCO_AnonymizationFieldConfig__mdt> configs,
         String additionalFilter
     ) {
         String fieldInClause = escapedInClause(historyFieldNames);
@@ -255,6 +308,7 @@ public inherited sharing class TEKCO_AnonymizationScopeQueryBuilder {
         parentConditions.add(
             TEKCO_AnonymizationOrgConfigService.buildBrandCondition(objectApiName, selectedBrands)
         );
+        parentConditions.add(recordTypeCondition(objectApiName, selectedRecordTypes, configs));
         parentConditions.add(additionalFilter);
 
         return 'SELECT Id FROM ' + historyObjectName

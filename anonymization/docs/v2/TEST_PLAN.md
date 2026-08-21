@@ -376,6 +376,31 @@ Untick the rule.
 
 **Expected**: it is excluded for **both** populations — it is one rule.
 
+## F6 — The table survives a record-type selection
+
+**Intent**: the Fields to Anonymize table filters client-side on the rule's record types. While
+that filter compared the field as a single value, a merged rule reading
+`ACCCO_IndividualPerson,ACCCO_Patient` matched no selected record type — **every Account rule
+disappeared and the object looked unconfigured**.
+
+**Steps**: select `Account`, preview, and confirm the table lists its rules. Now select
+`ACCCO_Patient` in **Record Types**.
+
+**Expected**: the table **still lists** the rules covering `ACCCO_Patient` — the 26 merged
+`Account_*` rules and `Patient_MedicalRecordNumber`. Their **Record Type** column reads
+`ACCCO_IndividualPerson, ACCCO_Patient` for the merged ones.
+
+Select `ACCCO_IndividualPerson` instead.
+
+**Expected**: the merged rules are still listed; `Patient_MedicalRecordNumber` is **gone** — it
+covers Patients only.
+
+Now use the table's own **Record Type** dropdown.
+
+**Expected**: it offers `ACCCO_IndividualPerson` and `ACCCO_Patient` as **two separate options**,
+not one combined `ACCCO_IndividualPerson,ACCCO_Patient` entry, and picking either keeps the
+merged rules.
+
 ---
 
 # Group G — A By Criteria run, end to end
@@ -476,6 +501,29 @@ Same check the other way round on a record of a population a given rule does **n
 
 **Expected**: the field that rule drives is **untouched** on that record, while the fields driven
 by rules covering it did change.
+
+## G9 — A record-type selection actually narrows the run
+
+**Intent**: the selection must limit what is **written**, not just what the preview shows. A rule
+covering `ACCCO_IndividualPerson,ACCCO_Patient` used to survive a selection of `ACCCO_Patient`
+alone and then reach both populations, while the count and the sample showed only Patients. The
+run reported `Success`, and the extra records were already overwritten.
+
+**Steps**: note a field value on one `ACCCO_IndividualPerson` account and one `ACCCO_Patient`
+account:
+
+```sql
+SELECT Id, FirstName, PersonEmail, RecordType.DeveloperName FROM Account
+WHERE RecordType.DeveloperName IN ('ACCCO_IndividualPerson','ACCCO_Patient') LIMIT 10
+```
+
+Select `Account`, select **`ACCCO_Patient` only** in **Record Types**, and run.
+
+**Expected**: the `ACCCO_Patient` account is transformed. **The `ACCCO_IndividualPerson` account
+is untouched** — same values, and its `LastModifiedDate` unchanged.
+
+**Then check the two agree**: the count shown by *Preview Scope* for that selection should match
+the **Processed** column of the audit log, give or take records that were already anonymized.
 
 ---
 
@@ -758,8 +806,8 @@ leaves nothing else to read.
 | C — Configuration check | C1–C6 | | |
 | D — Scope and preview | D1, D1b, D2–D5 | | |
 | E — Before/after sample | E1–E4 | | |
-| F — Field selection | F1–F5 | | |
-| G — By Criteria run | G1–G8 | | |
+| F — Field selection | F1–F6 | | |
+| G — By Criteria run | G1–G9 | | |
 | H — History and files | H1–H5 | | |
 | I — By ID | I1–I7 | | |
 | J — One run at a time | J1–J5 | | |
@@ -770,6 +818,6 @@ leaves nothing else to read.
 
 **C1** the configuration is clean · **E2** the sample writes nothing · **E3** the sample matches
 the run · **D5** unticking a rule never widens the scope · **G7** both Address populations are
-reached · **G2** the bypass comes back down · **J1** a second launch is refused.
+reached · **G2** the bypass comes back down · **G9** a record-type selection narrows the run · **J1** a second launch is refused.
 
 Those six cover the failures that are both plausible and silent. Everything else announces itself.

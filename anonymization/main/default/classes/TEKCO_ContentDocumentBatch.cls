@@ -76,6 +76,7 @@ public without sharing class TEKCO_ContentDocumentBatch implements Database.Batc
                       objectApiName,
                       ctx.selectedBrands,
                       TEKCO_AnonymizationConfigSelector.recordTypesOf(config),
+                      ctx.recordTypeSelection(),
                       ctx.additionalFilterFor(objectApiName)
                   );
 

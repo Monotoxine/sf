@@ -188,7 +188,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         useNeutralOrgConfig();
 
         String soql = TEKCO_AnonymizationScopeQueryBuilder.buildFieldScopeQuery(
-            'Account', new Set<String>{ 'Id', 'Phone' }, new List<String>(), null, false
+            'Account', new Set<String>{ 'Id', 'Phone' }, new List<String>(), null, null, null, false
         );
 
         System.assertEquals('SELECT Id, Phone FROM Account', soql,
@@ -200,7 +200,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         useNeutralOrgConfig();
 
         String soql = TEKCO_AnonymizationScopeQueryBuilder.buildFieldScopeQuery(
-            'Account', new Set<String>{ 'Id' }, null, 'IsDeleted = false', false
+            'Account', new Set<String>{ 'Id' }, null, null, null, 'IsDeleted = false', false
         );
 
         System.assertEquals('SELECT Id FROM Account WHERE IsDeleted = false', soql,
@@ -216,7 +216,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         useBrandObjectOrgConfig();   // Account has no ALH_Brand__c lookup in this org
 
         String soql = TEKCO_AnonymizationScopeQueryBuilder.buildFieldScopeQuery(
-            'Account', new Set<String>{ 'Id' }, new List<String>{ 'BRAND_A' }, null, false
+            'Account', new Set<String>{ 'Id' }, new List<String>{ 'BRAND_A' }, null, null, null, false
         );
 
         System.assertEquals('SELECT Id FROM Account', soql,
@@ -232,7 +232,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         usePicklistBrandOrgConfig();
 
         String soql = TEKCO_AnonymizationScopeQueryBuilder.buildFieldScopeQuery(
-            'EmailMessage', new Set<String>{ 'Id' }, new List<String>{ 'BRAND_A' }, null, true
+            'EmailMessage', new Set<String>{ 'Id' }, new List<String>{ 'BRAND_A' }, null, null, null, true
         );
 
         Boolean caseHasBrand =
@@ -264,7 +264,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         useNeutralOrgConfig();
 
         String soql = TEKCO_AnonymizationScopeQueryBuilder.buildContentDocScopeQuery(
-            'Account', null, new Set<String>{ 'O\'Brien' }, null
+            'Account', null, new Set<String>{ 'O\'Brien' }, null, null
         );
 
         System.assert(soql.contains('RecordType.DeveloperName IN (\'O\\\'Brien\')'),
@@ -277,7 +277,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         useNeutralOrgConfig();
 
         String soql = TEKCO_AnonymizationScopeQueryBuilder.buildContentDocScopeQuery(
-            'Account', null, new Set<String>{ 'Patient' }, null
+            'Account', null, new Set<String>{ 'Patient' }, null, null
         );
 
         System.assertEquals(
@@ -291,7 +291,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         useNeutralOrgConfig();
 
         String soql = TEKCO_AnonymizationScopeQueryBuilder.buildContentDocScopeQuery(
-            'Account', null, new Set<String>{ 'Prescriber', 'Patient' }, null
+            'Account', null, new Set<String>{ 'Prescriber', 'Patient' }, null, null
         );
 
         System.assertEquals(
@@ -306,7 +306,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
 
         System.assertEquals(
             'SELECT Id FROM Account',
-            TEKCO_AnonymizationScopeQueryBuilder.buildContentDocScopeQuery('Account', null, null, null),
+            TEKCO_AnonymizationScopeQueryBuilder.buildContentDocScopeQuery('Account', null, null, null, null),
             'No brand, no record type, no filter'
         );
     }
@@ -396,7 +396,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
 
         String soql = TEKCO_AnonymizationScopeQueryBuilder.buildHistoryScopeQuery(
             'Account', 'AccountHistory', 'AccountId',
-            new Set<String>{ 'Phone', 'Name' }, null, 'IsDeleted = false'
+            new Set<String>{ 'Phone', 'Name' }, null, null, null, 'IsDeleted = false'
         );
 
         System.assertEquals(
@@ -417,7 +417,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
 
         System.assertEquals(null,
             TEKCO_AnonymizationScopeQueryBuilder.buildHistoryScopeQuery(
-                'Account', 'AccountHistory', 'AccountId', new Set<String>(), null, null
+                'Account', 'AccountHistory', 'AccountId', new Set<String>(), null, null, null, null
             ),
             'No targeted field means no query at all');
 
@@ -467,4 +467,151 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
     }
 
     // ─── cap ───────────────────────────────────────────────────────────────────
+
+    // ─── recordTypeCondition : la selection de l utilisateur borne le RUN ────────
+
+    private static List<TEKCO_AnonymizationFieldConfig__mdt> accountConfigs(String recordTypes) {
+        return new List<TEKCO_AnonymizationFieldConfig__mdt>{
+            new TEKCO_AnonymizationFieldConfig__mdt(
+                TEKCO_ObjectApiName__c           = 'Account',
+                TEKCO_FieldApiName__c            = 'Phone',
+                TEKCO_RecordTypeDeveloperName__c = recordTypes
+            )
+        };
+    }
+
+    /** Retrocompatibilite : aucune selection, aucune condition, perimetre inchange. */
+    @isTest
+    static void recordTypeCondition_noSelection_addsNothing() {
+        useNeutralOrgConfig();
+
+        System.assertEquals(null, TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition(
+            'Account', null, accountConfigs('ACCCO_Patient')));
+        System.assertEquals(null, TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition(
+            'Account', new List<String>(), accountConfigs('ACCCO_Patient')));
+    }
+
+    /**
+     * LE CAS QUI MOTIVE TOUT. Une regle couvre deux populations, l utilisateur n en selectionne
+     * qu une : la requete ne doit lire que celle-la. Sans cette condition, la regle etait
+     * appliquee aux deux et l autre population etait anonymisee sans que rien ne le dise.
+     */
+    @isTest
+    static void recordTypeCondition_narrowsARuleCoveringSeveralPopulations() {
+        useNeutralOrgConfig();
+
+        String condition = TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition(
+            'Account',
+            new List<String>{ 'ACCCO_Patient' },
+            accountConfigs('ACCCO_IndividualPerson,ACCCO_Patient')
+        );
+
+        System.assertEquals("RecordType.DeveloperName IN ('ACCCO_Patient')", condition,
+            'Seule la population selectionnee est lue : ' + condition);
+    }
+
+    /** Un record type declare par un AUTRE objet ne doit pas filtrer celui-ci. */
+    @isTest
+    static void recordTypeCondition_ignoresRecordTypesTheObjectDoesNotDeclare() {
+        useNeutralOrgConfig();
+
+        System.assertEquals(null, TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition(
+            'Account',
+            new List<String>{ 'CTCCO_StandardContact' },
+            accountConfigs('ACCCO_Patient')),
+            'Un record type de Contact ne filtre pas une requete Account');
+    }
+
+    @isTest
+    static void recordTypeCondition_severalSelected_areSortedAndEscaped() {
+        useNeutralOrgConfig();
+
+        System.assertEquals(
+            "RecordType.DeveloperName IN ('ACCCO_IndividualPerson', 'ACCCO_Patient')",
+            TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition(
+                'Account',
+                new List<String>{ 'ACCCO_Patient', 'ACCCO_IndividualPerson' },
+                accountConfigs('ACCCO_IndividualPerson,ACCCO_Patient')),
+            'Triees, pour que la requete soit comparable d un run a l autre');
+    }
+
+    @isTest
+    static void recordTypeCondition_withoutConfigs_addsNothing() {
+        useNeutralOrgConfig();
+
+        System.assertEquals(null, TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition(
+            'Account', new List<String>{ 'ACCCO_Patient' }, null));
+        System.assertEquals(null, TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition(
+            'Account', new List<String>{ 'ACCCO_Patient' },
+            new List<TEKCO_AnonymizationFieldConfig__mdt>()));
+    }
+
+    /** La condition entre bien dans la requete de la phase champ. */
+    @isTest
+    static void buildFieldScopeQuery_appliesTheRecordTypeSelection() {
+        useNeutralOrgConfig();
+
+        String soql = TEKCO_AnonymizationScopeQueryBuilder.buildFieldScopeQuery(
+            'Account', new Set<String>{ 'Id' }, null,
+            new List<String>{ 'ACCCO_Patient' },
+            accountConfigs('ACCCO_IndividualPerson,ACCCO_Patient'),
+            null, false
+        );
+
+        System.assertEquals(
+            "SELECT Id FROM Account WHERE RecordType.DeveloperName IN ('ACCCO_Patient')",
+            soql,
+            'La phase champ ne lit que la population selectionnee : ' + soql);
+    }
+
+    /** Et dans celle de la phase historique, via la sous-requete sur le parent. */
+    @isTest
+    static void buildHistoryScopeQuery_appliesTheRecordTypeSelection() {
+        useNeutralOrgConfig();
+
+        String soql = TEKCO_AnonymizationScopeQueryBuilder.buildHistoryScopeQuery(
+            'Account', 'AccountHistory', 'AccountId', new Set<String>{ 'Phone' }, null,
+            new List<String>{ 'ACCCO_Patient' },
+            accountConfigs('ACCCO_IndividualPerson,ACCCO_Patient'),
+            null
+        );
+
+        System.assert(soql.contains("RecordType.DeveloperName IN ('ACCCO_Patient')"),
+            'Les lignes d historique suivent le meme perimetre : ' + soql);
+    }
+
+    /** La phase fichiers croise la couverture de la regle et la selection. */
+    @isTest
+    static void buildContentDocScopeQuery_intersectsRuleCoverageWithTheSelection() {
+        useNeutralOrgConfig();
+
+        String soql = TEKCO_AnonymizationScopeQueryBuilder.buildContentDocScopeQuery(
+            'Account', null,
+            new Set<String>{ 'ACCCO_IndividualPerson', 'ACCCO_Patient' },
+            new List<String>{ 'ACCCO_Patient' },
+            null
+        );
+
+        System.assertEquals(
+            "SELECT Id FROM Account WHERE RecordType.DeveloperName IN ('ACCCO_Patient')",
+            soql,
+            'Les fichiers de la population non selectionnee ne sont pas supprimes : ' + soql);
+    }
+
+    /** Regle sans record type, run restreint : la selection borne quand meme la requete. */
+    @isTest
+    static void buildContentDocScopeQuery_unscopedRuleIsStillBoundedByTheSelection() {
+        useNeutralOrgConfig();
+
+        String soql = TEKCO_AnonymizationScopeQueryBuilder.buildContentDocScopeQuery(
+            'Account', null, new Set<String>(),
+            new List<String>{ 'ACCCO_Patient' },
+            null
+        );
+
+        System.assertEquals(
+            "SELECT Id FROM Account WHERE RecordType.DeveloperName IN ('ACCCO_Patient')",
+            soql,
+            'Une regle couvrant tout l objet reste bornee par la selection : ' + soql);
+    }
 }

@@ -213,8 +213,10 @@ public with sharing class TEKCO_AnonymizationLaunchService {
                 kept.add(config);
                 continue;
             }
-            // A rule covering several populations survives as soon as ONE of them was selected —
-            // the other populations are then dropped per record, in the execute service.
+            // A rule covering several populations survives as soon as ONE of them was selected.
+            // The records of the populations that were NOT selected are excluded by the scope
+            // query, which carries the same selection — see
+            // TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition().
             covered.retainAll(recordTypeFilter);
             if (!covered.isEmpty()) kept.add(config);
         }
@@ -236,6 +238,12 @@ public with sharing class TEKCO_AnonymizationLaunchService {
         ctx.byId                          = request.byId;
         ctx.bypassSnapshot                = bypassSnapshot;
         ctx.selectedBrands                = request.selectedBrands;
+        // Carried all the way to the queries. Keeping it at the launch service, as a rule filter
+        // only, is what let a rule covering two populations be applied to both when the user had
+        // selected one.
+        ctx.selectedRecordTypes           = request.selectedRecordTypes != null
+            ? request.selectedRecordTypes
+            : new List<String>();
         ctx.recordIdsByObject             = request.recordIdsByObject;
         ctx.configDevNamesByObject        = configDevNamesByObject;
         ctx.historyConfigDevNamesByObject = historyDevNamesByObject;

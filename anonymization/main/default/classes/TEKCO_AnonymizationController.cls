@@ -235,7 +235,6 @@ public with sharing class TEKCO_AnonymizationController {
 
         Map<String, Integer> totalByObject      = new Map<String, Integer>();
         Map<String, Integer> contentDocByObject = new Map<String, Integer>();
-        Map<String, String> objectByRt = new Map<String, String>();
         Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>> configsByObject =
             new Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>>();
 
@@ -245,30 +244,10 @@ public with sharing class TEKCO_AnonymizationController {
             if (fc.TEKCO_PatternType__c == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
                 contentDocByObject.put(obj, (contentDocByObject.get(obj) != null ? contentDocByObject.get(obj) : 0) + 1);
             }
-            for (String rt : TEKCO_AnonymizationConfigSelector.recordTypesOf(fc)) {
-                if (!objectByRt.containsKey(rt)) objectByRt.put(rt, obj);
-            }
-
             if (!configsByObject.containsKey(obj)) {
                 configsByObject.put(obj, new List<TEKCO_AnonymizationFieldConfig__mdt>());
             }
             configsByObject.get(obj).add(fc);
-        }
-
-        Map<String, List<String>> rtFilterByObject = new Map<String, List<String>>();
-        if (selectedRecordTypes != null && !selectedRecordTypes.isEmpty()) {
-            for (String rt : selectedRecordTypes) {
-                String obj = objectByRt.get(rt);
-                if (obj != null) {
-                    if (!rtFilterByObject.containsKey(obj)) rtFilterByObject.put(obj, new List<String>());
-                    rtFilterByObject.get(obj).add(rt);
-                }
-            }
-        }
-
-        Map<String, Boolean> hasRecordType = new Map<String, Boolean>();
-        for (String obj : objectsToCount) {
-            hasRecordType.put(obj, TEKCO_AnonymizationOrgConfigService.hasField(obj, 'recordtypeid'));
         }
 
         Integer queriesRemaining = Limits.getLimitQueries() - Limits.getQueries();
@@ -296,12 +275,11 @@ public with sharing class TEKCO_AnonymizationController {
                 if (brandCondition != null) {
                     conditions.add(brandCondition);
                 }
-                List<String> applicableRts = rtFilterByObject.get(objectApiName);
-                if (applicableRts != null && !applicableRts.isEmpty() && hasRecordType.get(objectApiName) == true) {
-                    List<String> escaped = new List<String>();
-                    for (String rt : applicableRts) escaped.add('\'' + String.escapeSingleQuotes(rt) + '\'');
-                    conditions.add('RecordType.DeveloperName IN (' + String.join(escaped, ', ') + ')');
-                }
+                // Same function the run and the sample use, so the announced count and the
+                // records actually processed cannot describe different scopes.
+                conditions.add(TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition(
+                    objectApiName, selectedRecordTypes, configsByObject.get(objectApiName)
+                ));
                 // The additional filter, which this count ignored entirely until now — it
                 // therefore announced more records than the run would touch on every filtered
                 // object. Same function as the launch and the sample.
