@@ -9,7 +9,7 @@ concurrent-run refusal, and the scheduler.
 | [`DEPLOYMENT_AND_USAGE.md`](DEPLOYMENT_AND_USAGE.md) | Deploying to a standard TEKCO org, and using the tool day to day |
 | [`DEPLOYMENT_NON_STANDARD_ORG.md`](DEPLOYMENT_NON_STANDARD_ORG.md) | An org that departs from the TEKCO schema conventions — Portugal (ALH) is the worked example |
 | [`SOLUTION_AND_ARCHITECTURE.md`](SOLUTION_AND_ARCHITECTURE.md) | How the tool is built, and why each safety mechanism is there |
-| [`TEST_PLAN.md`](TEST_PLAN.md) | Validating a deployment by hand in a sandbox — 59 cases, and the six that matter most |
+| [`TEST_PLAN.md`](TEST_PLAN.md) | Validating a deployment by hand in a sandbox — 60 cases, and the six that matter most |
 
 The files directly under `anonymization/docs/` are the **previous** set. They describe classes
 that no longer exist — `TEKCO_AnonymizationBatch`, `TEKCO_AnonymizationByIdBatch`,

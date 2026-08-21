@@ -335,8 +335,8 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <div class="slds-truncate">
-                                                    {field.recordTypeDeveloperName}
+                                                <div class="slds-truncate" title={field.recordTypeLabel}>
+                                                    {field.recordTypeLabel}
                                                 </div>
                                             </td>
                                             <td>
@@ -728,7 +728,7 @@
                                                         </template>
                                                     </div>
                                                 </td>
-                                                <td><div class="slds-truncate">{field.recordTypeDeveloperName}</div></td>
+                                                <td><div class="slds-truncate" title={field.recordTypeLabel}>{field.recordTypeLabel}</div></td>
                                                 <td>
                                                     <input
                                                         type="checkbox"

@@ -48,6 +48,23 @@ function buildDeleteStatsLine(docs, hist) {
     return parts.length ? parts.join(' · ') + ' deleted' : null;
 }
 
+/**
+ * The record types one rule covers.
+ *
+ * TEKCO_RecordTypeDeveloperName__c holds a COMMA-SEPARATED LIST — the populations the rule
+ * applies to — so it can never be compared as a single value. Its Apex mirror is
+ * TEKCO_AnonymizationConfigSelector.recordTypesOf(); this is the only place the string is split
+ * on the client.
+ *
+ * Treating it as one value is exactly what emptied the Fields to Anonymize table: a rule reading
+ * "ACCCO_IndividualPerson,ACCCO_Patient" matched no selected record type, so every merged
+ * Account rule was filtered out and the object looked unconfigured.
+ */
+function recordTypesOf(cfg) {
+    if (!cfg || !cfg.recordTypeDeveloperName) return [];
+    return cfg.recordTypeDeveloperName.split(',').map(v => v.trim()).filter(v => v.length > 0);
+}
+
 /** Records read per before/after sample. Apex caps it again server-side. */
 const SAMPLE_SIZE = 1;
 
@@ -200,6 +217,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
                 this.fieldConfigs = configs.map(cfg => ({
                     ...cfg,
                     configKey:             cfg.developerName,
+                    recordTypeLabel:       recordTypesOf(cfg).join(', '),
                     enabled:               true,
                     originalDeleteHistory: cfg.deleteHistory,
                     isContentDoc:          cfg.patternType === 'DELETE_CONTENT_DOCUMENT'
@@ -519,6 +537,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
                 this.byIdFieldConfigs = configs.map(cfg => ({
                     ...cfg,
                     configKey:             cfg.developerName,
+                    recordTypeLabel:       recordTypesOf(cfg).join(', '),
                     enabled:               true,
                     deleteHistory:         cfg.deleteHistory !== false,
                     originalDeleteHistory: cfg.deleteHistory !== false,
@@ -760,7 +779,9 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         }
         if (this.byIdFieldFilterRT && this.byIdFieldFilterRT !== '_all_') {
             const isBlank = this.byIdFieldFilterRT === '_blank_';
-            result = result.filter(c => isBlank ? !c.recordTypeDeveloperName : c.recordTypeDeveloperName === this.byIdFieldFilterRT);
+            result = result.filter(c => isBlank
+                ? recordTypesOf(c).length === 0
+                : recordTypesOf(c).includes(this.byIdFieldFilterRT));
         }
         return result;
     }
@@ -769,11 +790,13 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         const seen = new Set();
         const options = [{ label: 'All Record Types', value: '_all_' }];
         (this.byIdFieldConfigs || []).forEach(c => {
-            const rt = c.recordTypeDeveloperName || '';
-            if (!seen.has(rt)) {
+            const covered = recordTypesOf(c);
+            if (covered.length === 0) covered.push('');
+            covered.forEach(rt => {
+                if (seen.has(rt)) return;
                 seen.add(rt);
                 options.push({ label: rt || '(none)', value: rt || '_blank_' });
-            }
+            });
         });
         return options;
     }
@@ -813,7 +836,12 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         // Pre-filter by the main RT selector when record types are selected
         if (this.selectedRecordTypes && this.selectedRecordTypes.length > 0) {
             const selectedSet = new Set(this.selectedRecordTypes);
-            result = result.filter(c => !c.recordTypeDeveloperName || selectedSet.has(c.recordTypeDeveloperName));
+            // A rule stays as soon as ONE of the populations it covers is selected — the same
+            // intersection the launch service applies server-side.
+            result = result.filter(c => {
+                const covered = recordTypesOf(c);
+                return covered.length === 0 || covered.some(rt => selectedSet.has(rt));
+            });
         }
         // Manual text filter
         if (this.fieldFilterText) {
@@ -823,7 +851,9 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         // Manual RT dropdown filter
         if (this.fieldFilterRT && this.fieldFilterRT !== '_all_') {
             const isBlank = this.fieldFilterRT === '_blank_';
-            result = result.filter(c => isBlank ? !c.recordTypeDeveloperName : c.recordTypeDeveloperName === this.fieldFilterRT);
+            result = result.filter(c => isBlank
+                ? recordTypesOf(c).length === 0
+                : recordTypesOf(c).includes(this.fieldFilterRT));
         }
         return result;
     }
@@ -832,11 +862,13 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         const seen = new Set();
         const options = [{ label: 'All Record Types', value: '_all_' }];
         (this.fieldConfigs || []).forEach(c => {
-            const rt = c.recordTypeDeveloperName || '';
-            if (!seen.has(rt)) {
+            const covered = recordTypesOf(c);
+            if (covered.length === 0) covered.push('');
+            covered.forEach(rt => {
+                if (seen.has(rt)) return;
                 seen.add(rt);
                 options.push({ label: rt || '(none)', value: rt || '_blank_' });
-            }
+            });
         });
         return options;
     }
