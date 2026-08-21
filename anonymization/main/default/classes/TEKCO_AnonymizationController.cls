@@ -201,10 +201,6 @@ public with sharing class TEKCO_AnonymizationController {
             ? selectedObjects
             : getObjectApiNames();
 
-        List<String> countryValues = (selectedBrands != null && !selectedBrands.isEmpty())
-            ? TEKCO_AnonymizationOrgConfigService.getCountriesForBrands(selectedBrands)
-            : new List<String>();
-
         List<TEKCO_AnonymizationFieldConfig__mdt> allConfigs = [
             SELECT TEKCO_ObjectApiName__c, TEKCO_PatternType__c, TEKCO_RecordTypeDeveloperName__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
@@ -239,22 +235,8 @@ public with sharing class TEKCO_AnonymizationController {
             }
         }
 
-        TEKCO_AnonymizationOrgConfigService.OrgConfig orgCfg = TEKCO_AnonymizationOrgConfigService.getConfig();
-
-        Map<String, Boolean> hasBrand      = new Map<String, Boolean>();
-        Map<String, Boolean> hasCountry    = new Map<String, Boolean>();
         Map<String, Boolean> hasRecordType = new Map<String, Boolean>();
         for (String obj : objectsToCount) {
-            if (orgCfg.usesBrandObject()) {
-                String lookupFieldApiName = String.isNotBlank(orgCfg.brandLookupFieldOnRecord)
-                    ? orgCfg.brandLookupFieldOnRecord.replaceAll('__r$', '__c')
-                    : null;
-                hasBrand.put(obj, String.isNotBlank(lookupFieldApiName)
-                    && TEKCO_AnonymizationOrgConfigService.hasField(obj, lookupFieldApiName));
-            } else {
-                hasBrand.put(obj, TEKCO_AnonymizationOrgConfigService.hasField(obj, 'tekco_brand__c'));
-            }
-            hasCountry.put(obj,    TEKCO_AnonymizationOrgConfigService.hasField(obj, 'tekco_country__c'));
             hasRecordType.put(obj, TEKCO_AnonymizationOrgConfigService.hasField(obj, 'recordtypeid'));
         }
 
@@ -276,19 +258,12 @@ public with sharing class TEKCO_AnonymizationController {
 
             try {
                 List<String> conditions = new List<String>();
-                if (selectedBrands != null && !selectedBrands.isEmpty()) {
-                    if (hasBrand.get(objectApiName) == true) {
-                        if (orgCfg.usesBrandObject()) {
-                            List<String> escaped = new List<String>();
-                            for (String b : selectedBrands) escaped.add('\'' + String.escapeSingleQuotes(b) + '\'');
-                            conditions.add(orgCfg.brandLookupFieldOnRecord + '.' + orgCfg.brandCodeField
-                                + ' IN (' + String.join(escaped, ', ') + ')');
-                        } else {
-                            conditions.add('TEKCO_Brand__c IN :selectedBrands');
-                        }
-                    } else if (hasCountry.get(objectApiName) == true && !countryValues.isEmpty()) {
-                        conditions.add('TEKCO_Country__c IN :countryValues');
-                    }
+                // Same condition builder as the batches, so preview and run cannot diverge.
+                String brandCondition = TEKCO_AnonymizationOrgConfigService.buildBrandCondition(
+                    objectApiName, selectedBrands
+                );
+                if (brandCondition != null) {
+                    conditions.add(brandCondition);
                 }
                 List<String> applicableRts = rtFilterByObject.get(objectApiName);
                 if (applicableRts != null && !applicableRts.isEmpty() && hasRecordType.get(objectApiName) == true) {
@@ -436,8 +411,17 @@ public with sharing class TEKCO_AnonymizationController {
         }
 
         List<String> objectsToProcess = new List<String>();
+        // What finish() reloads for each next object — carries the user's exclusions and
+        // record-type filtering across the chain instead of reloading everything active.
+        Map<String, List<String>> configDevNamesByObject = new Map<String, List<String>>();
         for (String objectApiName : selectedObjects) {
-            if (configsByObject.containsKey(objectApiName)) objectsToProcess.add(objectApiName);
+            if (configsByObject.containsKey(objectApiName)) {
+                objectsToProcess.add(objectApiName);
+                configDevNamesByObject.put(
+                    objectApiName,
+                    TEKCO_AnonymizationBatchUtils.toDevNames(configsByObject.get(objectApiName))
+                );
+            }
         }
 
         String brandLabel = (selectedBrands == null || selectedBrands.isEmpty())
@@ -473,6 +457,7 @@ public with sharing class TEKCO_AnonymizationController {
                     bypassSnapshot,
                     new List<String>(),
                     0,
+                    configDevNamesByObject,
                     parentFiltersByObject,
                     additionalFiltersByObject
                 ),
