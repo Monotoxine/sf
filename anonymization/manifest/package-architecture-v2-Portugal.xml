@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Anonymization tool, complete package for the PORTUGAL (ALH) org.
+
+     WHAT IT DEPLOYS: every piece of anonymization metadata in this repository except the
+     TEKCO_AnonymizationFieldConfig records. Apex, the LWC, the four objects and all 39 of their
+     fields, the four layouts, the tab, the permission set, the custom permission, the 14 shared
+     pattern records and the org config record.
+
+     WHY THE FIELD CONFIGS ARE EXCLUDED: they are what differs from one org to the next. They name
+     objects, fields and record types that exist in one org and not another, and an org's admins
+     edit them in Setup. Deploying them would overwrite that work and, worse, install configs
+     pointing at objects the target org does not have — each one then silently skipped at run time,
+     leaving the field it was meant to protect with its PII. Add or update field configs in their
+     own deployment, deliberately.
+
+     Members are generated from the repository tree, so nothing on disk is missed. Re-generate
+     rather than hand-editing when files are added.
+
+     BEFORE DEPLOYING, CHECK THAT NO RUN IS IN FLIGHT. A chained run holds a serialized
+     Database.Stateful instance; redeploying the class it points at kills that run mid-chain, with
+     the bypass left raised and the audit log stuck on Running:
+
+       SELECT Id, Status, ApexClass.Name, CreatedDate FROM AsyncApexJob
+       WHERE Status IN ('Queued','Processing','Preparing','Holding') AND ApexClass.Name LIKE 'TEKCO_%'
+
+     UPGRADING FROM THE PRE-MERGE VERSION: the chain merge deleted five classes. They must go in
+     the same deployment that installs their replacements, as a POST-destructive change:
+
+       sf project deploy start ~-manifest <this file>
+           ~-post-destructive-changes anonymization/manifest/destructiveChanges-architecture.xml
+           ~-dry-run ~-target-org <alias>
+     (replace ~- with double dashes; XML comments cannot contain them)
+
+     WHAT DIFFERS FROM THE STANDARD MANIFEST:
+
+       - PRODUCTION CLASSES ONLY, 20 of them. The 15 test classes are not deployed here: they are
+         written against the TEKCO schema and reference objects, fields and record types that do
+         not exist in this org, so they fail to compile. Coverage for a production deployment must
+         come from the TEKCO org.
+
+       - CXFCO_BypassCustomValidations and CXFCO_BypassOutboundSynchronization ARE included. The
+         permission set grants them, and this org does not own them, so without their definitions
+         the deployment fails with "no CustomPermission named ... found". The copies in this
+         repository are empty shells: no assignment, no rule consulting them, inert.
+
+       - CustomApplication Data_Anonymization IS included, because this org reaches the tool
+         through its own app rather than an existing one. It names a utility bar,
+         Data_Anonymization_UtilityBar, which is a FlexiPage NOT present in this repository. It
+         deploys today because the org already has it; a fresh org would fail on it. Drop the
+         CustomApplication block, or add the FlexiPage to the repository, before deploying to an
+         org that has never had this app.
+
+     TEKCO_OrgDomain__c in TEKCO_AnonymizationOrgConfig.ALH_Portugal must match the target org's
+     domain prefix. It changes with the sandbox name, so re-check after every refresh or rename:
+       System.debug(URL.getOrgDomainUrl().getHost().substringBefore('.'));
+     A value that does not match does not fail: the service falls back to the standard TEKCO
+     defaults and the org behaves as if it were standard - empty brand list, wrong identifier field.
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>TEKCO_AnonymizationAuditService</members>
+        <members>TEKCO_AnonymizationByIdController</members>
+        <members>TEKCO_AnonymizationBypassService</members>
+        <members>TEKCO_AnonymizationChainRunner</members>
+        <members>TEKCO_AnonymizationConfigSelector</members>
+        <members>TEKCO_AnonymizationController</members>
+        <members>TEKCO_AnonymizationExecuteService</members>
+        <members>TEKCO_AnonymizationFieldBatch</members>
+        <members>TEKCO_AnonymizationGuard</members>
+        <members>TEKCO_AnonymizationLaunchService</members>
+        <members>TEKCO_AnonymizationOrgConfigService</members>
+        <members>TEKCO_AnonymizationPatternService</members>
+        <members>TEKCO_AnonymizationPreviewService</members>
+        <members>TEKCO_AnonymizationRunContext</members>
+        <members>TEKCO_AnonymizationScheduler</members>
+        <members>TEKCO_AnonymizationScopeQueryBuilder</members>
+        <members>TEKCO_ContentDocumentBatch</members>
+        <members>TEKCO_ContentDocumentDeleteService</members>
+        <members>TEKCO_FieldHistoryBatch</members>
+        <members>TEKCO_FieldHistoryDeleteService</members>
+        <name>ApexClass</name>
+    </types>
+    <types>
+        <members>tekcoDataAnonymizationAdmin</members>
+        <name>LightningComponentBundle</name>
+    </types>
+    <types>
+        <members>TEKCO_AnonymizationAuditLog__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt</members>
+        <members>TEKCO_AnonymizationOrgConfig__mdt</members>
+        <members>TEKCO_AnonymizationPattern__mdt</members>
+        <name>CustomObject</name>
+    </types>
+    <types>
+        <members>TEKCO_AnonymizationAuditLog__c.TEKCO_BrandFilter__c</members>
+        <members>TEKCO_AnonymizationAuditLog__c.TEKCO_DocumentsDeleted__c</members>
+        <members>TEKCO_AnonymizationAuditLog__c.TEKCO_EndTime__c</members>
+        <members>TEKCO_AnonymizationAuditLog__c.TEKCO_ErrorMessage__c</members>
+        <members>TEKCO_AnonymizationAuditLog__c.TEKCO_FieldsAnonymized__c</members>
+        <members>TEKCO_AnonymizationAuditLog__c.TEKCO_HistoryRecordsDeleted__c</members>
+        <members>TEKCO_AnonymizationAuditLog__c.TEKCO_JobId__c</members>
+        <members>TEKCO_AnonymizationAuditLog__c.TEKCO_ObjectApiName__c</members>
+        <members>TEKCO_AnonymizationAuditLog__c.TEKCO_RecordsFailed__c</members>
+        <members>TEKCO_AnonymizationAuditLog__c.TEKCO_RecordsProcessed__c</members>
+        <members>TEKCO_AnonymizationAuditLog__c.TEKCO_RunMode__c</members>
+        <members>TEKCO_AnonymizationAuditLog__c.TEKCO_StartTime__c</members>
+        <members>TEKCO_AnonymizationAuditLog__c.TEKCO_Status__c</members>
+        <members>TEKCO_AnonymizationAuditLog__c.TEKCO_TriggeredBy__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_AdditionalFilter__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_DeleteHistory__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_FieldApiName__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_IsActive__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ObjectApiName__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ParentLookupFieldApiName__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ParentObjectApiName__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ParentRecordTypeDeveloperName__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_PatternType__c</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_RecordTypeDeveloperName__c</members>
+        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BrandCodeField__c</members>
+        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BrandCountryField__c</members>
+        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BrandLookupFieldOnRecord__c</members>
+        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BrandObjectApiName__c</members>
+        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BypassObjectApiName__c</members>
+        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_ExternalIdFields__c</members>
+        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_FunctionalIdField__c</members>
+        <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_OrgDomain__c</members>
+        <members>TEKCO_AnonymizationPattern__mdt.TEKCO_BaseEmail__c</members>
+        <members>TEKCO_AnonymizationPattern__mdt.TEKCO_Description__c</members>
+        <members>TEKCO_AnonymizationPattern__mdt.TEKCO_ExternalIdField__c</members>
+        <members>TEKCO_AnonymizationPattern__mdt.TEKCO_IsActive__c</members>
+        <members>TEKCO_AnonymizationPattern__mdt.TEKCO_RegexFind__c</members>
+        <members>TEKCO_AnonymizationPattern__mdt.TEKCO_RegexReplace__c</members>
+        <members>TEKCO_AnonymizationPattern__mdt.TEKCO_SsnLength__c</members>
+        <name>CustomField</name>
+    </types>
+    <types>
+        <members>TEKCO_AnonymizationPattern.ADDRESS_STREET_RANDOM</members>
+        <members>TEKCO_AnonymizationPattern.CLEAR</members>
+        <members>TEKCO_AnonymizationPattern.DELETE_CONTENT_DOCUMENT</members>
+        <members>TEKCO_AnonymizationPattern.EMAIL_MESSAGE_LOREM</members>
+        <members>TEKCO_AnonymizationPattern.EMAIL_PLUS_EXTERNALID</members>
+        <members>TEKCO_AnonymizationPattern.EMAIL_PLUS_EXTERNALID_SUBDOMAIN</members>
+        <members>TEKCO_AnonymizationPattern.EMAIL_PLUS_SFID</members>
+        <members>TEKCO_AnonymizationPattern.EMAIL_PLUS_SFID_SUBDOMAIN</members>
+        <members>TEKCO_AnonymizationPattern.LOREM_IPSUM</members>
+        <members>TEKCO_AnonymizationPattern.NAME_FIRST_LETTER</members>
+        <members>TEKCO_AnonymizationPattern.NAME_FIRST_LETTER_SFID</members>
+        <members>TEKCO_AnonymizationPattern.PHONE_MASK</members>
+        <members>TEKCO_AnonymizationPattern.SSN_SEQUENTIAL</members>
+        <members>TEKCO_AnonymizationPattern.ZERO_MASK</members>
+        <members>TEKCO_AnonymizationOrgConfig.ALH_Portugal</members>
+        <name>CustomMetadata</name>
+    </types>
+    <types>
+        <members>TEKCO_AnonymizationAuditLog__c-TEKCO Anonymization Audit Log Layout</members>
+        <members>TEKCO_AnonymizationFieldConfig__mdt-TEKCO Anonymization Field Config Layout</members>
+        <members>TEKCO_AnonymizationOrgConfig__mdt-TEKCO Anonymization Org Config Layout</members>
+        <members>TEKCO_AnonymizationPattern__mdt-TEKCO Anonymization Pattern Layout</members>
+        <name>Layout</name>
+    </types>
+    <types>
+        <members>TEKCO_Data_Anonymization</members>
+        <name>CustomTab</name>
+    </types>
+    <types>
+        <members>Data_Anonymization</members>
+        <name>CustomApplication</name>
+    </types>
+    <types>
+        <members>CXFCO_BypassCustomValidations</members>
+        <members>CXFCO_BypassOutboundSynchronization</members>
+        <members>TEKCO_AnonymizeData</members>
+        <name>CustomPermission</name>
+    </types>
+    <types>
+        <members>TEKCO_AnonymizationAdmin</members>
+        <name>PermissionSet</name>
+    </types>
+    <version>65.0</version>
+</Package>
