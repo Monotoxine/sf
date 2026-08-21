@@ -75,7 +75,7 @@ public without sharing class TEKCO_ContentDocumentBatch implements Database.Batc
                 : TEKCO_AnonymizationScopeQueryBuilder.buildContentDocScopeQuery(
                       objectApiName,
                       ctx.selectedBrands,
-                      config.TEKCO_RecordTypeDeveloperName__c,
+                      TEKCO_AnonymizationConfigSelector.recordTypesOf(config),
                       ctx.additionalFilterFor(objectApiName)
                   );
 

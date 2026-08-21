@@ -264,11 +264,40 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         useNeutralOrgConfig();
 
         String soql = TEKCO_AnonymizationScopeQueryBuilder.buildContentDocScopeQuery(
-            'Account', null, 'O\'Brien', null
+            'Account', null, new Set<String>{ 'O\'Brien' }, null
         );
 
-        System.assert(soql.contains('RecordType.DeveloperName = \'O\\\'Brien\''),
+        System.assert(soql.contains('RecordType.DeveloperName IN (\'O\\\'Brien\')'),
             'A quote in a record type name is escaped, not injected: ' + soql);
+    }
+
+    /** Retrocompatibilite : une regle mono-valuee produit exactement une valeur dans le IN. */
+    @isTest
+    static void buildContentDocScopeQuery_oneRecordType_behavesAsBefore() {
+        useNeutralOrgConfig();
+
+        String soql = TEKCO_AnonymizationScopeQueryBuilder.buildContentDocScopeQuery(
+            'Account', null, new Set<String>{ 'Patient' }, null
+        );
+
+        System.assertEquals(
+            'SELECT Id FROM Account WHERE RecordType.DeveloperName IN (\'Patient\')',
+            soql,
+            'Meme perimetre qu avec l ancienne egalite');
+    }
+
+    @isTest
+    static void buildContentDocScopeQuery_severalRecordTypes_areAllIncluded() {
+        useNeutralOrgConfig();
+
+        String soql = TEKCO_AnonymizationScopeQueryBuilder.buildContentDocScopeQuery(
+            'Account', null, new Set<String>{ 'Prescriber', 'Patient' }, null
+        );
+
+        System.assertEquals(
+            'SELECT Id FROM Account WHERE RecordType.DeveloperName IN (\'Patient\', \'Prescriber\')',
+            soql,
+            'Les deux populations, triees pour que la requete soit comparable');
     }
 
     @isTest
@@ -280,6 +309,85 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             TEKCO_AnonymizationScopeQueryBuilder.buildContentDocScopeQuery('Account', null, null, null),
             'No brand, no record type, no filter'
         );
+    }
+
+    // ─── combineAdditionalFilters : le perimetre d un objet ──────────────────────
+
+    private static TEKCO_AnonymizationFieldConfig__mdt withFilter(String filter) {
+        return new TEKCO_AnonymizationFieldConfig__mdt(
+            TEKCO_ObjectApiName__c    = 'Address',
+            TEKCO_FieldApiName__c     = 'Street',
+            TEKCO_AdditionalFilter__c = filter
+        );
+    }
+
+    /**
+     * Le cas Address : deux regles, deux filtres exclusifs. L ancienne version n en gardait qu un,
+     * au hasard de l ordre de la requete, et une des deux populations n etait jamais anonymisee.
+     */
+    @isTest
+    static void combineAdditionalFilters_twoFilters_areBothApplied() {
+        String filter = TEKCO_AnonymizationScopeQueryBuilder.combineAdditionalFilters(
+            new List<TEKCO_AnonymizationFieldConfig__mdt>{
+                withFilter('A = 1'), withFilter('B = 2')
+            }
+        );
+
+        System.assertEquals('((A = 1) OR (B = 2))', filter,
+            'Les deux termes, tries, englobes');
+    }
+
+    /**
+     * whereClause() joint les conditions avec AND, et AND lie plus fort que OR en SOQL. Sans
+     * parentheses englobantes, "marque AND (A) OR (B)" se lit "(marque AND A) OR B" et attrape
+     * des enregistrements hors du filtre de marque.
+     */
+    @isTest
+    static void combineAdditionalFilters_singleFilter_isParenthesisedToo() {
+        System.assertEquals(
+            '((X = 1 OR Y = 2))',
+            TEKCO_AnonymizationScopeQueryBuilder.combineAdditionalFilters(
+                new List<TEKCO_AnonymizationFieldConfig__mdt>{ withFilter('X = 1 OR Y = 2') }
+            ),
+            'Un filtre unique est englobe : il peut contenir son propre OR');
+    }
+
+    /**
+     * Une regle retenue sans filtre s applique a tous les enregistrements de l objet :
+     * restreindre la requete lui retirerait des enregistrements qu elle doit anonymiser.
+     */
+    @isTest
+    static void combineAdditionalFilters_anUnfilteredRuleLiftsTheRestriction() {
+        System.assertEquals(null,
+            TEKCO_AnonymizationScopeQueryBuilder.combineAdditionalFilters(
+                new List<TEKCO_AnonymizationFieldConfig__mdt>{
+                    withFilter('A = 1'), withFilter(null)
+                }
+            ),
+            'Aucun filtre : l objet est lu en entier');
+    }
+
+    /** Decocher une regle retire son terme du OR — un OR ampute ne peut que retrecir. */
+    @isTest
+    static void combineAdditionalFilters_droppingARuleNarrows() {
+        String both = TEKCO_AnonymizationScopeQueryBuilder.combineAdditionalFilters(
+            new List<TEKCO_AnonymizationFieldConfig__mdt>{ withFilter('A = 1'), withFilter('B = 2') }
+        );
+        String one = TEKCO_AnonymizationScopeQueryBuilder.combineAdditionalFilters(
+            new List<TEKCO_AnonymizationFieldConfig__mdt>{ withFilter('A = 1') }
+        );
+
+        System.assertNotEquals(both, one, 'Retirer une regle change la requete');
+        System.assert(!one.contains('B = 2'), 'Le terme de la regle decochee a disparu : ' + one);
+    }
+
+    @isTest
+    static void combineAdditionalFilters_nothing_returnsNull() {
+        System.assertEquals(null,
+            TEKCO_AnonymizationScopeQueryBuilder.combineAdditionalFilters(null));
+        System.assertEquals(null,
+            TEKCO_AnonymizationScopeQueryBuilder.combineAdditionalFilters(
+                new List<TEKCO_AnonymizationFieldConfig__mdt>()));
     }
 
     @isTest

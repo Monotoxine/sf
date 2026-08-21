@@ -75,7 +75,9 @@ public without sharing class TEKCO_AnonymizationPreviewService {
         List<String> conditions = new List<String>();
         conditions.add(TEKCO_AnonymizationOrgConfigService.buildBrandCondition(safeObject, selectedBrands));
         conditions.add(recordTypeCondition(safeObject, selectedRecordTypes, configs));
-        conditions.add(additionalFilterOf(configs));
+        // The very condition the launch builds, from the same function: a sample describing a
+        // scope the run does not have would defeat the point of having a sample.
+        conditions.add(TEKCO_AnonymizationScopeQueryBuilder.combineAdditionalFilters(configs));
 
         return runPreview(safeObject, configs, conditions, null, sampleSize);
     }
@@ -251,23 +253,16 @@ public without sharing class TEKCO_AnonymizationPreviewService {
         List<TEKCO_AnonymizationFieldConfig__mdt> kept =
             new List<TEKCO_AnonymizationFieldConfig__mdt>();
         for (TEKCO_AnonymizationFieldConfig__mdt fc : configs) {
-            String rtDevName = fc.TEKCO_RecordTypeDeveloperName__c;
-            if (rtFilter != null && String.isNotBlank(rtDevName) && !rtFilter.contains(rtDevName)) {
-                continue;
+            Set<String> covered = TEKCO_AnonymizationConfigSelector.recordTypesOf(fc);
+            if (rtFilter != null && !covered.isEmpty()) {
+                covered.retainAll(rtFilter);
+                if (covered.isEmpty()) continue;
             }
             String fieldKey = TEKCO_AnonymizationConfigSelector.configKey(fc);
             if (excluded.contains(fieldKey)) continue;
             kept.add(fc);
         }
         return kept;
-    }
-
-    /** First non-blank per-object additional filter, same rule as startAnonymization(). */
-    private static String additionalFilterOf(List<TEKCO_AnonymizationFieldConfig__mdt> configs) {
-        for (TEKCO_AnonymizationFieldConfig__mdt fc : configs) {
-            if (String.isNotBlank(fc.TEKCO_AdditionalFilter__c)) return fc.TEKCO_AdditionalFilter__c;
-        }
-        return null;
     }
 
     private static String recordTypeCondition(
@@ -282,9 +277,7 @@ public without sharing class TEKCO_AnonymizationPreviewService {
         // up filtering an Account query.
         Set<String> declared = new Set<String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fc : configs) {
-            if (String.isNotBlank(fc.TEKCO_RecordTypeDeveloperName__c)) {
-                declared.add(fc.TEKCO_RecordTypeDeveloperName__c);
-            }
+            declared.addAll(TEKCO_AnonymizationConfigSelector.recordTypesOf(fc));
         }
         List<String> escaped = new List<String>();
         for (String rt : selectedRecordTypes) {

@@ -351,6 +351,73 @@ public inherited sharing class TEKCO_AnonymizationGuard {
 
         findings.addAll(validatePatternTypes(configs));
         findings.addAll(validateAdditionalFilters(filterConfigs));
+        findings.addAll(validateFilterDiscrimination(configs));
+        return findings;
+    }
+
+    /**
+     * The one shape the engine cannot honour, reported before it is ever configured.
+     *
+     * A run reads an object with ONE query, whose scope is the OR of its rules' filters, then
+     * applies each rule record by record. Apex can re-check a record type — it reads
+     * RecordTypeId — but not a filter, which usually walks a relationship. So when an object
+     * carries two different filters, every rule is applied to every record the union returned,
+     * whichever filter brought it in.
+     *
+     * That is only observable when the rules behind the two filters do DIFFERENT things.
+     * Address.Street is carried by two filters with the same field and the same pattern, so
+     * applying either to either population gives the same result — no finding, and rightly so.
+     * Two filters driving different fields or different patterns would silently over-apply.
+     *
+     * No configuration in either org triggers this today. It is a guard rail for tomorrow.
+     */
+    @TestVisible
+    private static List<String> validateFilterDiscrimination(
+        List<TEKCO_AnonymizationFieldConfig__mdt> configs
+    ) {
+        List<String> findings = new List<String>();
+        if (configs == null || configs.isEmpty()) return findings;
+
+        // object -> filter -> what that filter's rules actually do, as "field:pattern" strings.
+        Map<String, Map<String, Set<String>>> effectsByFilterByObject =
+            new Map<String, Map<String, Set<String>>>();
+
+        for (TEKCO_AnonymizationFieldConfig__mdt config : configs) {
+            if (config == null || String.isBlank(config.TEKCO_AdditionalFilter__c)) continue;
+            if (String.isBlank(config.TEKCO_ObjectApiName__c)) continue;
+
+            String objectApiName = config.TEKCO_ObjectApiName__c;
+            if (!effectsByFilterByObject.containsKey(objectApiName)) {
+                effectsByFilterByObject.put(objectApiName, new Map<String, Set<String>>());
+            }
+            Map<String, Set<String>> byFilter = effectsByFilterByObject.get(objectApiName);
+            String filter = config.TEKCO_AdditionalFilter__c;
+            if (!byFilter.containsKey(filter)) byFilter.put(filter, new Set<String>());
+            byFilter.get(filter).add(
+                config.TEKCO_FieldApiName__c + ':' + config.TEKCO_PatternType__c
+            );
+        }
+
+        for (String objectApiName : effectsByFilterByObject.keySet()) {
+            Map<String, Set<String>> byFilter = effectsByFilterByObject.get(objectApiName);
+            if (byFilter.size() < 2) continue;
+
+            Set<String> reference = null;
+            for (Set<String> effects : byFilter.values()) {
+                if (reference == null) {
+                    reference = effects;
+                } else if (!reference.containsAll(effects) || !effects.containsAll(reference)) {
+                    findings.add(TEKCO_AnonymizationRunContext.cap(
+                        'Config warning: ' + objectApiName + ' carries ' + byFilter.size()
+                        + ' different additional filters whose rules do different things. The '
+                        + 'engine reads their union and cannot tell, record by record, which '
+                        + 'filter brought a record in, so every rule is applied to all of them. '
+                        + 'Use record types instead, or give the rules the same effect.'
+                    ));
+                    break;
+                }
+            }
+        }
         return findings;
     }
 

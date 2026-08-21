@@ -66,10 +66,8 @@ public with sharing class TEKCO_AnonymizationLaunchService {
         //
         // By Criteria only. A By ID run named its records explicitly; narrowing them further
         // with a configured filter would silently drop records the user asked for.
-        Map<String, Set<String>> filterTermsByObject = new Map<String, Set<String>>();
-        Set<String> objectsWithAnUnfilteredConfig = new Set<String>();
-        List<TEKCO_AnonymizationFieldConfig__mdt> retainedFilterConfigs =
-            new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>> retainedByObject =
+            new Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>>();
 
         for (TEKCO_AnonymizationFieldConfig__mdt config : scopedConfigs) {
             String objectApiName = config.TEKCO_ObjectApiName__c;
@@ -78,17 +76,12 @@ public with sharing class TEKCO_AnonymizationLaunchService {
             if (request.excludedFieldKeys.contains(fieldKey)) continue;
 
             if (!request.byId) {
-                if (String.isBlank(config.TEKCO_AdditionalFilter__c)) {
-                    objectsWithAnUnfilteredConfig.add(objectApiName);
-                } else {
-                    if (!filterTermsByObject.containsKey(objectApiName)) {
-                        filterTermsByObject.put(objectApiName, new Set<String>());
-                    }
-                    if (filterTermsByObject.get(objectApiName)
-                            .add(config.TEKCO_AdditionalFilter__c)) {
-                        retainedFilterConfigs.add(config);
-                    }
+                if (!retainedByObject.containsKey(objectApiName)) {
+                    retainedByObject.put(
+                        objectApiName, new List<TEKCO_AnonymizationFieldConfig__mdt>()
+                    );
                 }
+                retainedByObject.get(objectApiName).add(config);
             }
 
             if (config.TEKCO_PatternType__c == PATTERN_DELETE_CONTENT_DOCUMENT) {
@@ -107,8 +100,21 @@ public with sharing class TEKCO_AnonymizationLaunchService {
             }
         }
 
-        Map<String, String> additionalFiltersByObject =
-            combineFilters(filterTermsByObject, objectsWithAnUnfilteredConfig);
+        Map<String, String> additionalFiltersByObject = new Map<String, String>();
+        List<TEKCO_AnonymizationFieldConfig__mdt> retainedFilterConfigs =
+            new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        for (String objectApiName : retainedByObject.keySet()) {
+            List<TEKCO_AnonymizationFieldConfig__mdt> retained =
+                retainedByObject.get(objectApiName);
+            String combined =
+                TEKCO_AnonymizationScopeQueryBuilder.combineAdditionalFilters(retained);
+            if (combined != null) {
+                additionalFiltersByObject.put(objectApiName, combined);
+                // Only the filters that actually reach a query are worth validating: those the
+                // combination discarded restrict nothing.
+                retainedFilterConfigs.addAll(retained);
+            }
+        }
 
         // Field phase objects, in the caller's order, restricted to those that still have a
         // config after the exclusions.
@@ -202,10 +208,15 @@ public with sharing class TEKCO_AnonymizationLaunchService {
             new List<TEKCO_AnonymizationFieldConfig__mdt>();
         for (TEKCO_AnonymizationFieldConfig__mdt config : configs) {
             // A config with no record type applies to every record type, so it always survives.
-            if (String.isBlank(config.TEKCO_RecordTypeDeveloperName__c)
-                    || recordTypeFilter.contains(config.TEKCO_RecordTypeDeveloperName__c)) {
+            Set<String> covered = TEKCO_AnonymizationConfigSelector.recordTypesOf(config);
+            if (covered.isEmpty()) {
                 kept.add(config);
+                continue;
             }
+            // A rule covering several populations survives as soon as ONE of them was selected —
+            // the other populations are then dropped per record, in the execute service.
+            covered.retainAll(recordTypeFilter);
+            if (!covered.isEmpty()) kept.add(config);
         }
         return kept;
     }
@@ -236,39 +247,6 @@ public with sharing class TEKCO_AnonymizationLaunchService {
         // whole object skipped in the middle of the chain.
         ctx.addErrors(TEKCO_AnonymizationGuard.validateAdditionalFilters(filterConfigs));
         return ctx;
-    }
-
-    /**
-     * One SOQL condition per object, as the OR of its retained configs' filters.
-     *
-     * An object with at least one retained config carrying NO filter is read unfiltered: that
-     * config applies to every record of the object, so restricting the query would drop records
-     * it is configured to anonymize.
-     */
-    @TestVisible
-    private static Map<String, String> combineFilters(
-        Map<String, Set<String>> filterTermsByObject,
-        Set<String> objectsWithAnUnfilteredConfig
-    ) {
-        Map<String, String> combined = new Map<String, String>();
-        for (String objectApiName : filterTermsByObject.keySet()) {
-            if (objectsWithAnUnfilteredConfig.contains(objectApiName)) continue;
-
-            List<String> terms = new List<String>();
-            for (String term : filterTermsByObject.get(objectApiName)) {
-                terms.add('(' + term + ')');
-            }
-            if (terms.isEmpty()) continue;
-            // Sorted so the same configuration always produces the same query — a query that
-            // varies between runs is impossible to compare in a debug log.
-            terms.sort();
-            // Parenthesised as a whole, always. whereClause() joins conditions with AND, and AND
-            // binds tighter than OR in SOQL: an unwrapped "(x) OR (y)" next to a brand condition
-            // would read "(brand AND x) OR y" and reach records outside the brand filter. The
-            // single-term case is wrapped too — a lone filter is free to contain its own OR.
-            combined.put(objectApiName, '(' + String.join(terms, ' OR ') + ')');
-        }
-        return combined;
     }
 
     /** Fields first, then ContentDocuments, then history — the order the chain must follow. */

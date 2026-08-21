@@ -186,6 +186,7 @@ field simply keeps its PII, the run still finishes `Success`, and nothing anywhe
 | A field API name that does not exist on its object | That config is skipped |
 | A pattern type with no active `TEKCO_AnonymizationPattern__mdt` record | Falls through to the `REGEX` default; with no regex configured the value is returned unchanged |
 | A `TEKCO_AdditionalFilter__c` that will not parse | The step fails hours into the run, not at launch. The finding names the **configuration record**, not just the object: `Contact` carries five rules sharing one filter and `User` six, so the object alone would not say which record to open |
+| Two different filters on one object whose rules do different things | Every rule is applied to the union of both, because a filter cannot be re-checked record by record — see §13.3.1 |
 
 A clean configuration shows a green banner. Findings show as a warning list, one line each,
 naming the config's DeveloperName so it can be found in Setup.
@@ -261,7 +262,7 @@ Use **Filter by field** and **Record Type** to narrow a long list.
 | **Rule** | Label of the configuration record behind the row. This is its identity — two rules can agree on object, field and record type and still be different records. It is also what a *Check Configuration* finding names, so a finding maps straight to a row. |
 | **Field** | API name of the field. |
 | **Pattern** | Algorithm applied. |
-| **Record Type** | Record Type this rule targets. Empty = all. |
+| **Record Type** | Record Types this rule covers — a **list** when it covers several, e.g. `ACCCO_IndividualPerson, ACCCO_Patient`. Empty = every record type. |
 | **Scope** | The rule's `TEKCO_AdditionalFilter__c`, when it has one — the extra condition restricting it to part of the object. *By Criteria only*: a By ID run names its records explicitly and applies no filter, so the By ID table shows **Rule** but no **Scope**. |
 | **Del. History** | Checked = the field's change history is deleted after anonymization. Uncheck for this run only. |
 | **Description** | Functional description carried by the pattern record. |
@@ -485,8 +486,29 @@ idempotent, which is what makes re-launching after a failure safe.
 
 | Field | Purpose |
 |---|---|
-| `TEKCO_RecordTypeDeveloperName__c` | Restricts the rule to one Record Type. Empty = all. |
+| `TEKCO_RecordTypeDeveloperName__c` | **Comma-separated list** of the Record Type developer names this rule covers — `ACCCO_IndividualPerson,ACCCO_Patient`. A single name is a list of one. Empty = every record type. |
 | `TEKCO_AdditionalFilter__c` | SOQL condition restricting **this rule** to part of the object. Shown in the **Scope** column. Administrator-authored and concatenated as written — validated at launch, not sanitized. |
+
+### 13.3.1 Record types and the additional filter answer different questions
+
+Both narrow a rule's scope, and both are needed.
+
+**The record type list** says *which populations*. It is re-checked record by record during the
+run, because a record carries its own `RecordTypeId` — which is why one rule can cover
+`Patient,Prescriber` while another on the same object covers `Hospital` only, and each is applied
+to the right records.
+
+**The additional filter** says *which subset*, for the objects where the record type does not
+discriminate. Every `Contact` shares one record type, so only
+`Account.RecordType.DeveloperName = 'ACCCO_Patient'` isolates the contacts of patients. Same for
+`Address`, whose populations are told apart by their parent account.
+
+The trade-off to know: a filter is **not** re-checkable per record — it usually walks a
+relationship, and Apex only sees the record itself. So if one object carried two different
+filters whose rules did **different** things, every rule would be applied to the union of both.
+*Check Configuration* reports that shape; no configuration in either org has it today, and
+`Address` does not count — the same field and the same pattern sit behind both its filters, so
+applying either rule to either population gives the same result.
 
 > **Several rules on one object combine their filters with `OR`.** The object's scope is the
 > union of the filters of the rules still ticked, so `Address.Street` — one rule filtered to

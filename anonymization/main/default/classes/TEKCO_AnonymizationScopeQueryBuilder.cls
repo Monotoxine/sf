@@ -86,7 +86,7 @@ public inherited sharing class TEKCO_AnonymizationScopeQueryBuilder {
                 }
             }
 
-            if (String.isNotBlank(fc.TEKCO_RecordTypeDeveloperName__c)) {
+            if (TEKCO_AnonymizationConfigSelector.isRecordTypeScoped(fc)) {
                 selection.needsRecordTypeId = true;
             }
         }
@@ -167,6 +167,42 @@ public inherited sharing class TEKCO_AnonymizationScopeQueryBuilder {
     }
 
     /**
+     * The additional-filter condition for one object, from the rules still retained on it.
+     *
+     * The filter belongs to the RULE, so an object's scope is the OR of its retained rules'
+     * filters. A retained rule carrying NO filter means "no restriction" and returns null: that
+     * rule applies to every record of the object, and restricting the query would drop records
+     * it is configured to anonymize.
+     *
+     * Parenthesised as a whole, always. whereClause() joins conditions with AND, and AND binds
+     * tighter than OR in SOQL: an unwrapped "(x) OR (y)" next to a brand condition would read
+     * "(brand AND x) OR y" and reach records outside the brand filter. A single term is wrapped
+     * too — a lone filter is free to contain its own OR.
+     *
+     * Both the launch and the before/after sample call this, so the sample cannot describe a
+     * scope the run does not have.
+     */
+    public static String combineAdditionalFilters(
+        List<TEKCO_AnonymizationFieldConfig__mdt> retainedConfigs
+    ) {
+        if (retainedConfigs == null || retainedConfigs.isEmpty()) return null;
+
+        Set<String> terms = new Set<String>();
+        for (TEKCO_AnonymizationFieldConfig__mdt config : retainedConfigs) {
+            if (config == null) continue;
+            if (String.isBlank(config.TEKCO_AdditionalFilter__c)) return null;
+            terms.add('(' + config.TEKCO_AdditionalFilter__c + ')');
+        }
+        if (terms.isEmpty()) return null;
+
+        // Sorted so the same configuration always produces the same query — a query that varies
+        // between runs is impossible to compare in a debug log.
+        List<String> sorted = new List<String>(terms);
+        sorted.sort();
+        return '(' + String.join(sorted, ' OR ') + ')';
+    }
+
+    /**
      * By ID field phase — and any other "these exact records" scope.
      * @param idBindName name of the batch field holding the Ids, emitted as a bind.
      */
@@ -180,17 +216,16 @@ public inherited sharing class TEKCO_AnonymizationScopeQueryBuilder {
     public static String buildContentDocScopeQuery(
         String objectApiName,
         List<String> selectedBrands,
-        String recordTypeDevName,
+        Set<String> recordTypeDevNames,
         String additionalFilter
     ) {
         List<String> conditions = new List<String>();
         conditions.add(
             TEKCO_AnonymizationOrgConfigService.buildBrandCondition(objectApiName, selectedBrands)
         );
-        if (String.isNotBlank(recordTypeDevName)) {
-            conditions.add(
-                'RecordType.DeveloperName = \'' + String.escapeSingleQuotes(recordTypeDevName) + '\''
-            );
+        String recordTypeIn = escapedInClause(recordTypeDevNames);
+        if (recordTypeIn != null) {
+            conditions.add('RecordType.DeveloperName IN (' + recordTypeIn + ')');
         }
         conditions.add(additionalFilter);
 

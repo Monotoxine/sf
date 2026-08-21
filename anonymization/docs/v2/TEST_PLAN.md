@@ -205,6 +205,21 @@ SELECT COUNT() FROM Account WHERE ...
 
 **Expected**: the two agree.
 
+## D1b — The count now includes the additional filter
+
+**Intent**: the scope count never applied `TEKCO_AdditionalFilter__c`. It announced more records
+than the run would touch on every filtered object — `Contact`, `User`, `Address`,
+`ALH_Address__c`. It now uses the same condition as the launch.
+
+**Steps**: **Preview Scope** on `Contact`, then run the equivalent query by hand:
+
+```sql
+SELECT COUNT() FROM Contact WHERE Account.RecordType.DeveloperName = 'ACCCO_Patient'
+```
+
+**Expected**: the two agree, and the displayed count is **lower** than what the previous version
+showed. It did not become wrong — it was wrong on the high side.
+
 ## D2 — The brand filter narrows the scope
 
 **Steps**: preview with no brand, note the count. Select one brand, preview again.
@@ -280,6 +295,10 @@ When it finishes, query the same records.
 `ADDRESS_STREET_RANDOM`, which shifts the street number by a fresh random offset each time and
 will differ in the number while matching in shape.
 
+> The sample used to pick the **first** additional filter it found on the object while the run
+> combined them all, so on `Address` it described a scope the run did not have. Both now call the
+> same function. Sampling `Address` is the case that exercises it.
+
 ## E4 — Identifiers key on the right field
 
 **Intent**: `EMAIL_PLUS_EXTERNALID` resolves its identifier through a four-step chain. Falling to
@@ -340,6 +359,23 @@ Untick `IndividualP Address`.
 Re-tick it and untick `Patient Address` instead.
 
 **Expected**: the mirror image. Each rule is independently selectable.
+
+## F5 — A rule covering several record types *(after consolidation)*
+
+**Intent**: `TEKCO_RecordTypeDeveloperName__c` now holds a **list**. The 98 records still carry
+one name each, so this case only becomes runnable once they are merged — the code is ready, the
+data is not.
+
+**Steps**: on a rule covering several populations, e.g. `ACCCO_IndividualPerson,ACCCO_Patient`:
+select its object and preview.
+
+**Expected**: **one** row for that field, its **Record Type** column showing both names. The
+**Record Types** selector at the top of the page offers each name separately, and ticking either
+one keeps the rule in the table.
+
+Untick the rule.
+
+**Expected**: it is excluded for **both** populations — it is one rule.
 
 ---
 
@@ -425,6 +461,18 @@ it — compare the two rows' **Scope** values against the record's parent record
 
 > `ADDRESS_STREET_RANDOM` shifts by a random 1–20, so compare that the number *changed*, not what
 > it became.
+
+## G8 — Coverage is respected per population *(after consolidation)*
+
+**Intent**: a rule covering only part of an object's populations must not reach the others. On
+ALH, 11 rules are in that case — `ALH_FiscalNumber__c` concerns Hospital only, `Description`
+Patient only.
+
+**Steps**: run over an object whose rules have uneven coverage. Then query one record of a
+population a given rule does **not** cover.
+
+**Expected**: the field that rule drives is **untouched** on that record, while the fields driven
+by rules covering it did change.
 
 ---
 
@@ -705,10 +753,10 @@ leaves nothing else to read.
 | A — Deployment | A1–A3 | | |
 | B — Access | B1–B2 | | |
 | C — Configuration check | C1–C6 | | |
-| D — Scope and preview | D1–D5 | | |
+| D — Scope and preview | D1, D1b, D2–D5 | | |
 | E — Before/after sample | E1–E4 | | |
-| F — Field selection | F1–F4 | | |
-| G — By Criteria run | G1–G7 | | |
+| F — Field selection | F1–F5 | | |
+| G — By Criteria run | G1–G8 | | |
 | H — History and files | H1–H5 | | |
 | I — By ID | I1–I7 | | |
 | J — One run at a time | J1–J5 | | |

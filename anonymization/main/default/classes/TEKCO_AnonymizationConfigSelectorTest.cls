@@ -96,4 +96,71 @@ private class TEKCO_AnonymizationConfigSelectorTest {
         System.assertEquals('', TEKCO_AnonymizationConfigSelector.configKey(null),
             'Aucune exception sur une config nulle');
     }
+
+    // ─── recordTypesOf : la liste des populations couvertes ──────────────────────
+
+    /**
+     * RETROCOMPATIBILITE. Les 98 configs livrees sont toutes mono-valuees : une valeur unique
+     * doit produire exactement l ancien comportement, un ensemble d un seul element.
+     */
+    @isTest
+    static void recordTypesOf_singleValue_behavesAsBefore() {
+        Set<String> recordTypes = TEKCO_AnonymizationConfigSelector.recordTypesOf(
+            new TEKCO_AnonymizationFieldConfig__mdt(
+                TEKCO_RecordTypeDeveloperName__c = 'ACCCO_Patient'
+            )
+        );
+
+        System.assertEquals(1, recordTypes.size(), 'Un seul element');
+        System.assert(recordTypes.contains('ACCCO_Patient'), 'La valeur d origine');
+    }
+
+    @isTest
+    static void recordTypesOf_list_isSplit() {
+        Set<String> recordTypes = TEKCO_AnonymizationConfigSelector.recordTypesOf(
+            new TEKCO_AnonymizationFieldConfig__mdt(
+                TEKCO_RecordTypeDeveloperName__c = 'ACCCO_IndividualPerson,ACCCO_Patient'
+            )
+        );
+
+        System.assertEquals(2, recordTypes.size(), 'Les deux populations');
+        System.assert(recordTypes.contains('ACCCO_IndividualPerson'));
+        System.assert(recordTypes.contains('ACCCO_Patient'));
+    }
+
+    /** Une liste saisie a la main dans Setup porte des espaces : ils ne doivent rien casser. */
+    @isTest
+    static void recordTypesOf_toleratesSpacesAndEmptySegments() {
+        Set<String> recordTypes = TEKCO_AnonymizationConfigSelector.recordTypesOf(
+            new TEKCO_AnonymizationFieldConfig__mdt(
+                TEKCO_RecordTypeDeveloperName__c = ' Patient ,, Prescriber , '
+            )
+        );
+
+        System.assertEquals(2, recordTypes.size(), 'Segments vides ignores : ' + recordTypes);
+        System.assert(recordTypes.contains('Patient') && recordTypes.contains('Prescriber'),
+            'Valeurs detourees');
+    }
+
+    /** Vide = toutes les populations, exactement comme avant. */
+    @isTest
+    static void recordTypesOf_blankOrNull_returnsEmpty() {
+        System.assertEquals(0, TEKCO_AnonymizationConfigSelector.recordTypesOf(
+            new TEKCO_AnonymizationFieldConfig__mdt()).size());
+        System.assertEquals(0, TEKCO_AnonymizationConfigSelector.recordTypesOf(
+            new TEKCO_AnonymizationFieldConfig__mdt(
+                TEKCO_RecordTypeDeveloperName__c = '   ')).size());
+        System.assertEquals(0, TEKCO_AnonymizationConfigSelector.recordTypesOf(null).size());
+    }
+
+    @isTest
+    static void isRecordTypeScoped_reflectsTheList() {
+        System.assertEquals(false, TEKCO_AnonymizationConfigSelector.isRecordTypeScoped(
+            new TEKCO_AnonymizationFieldConfig__mdt()),
+            'Sans record type, la regle couvre tout l objet');
+        System.assertEquals(true, TEKCO_AnonymizationConfigSelector.isRecordTypeScoped(
+            new TEKCO_AnonymizationFieldConfig__mdt(
+                TEKCO_RecordTypeDeveloperName__c = 'Patient,Prescriber')),
+            'Avec une liste, elle est scopee');
+    }
 }

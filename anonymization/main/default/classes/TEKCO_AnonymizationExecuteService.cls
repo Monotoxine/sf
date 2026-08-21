@@ -61,10 +61,14 @@ public inherited sharing class TEKCO_AnonymizationExecuteService {
                 continue;
             }
 
-            if (String.isNotBlank(fc.TEKCO_RecordTypeDeveloperName__c)) {
+            // One query reads the whole object, so each rule is matched against each record
+            // here. The rule covers a SET of record types now; a rule naming a single one
+            // behaves exactly as before.
+            Set<String> ruleRecordTypes = TEKCO_AnonymizationConfigSelector.recordTypesOf(fc);
+            if (!ruleRecordTypes.isEmpty()) {
                 Id recordTypeId = (Id) record.get('RecordTypeId');
                 String rtDvName = recordTypeId != null ? recordTypeDevNameById.get(recordTypeId) : null;
-                if (rtDvName == null || rtDvName != fc.TEKCO_RecordTypeDeveloperName__c) continue;
+                if (rtDvName == null || !ruleRecordTypes.contains(rtDvName)) continue;
             }
 
             TEKCO_AnonymizationPattern__mdt pattern = patternsByType.get(patternType);

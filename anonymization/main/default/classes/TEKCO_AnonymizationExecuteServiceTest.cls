@@ -242,4 +242,44 @@ private class TEKCO_AnonymizationExecuteServiceTest {
             'A record type scoped config must not touch a record of another type');
         System.assertEquals('0611111111', (String) record.get('Phone'), 'The value is untouched');
     }
+
+    // ─── Couverture par record type : une regle porte une LISTE de populations ───────────
+
+    /**
+     * RETROCOMPATIBILITE. Une regle mono-valuee doit se comporter exactement comme avant :
+     * elle s applique a sa population et a aucune autre.
+     */
+    @isTest
+    static void recordTypeScoping_singleValue_stillExcludesOtherPopulations() {
+        TEKCO_AnonymizationFieldConfig__mdt rule = new TEKCO_AnonymizationFieldConfig__mdt(
+            TEKCO_RecordTypeDeveloperName__c = 'Patient'
+        );
+        Set<String> covered = TEKCO_AnonymizationConfigSelector.recordTypesOf(rule);
+
+        System.assert(covered.contains('Patient'), 'Sa population');
+        System.assert(!covered.contains('Prescriber'), 'Et aucune autre');
+    }
+
+    /** Une regle multi-population couvre chacune de ses valeurs, et rien d autre. */
+    @isTest
+    static void recordTypeScoping_listCoversEachValueAndNoOther() {
+        Set<String> covered = TEKCO_AnonymizationConfigSelector.recordTypesOf(
+            new TEKCO_AnonymizationFieldConfig__mdt(
+                TEKCO_RecordTypeDeveloperName__c = 'Patient,Prescriber'
+            )
+        );
+
+        System.assert(covered.contains('Patient') && covered.contains('Prescriber'),
+            'Les deux populations declarees');
+        System.assert(!covered.contains('Hospital'),
+            'Hospital n est pas couvert : ALH_FiscalNumber__c ne doit pas toucher un Patient');
+    }
+
+    /** Vide = toutes les populations, donc aucun test de record type a l execution. */
+    @isTest
+    static void recordTypeScoping_blankAppliesEverywhere() {
+        System.assertEquals(false, TEKCO_AnonymizationConfigSelector.isRecordTypeScoped(
+            new TEKCO_AnonymizationFieldConfig__mdt()),
+            'Une regle sans record type s applique a tout l objet');
+    }
 }

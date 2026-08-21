@@ -357,4 +357,68 @@ private class TEKCO_AnonymizationGuardTest {
 
         System.assertNotEquals(null, findings, 'Une liste est toujours renvoyée');
     }
+
+    // ─── validateFilterDiscrimination : la forme que le moteur ne sait pas honorer ────────
+
+    private static TEKCO_AnonymizationFieldConfig__mdt filterRule(
+        String objectApiName, String fieldApiName, String pattern, String filter
+    ) {
+        return new TEKCO_AnonymizationFieldConfig__mdt(
+            DeveloperName             = objectApiName + '_' + fieldApiName + '_' + pattern,
+            TEKCO_ObjectApiName__c    = objectApiName,
+            TEKCO_FieldApiName__c     = fieldApiName,
+            TEKCO_PatternType__c      = pattern,
+            TEKCO_AdditionalFilter__c = filter
+        );
+    }
+
+    /**
+     * Le cas Address, qui ne doit PAS etre signale : deux filtres, mais le meme champ et le meme
+     * pattern derriere chacun. Appliquer l une ou l autre regle a l une ou l autre population
+     * donne le meme resultat.
+     */
+    @isTest
+    static void validateFilterDiscrimination_sameEffectBehindBothFilters_isSilent() {
+        List<String> findings = TEKCO_AnonymizationGuard.validateFilterDiscrimination(
+            new List<TEKCO_AnonymizationFieldConfig__mdt>{
+                filterRule('Address', 'Street', 'ADDRESS_STREET_RANDOM', 'RT = 1'),
+                filterRule('Address', 'Street', 'ADDRESS_STREET_RANDOM', 'RT = 2')
+            }
+        );
+
+        System.assertEquals(0, findings.size(),
+            'Meme effet derriere les deux filtres : rien a signaler — ' + findings);
+    }
+
+    /**
+     * Deux filtres qui font des choses differentes : le moteur lit leur union et ne sait pas,
+     * enregistrement par enregistrement, lequel des deux l a ramene.
+     */
+    @isTest
+    static void validateFilterDiscrimination_differentEffects_areReported() {
+        List<String> findings = TEKCO_AnonymizationGuard.validateFilterDiscrimination(
+            new List<TEKCO_AnonymizationFieldConfig__mdt>{
+                filterRule('Contact', 'Email', 'EMAIL_PLUS_EXTERNALID', 'RT = 1'),
+                filterRule('Contact', 'Phone', 'PHONE_MASK',            'RT = 2')
+            }
+        );
+
+        System.assertEquals(1, findings.size(), 'Le cas est signale');
+        System.assert(findings[0].contains('Contact'), 'L objet est nomme : ' + findings[0]);
+    }
+
+    @isTest
+    static void validateFilterDiscrimination_oneFilterOrNone_isSilent() {
+        System.assertEquals(0, TEKCO_AnonymizationGuard.validateFilterDiscrimination(
+            new List<TEKCO_AnonymizationFieldConfig__mdt>{
+                filterRule('Contact', 'Email', 'EMAIL_PLUS_EXTERNALID', 'RT = 1'),
+                filterRule('Contact', 'Phone', 'PHONE_MASK',            'RT = 1')
+            }).size(),
+            'Un seul filtre sur l objet : aucune ambiguite');
+
+        System.assertEquals(0,
+            TEKCO_AnonymizationGuard.validateFilterDiscrimination(null).size());
+        System.assertEquals(0, TEKCO_AnonymizationGuard.validateFilterDiscrimination(
+            new List<TEKCO_AnonymizationFieldConfig__mdt>()).size());
+    }
 }

@@ -111,6 +111,33 @@ public inherited sharing class TEKCO_AnonymizationConfigSelector {
     }
 
     /**
+     * The record types one rule covers.
+     *
+     * TEKCO_RecordTypeDeveloperName__c holds a COMMA-SEPARATED LIST, not a single name: it is
+     * the set of populations the rule applies to. A blank field means every record type, as it
+     * always did, and a single name is simply a list of one — which is why every configuration
+     * written before this change behaves identically.
+     *
+     * This is the only place the string is split. Everything that needs the set calls here.
+     */
+    public static Set<String> recordTypesOf(TEKCO_AnonymizationFieldConfig__mdt config) {
+        Set<String> recordTypes = new Set<String>();
+        if (config == null || String.isBlank(config.TEKCO_RecordTypeDeveloperName__c)) {
+            return recordTypes;
+        }
+        for (String name : config.TEKCO_RecordTypeDeveloperName__c.split(',')) {
+            String trimmed = name.trim();
+            if (String.isNotBlank(trimmed)) recordTypes.add(trimmed);
+        }
+        return recordTypes;
+    }
+
+    /** True when the rule is scoped to one or more record types rather than the whole object. */
+    public static Boolean isRecordTypeScoped(TEKCO_AnonymizationFieldConfig__mdt config) {
+        return !recordTypesOf(config).isEmpty();
+    }
+
+    /**
      * Developer names of a config list, so callers keep lightweight strings in stateful batch
      * fields instead of full SObjects.
      */

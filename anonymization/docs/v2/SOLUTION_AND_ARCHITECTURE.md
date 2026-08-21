@@ -265,6 +265,22 @@ the OR of the filters of its **retained** configurations, parenthesised as a who
 `whereClause()` joins conditions with `AND` and `AND` binds tighter than `OR`. A retained
 configuration carrying no filter means "no restriction" and lifts it for the whole object.
 
+`TEKCO_AnonymizationScopeQueryBuilder.combineAdditionalFilters()` is the single definition of
+that rule, and the launch, the scope count and the before/after sample all call it. They used to
+each have their own idea of the scope: the sample kept the first filter it found, and the count
+ignored filters altogether and announced more records than the run would touch.
+
+**`TEKCO_RecordTypeDeveloperName__c` holds a comma-separated list** — the populations a rule
+covers. Blank means every record type; a single name is a list of one, which is why every
+configuration written before the change behaves identically.
+`TEKCO_AnonymizationConfigSelector.recordTypesOf()` is the only place the string is split.
+
+The two fields answer different questions, and both are needed. The record type says *which
+populations* — it is re-checkable per record, because the record carries its `RecordTypeId`. The
+filter says *which subset*, for objects where the record type does not discriminate: every
+`Contact` shares one record type, so only `Account.RecordType.DeveloperName = 'ACCCO_Patient'`
+isolates the contacts of patients.
+
 That shape replaced a first-wins map, and it fixes two things at once. `Address` used to keep
 only whichever filter the platform happened to return first — no `ORDER BY` decided it — so one
 of its two populations was never anonymized, silently, on a run reporting `Success`. And
@@ -295,12 +311,16 @@ existed have it blank, and the queries fall back to the old test for those.
 - **Coverage is whatever is configured.** Nothing enumerates the PII the configuration does
   *not* cover. Objects such as Task, Event and Chatter feeds are absent unless someone adds
   them.
-- **The record-type dimension is redundant as configured.** 31 `(object, field)` pairs are
-  carried by more than one configuration, and all 31 use the same pattern and the same history
-  setting across their record types — the dimension only ever narrows scope, never varies the
-  transformation. 32 of the 98 records exist for that reason alone. Folding it into a
-  comma-separated list on the existing field would bring the set to 66; that change is designed
-  and not yet made.
+- **The configuration is not consolidated yet.** The code reads a list of record types, but the
+  98 records still carry one name each: 31 `(object, field)` pairs are spelled out once per
+  record type, all 31 with the same pattern and the same history setting. Merging them — union
+  the record types, keep one rule per pair — brings the set to 67. The code is ready and
+  strictly backward compatible; the data change waits for a delivery window.
+- **Two different filters on one object are not discriminated per record.** A run reads their
+  union and applies every rule to all of it, because Apex can re-check a record type but not a
+  filter that walks a relationship. It is only observable when the rules behind the two filters
+  do different things — `Address.Street` has the same field and pattern behind both, so nothing
+  is wrong there. `validateFilterDiscrimination()` reports the case if it ever arises.
 - **Asset Files cannot be deleted** by the ContentDocument phase.
 - **Aborting a job by hand leaves the bypass raised.** `finish()` never runs, so nothing
   restores it — see [`DEPLOYMENT_AND_USAGE.md`](DEPLOYMENT_AND_USAGE.md) for the manual recovery.

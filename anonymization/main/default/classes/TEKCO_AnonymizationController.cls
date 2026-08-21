@@ -111,7 +111,8 @@ public with sharing class TEKCO_AnonymizationController {
               AND TEKCO_RecordTypeDeveloperName__c != null
         ]) {
             Set<String> rts = rtsByObject.get(cfg.TEKCO_ObjectApiName__c.toLowerCase());
-            if (rts != null) rts.add(cfg.TEKCO_RecordTypeDeveloperName__c);
+            // A rule covers a LIST of record types; each one is offered once in the selector.
+            if (rts != null) rts.addAll(TEKCO_AnonymizationConfigSelector.recordTypesOf(cfg));
         }
 
         List<Map<String, String>> options = new List<Map<String, String>>();
@@ -225,7 +226,8 @@ public with sharing class TEKCO_AnonymizationController {
         }
 
         List<TEKCO_AnonymizationFieldConfig__mdt> allConfigs = [
-            SELECT TEKCO_ObjectApiName__c, TEKCO_PatternType__c, TEKCO_RecordTypeDeveloperName__c
+            SELECT TEKCO_ObjectApiName__c, TEKCO_PatternType__c, TEKCO_RecordTypeDeveloperName__c,
+                   TEKCO_AdditionalFilter__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
             WHERE TEKCO_IsActive__c = true
               AND TEKCO_ObjectApiName__c IN :objectsToCount
@@ -234,6 +236,8 @@ public with sharing class TEKCO_AnonymizationController {
         Map<String, Integer> totalByObject      = new Map<String, Integer>();
         Map<String, Integer> contentDocByObject = new Map<String, Integer>();
         Map<String, String> objectByRt = new Map<String, String>();
+        Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>> configsByObject =
+            new Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>>();
 
         for (TEKCO_AnonymizationFieldConfig__mdt fc : allConfigs) {
             String obj = fc.TEKCO_ObjectApiName__c;
@@ -241,10 +245,14 @@ public with sharing class TEKCO_AnonymizationController {
             if (fc.TEKCO_PatternType__c == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
                 contentDocByObject.put(obj, (contentDocByObject.get(obj) != null ? contentDocByObject.get(obj) : 0) + 1);
             }
-            if (String.isNotBlank(fc.TEKCO_RecordTypeDeveloperName__c)
-                    && !objectByRt.containsKey(fc.TEKCO_RecordTypeDeveloperName__c)) {
-                objectByRt.put(fc.TEKCO_RecordTypeDeveloperName__c, obj);
+            for (String rt : TEKCO_AnonymizationConfigSelector.recordTypesOf(fc)) {
+                if (!objectByRt.containsKey(rt)) objectByRt.put(rt, obj);
             }
+
+            if (!configsByObject.containsKey(obj)) {
+                configsByObject.put(obj, new List<TEKCO_AnonymizationFieldConfig__mdt>());
+            }
+            configsByObject.get(obj).add(fc);
         }
 
         Map<String, List<String>> rtFilterByObject = new Map<String, List<String>>();
@@ -294,8 +302,13 @@ public with sharing class TEKCO_AnonymizationController {
                     for (String rt : applicableRts) escaped.add('\'' + String.escapeSingleQuotes(rt) + '\'');
                     conditions.add('RecordType.DeveloperName IN (' + String.join(escaped, ', ') + ')');
                 }
-                String whereClause = conditions.isEmpty()
-                    ? '' : ' WHERE ' + String.join(conditions, ' AND ');
+                // The additional filter, which this count ignored entirely until now — it
+                // therefore announced more records than the run would touch on every filtered
+                // object. Same function as the launch and the sample.
+                conditions.add(TEKCO_AnonymizationScopeQueryBuilder.combineAdditionalFilters(
+                    configsByObject.get(objectApiName)
+                ));
+                String whereClause = TEKCO_AnonymizationScopeQueryBuilder.whereClause(conditions);
                 dto.count = Database.countQuery('SELECT COUNT() FROM ' + objectApiName + whereClause);
             } catch (Exception e) {
                 dto.count = -1;
