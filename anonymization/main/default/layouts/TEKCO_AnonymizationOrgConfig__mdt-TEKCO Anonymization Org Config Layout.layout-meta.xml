@@ -28,7 +28,7 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>TEKCO_BypassObjectApiName__c</field>
+                <field>TEKCO_BypassEnabled__c</field>
             </layoutItems>
         </layoutColumns>
         <layoutColumns>
