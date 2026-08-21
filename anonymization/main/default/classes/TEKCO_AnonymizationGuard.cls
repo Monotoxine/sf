@@ -170,8 +170,12 @@ public inherited sharing class TEKCO_AnonymizationGuard {
         List<String> warnings = new List<String>();
         if (configs == null || configs.isEmpty()) return warnings;
 
+        // These need no pattern record. The first two are handled by dedicated batches. KEEP is
+        // a deliberate no-op: with no record it is skipped before the transformation runs, which
+        // leaves the value untouched — exactly what it means. Flagging it would cry wolf on the
+        // very first configuration check.
         Set<String> handledElsewhere = new Set<String>{
-            'DELETE_CONTENT_DOCUMENT', 'EMAIL_MESSAGE_LOREM'
+            'DELETE_CONTENT_DOCUMENT', 'EMAIL_MESSAGE_LOREM', 'KEEP'
         };
         Map<String, TEKCO_AnonymizationPattern__mdt> active =
             TEKCO_AnonymizationConfigSelector.buildPatternMap();
