@@ -311,11 +311,11 @@ existed have it blank, and the queries fall back to the old test for those.
 - **Coverage is whatever is configured.** Nothing enumerates the PII the configuration does
   *not* cover. Objects such as Task, Event and Chatter feeds are absent unless someone adds
   them.
-- **The configuration is not consolidated yet.** The code reads a list of record types, but the
-  98 records still carry one name each: 31 `(object, field)` pairs are spelled out once per
-  record type, all 31 with the same pattern and the same history setting. Merging them — union
-  the record types, keep one rule per pair — brings the set to 67. The code is ready and
-  strictly backward compatible; the data change waits for a delivery window.
+- **The ALH configuration is not consolidated.** The TEKCO set was merged — 26 pairs of
+  `IndividualP_X` + `Patient_X` became one `Account_X` carrying both record types, 77 records
+  down to 51. The 21 `ALH_*` records belong to the Portugal org and were left as they are; five
+  of their `(object, field)` pairs are still spelled out once per record type and could be
+  merged the same way whenever that org is ready.
 - **Two different filters on one object are not discriminated per record.** A run reads their
   union and applies every rule to all of it, because Apex can re-check a record type but not a
   filter that walks a relationship. It is only observable when the rules behind the two filters

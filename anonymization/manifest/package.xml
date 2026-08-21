@@ -40,6 +40,32 @@
     </types>
     <types>
         <members>TEKCO_AnonymizationFieldConfig.CXFCO_ApiLog_c</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_ACCCO_Email</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_ACCCO_SocialSecurityNumber</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_ACCES_SecondEmail</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_ACCMG_RecallEmail</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_BillingCity</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_BillingStreet</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_Description</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_FUNCA_InvoiceEmail</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_FirstName</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_LastName</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_PASCO_OtherPhone1</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_PASCO_OtherPhone2</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_PRA</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_PersonEmail</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_PersonHomePhone</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_PersonMailingCity</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_PersonMailingStreet</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_PersonMobilePhone</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_PersonOtherPhone</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_Phone</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_ServicesPortalURL</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_ShippingCity</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_ShippingStreet</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_TEKCO_PersonEmail</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_TEKCO_PersonMobilePhone</members>
+        <members>TEKCO_AnonymizationFieldConfig.Account_TEKCO_PersonOtherPhone</members>
         <members>TEKCO_AnonymizationFieldConfig.Case_ContentDocument</members>
         <members>TEKCO_AnonymizationFieldConfig.Case_EmailMessage</members>
         <members>TEKCO_AnonymizationFieldConfig.Contact_Patient_Email</members>
@@ -47,58 +73,6 @@
         <members>TEKCO_AnonymizationFieldConfig.Contact_Patient_LastName</members>
         <members>TEKCO_AnonymizationFieldConfig.Contact_Patient_MailingStreet</members>
         <members>TEKCO_AnonymizationFieldConfig.Contact_Patient_SocialSecurityNumber</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_ACCCO_Email</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_ACCCO_SocialSecurityNumber</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_ACCES_SecondEmail</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_ACCMG_RecallEmail</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_BillingCity</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_BillingStreet</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_Description</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_FUNCA_InvoiceEmail</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_FirstName</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_LastName</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_PASCO_OtherPhone1</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_PASCO_OtherPhone2</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_PRA</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_PersonEmail</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_PersonHomePhone</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_PersonMailingCity</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_PersonMailingStreet</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_PersonMobilePhone</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_PersonOtherPhone</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_Phone</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_ServicesPortalURL</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_ShippingCity</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_ShippingStreet</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_TEKCO_PersonEmail</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_TEKCO_PersonMobilePhone</members>
-        <members>TEKCO_AnonymizationFieldConfig.IndividualP_TEKCO_PersonOtherPhone</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_ACCCO_Email</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_ACCCO_SocialSecurityNumber</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_ACCES_SecondEmail</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_ACCMG_RecallEmail</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_BillingCity</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_BillingStreet</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_Description</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_FUNCA_InvoiceEmail</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_FirstName</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_LastName</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_PASCO_OtherPhone1</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_PASCO_OtherPhone2</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_PRA</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_PersonEmail</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_PersonHomePhone</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_PersonMailingCity</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_PersonMailingStreet</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_PersonMobilePhone</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_PersonOtherPhone</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_Phone</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_ServicesPortalURL</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_ShippingCity</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_ShippingStreet</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_TEKCO_PersonEmail</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_TEKCO_PersonMobilePhone</members>
-        <members>TEKCO_AnonymizationFieldConfig.Patient_TEKCO_PersonOtherPhone</members>
         <members>TEKCO_AnonymizationFieldConfig.Prescription_ContentDocument</members>
         <members>TEKCO_AnonymizationFieldConfig.SAMCO_PrescriberPreferences_Email</members>
         <members>TEKCO_AnonymizationFieldConfig.SAMCO_PrescriberPreferences_Mobile</members>

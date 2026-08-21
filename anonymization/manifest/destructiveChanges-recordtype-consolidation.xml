@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Removes the 52 field configs superseded by the record-type consolidation.
+
+     TEKCO_RecordTypeDeveloperName__c now holds a comma-separated LIST of the record types a
+     rule covers, so a field no longer needs one config per population. Each pair
+     IndividualP_X + Patient_X becomes one Account_X carrying
+     "ACCCO_IndividualPerson,ACCCO_Patient". Coverage is unchanged: a script compared, for each
+     (object, field), the union of record types before and the list after, over all 50 pairs.
+
+     TEKCO only. The 21 ALH_* configs belong to the Portugal org and are untouched.
+
+     POST-destructive, so the 26 replacements exist before these disappear:
+
+       sf project deploy start ~-manifest anonymization/manifest/package.xml
+           ~-post-destructive-changes anonymization/manifest/destructiveChanges-recordtype-consolidation.xml
+           ~-dry-run ~-target-org <alias>
+     (replace ~- with double dashes; XML comments cannot contain them)
+
+     BEFORE DEPLOYING, CHECK THAT NO RUN IS IN FLIGHT. A chained run reloads its configs from
+     the developer names it holds in serialized state; deleting them mid-chain leaves the run
+     with nothing to apply, the bypass raised and the audit log stuck on Running:
+
+       SELECT Id, Status, ApexClass.Name, CreatedDate FROM AsyncApexJob
+       WHERE Status IN ('Queued','Processing','Preparing','Holding') AND ApexClass.Name LIKE 'TEKCO_%'
+
+     THE CODE MUST BE DEPLOYED FIRST. A version that reads TEKCO_RecordTypeDeveloperName__c as a
+     single name would match nothing against "ACCCO_IndividualPerson,ACCCO_Patient" and would
+     silently anonymize no Account field at all.
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_ACCCO_Email</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_ACCCO_SocialSecurityNumber</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_ACCES_SecondEmail</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_ACCMG_RecallEmail</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_BillingCity</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_BillingStreet</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_Description</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_FUNCA_InvoiceEmail</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_FirstName</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_LastName</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_PASCO_OtherPhone1</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_PASCO_OtherPhone2</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_PRA</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_PersonEmail</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_PersonHomePhone</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_PersonMailingCity</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_PersonMailingStreet</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_PersonMobilePhone</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_PersonOtherPhone</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_Phone</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_ServicesPortalURL</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_ShippingCity</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_ShippingStreet</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_TEKCO_PersonEmail</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_TEKCO_PersonMobilePhone</members>
+        <members>TEKCO_AnonymizationFieldConfig.IndividualP_TEKCO_PersonOtherPhone</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_ACCCO_Email</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_ACCCO_SocialSecurityNumber</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_ACCES_SecondEmail</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_ACCMG_RecallEmail</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_BillingCity</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_BillingStreet</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_Description</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_FUNCA_InvoiceEmail</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_FirstName</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_LastName</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_PASCO_OtherPhone1</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_PASCO_OtherPhone2</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_PRA</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_PersonEmail</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_PersonHomePhone</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_PersonMailingCity</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_PersonMailingStreet</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_PersonMobilePhone</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_PersonOtherPhone</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_Phone</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_ServicesPortalURL</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_ShippingCity</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_ShippingStreet</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_TEKCO_PersonEmail</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_TEKCO_PersonMobilePhone</members>
+        <members>TEKCO_AnonymizationFieldConfig.Patient_TEKCO_PersonOtherPhone</members>
+        <name>CustomMetadata</name>
+    </types>
+    <version>65.0</version>
+</Package>
