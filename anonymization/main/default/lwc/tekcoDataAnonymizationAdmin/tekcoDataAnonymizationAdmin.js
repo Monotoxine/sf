@@ -8,88 +8,21 @@ import getRecordTypes     from '@salesforce/apex/TEKCO_AnonymizationController.g
 import getFieldConfigs    from '@salesforce/apex/TEKCO_AnonymizationController.getFieldConfigs';
 import getPreviewCounts   from '@salesforce/apex/TEKCO_AnonymizationController.getPreviewCounts';
 import getAuditLogs       from '@salesforce/apex/TEKCO_AnonymizationController.getAuditLogs';
-import getConfigHealth    from '@salesforce/apex/TEKCO_AnonymizationController.getConfigHealth';
 import startAnonymization from '@salesforce/apex/TEKCO_AnonymizationController.startAnonymization';
-import previewSample      from '@salesforce/apex/TEKCO_AnonymizationController.previewSample';
 
 import resolveIds                  from '@salesforce/apex/TEKCO_AnonymizationByIdController.resolveIds';
 import startAnonymizationByIds     from '@salesforce/apex/TEKCO_AnonymizationByIdController.startAnonymizationByIds';
 import getAuditLogsByid            from '@salesforce/apex/TEKCO_AnonymizationByIdController.getAuditLogsByid';
 import getExternalIdFieldsForObject from '@salesforce/apex/TEKCO_AnonymizationByIdController.getExternalIdFieldsForObject';
 import getDirectObjects              from '@salesforce/apex/TEKCO_AnonymizationByIdController.getDirectObjects';
-import previewSampleByIds           from '@salesforce/apex/TEKCO_AnonymizationByIdController.previewSampleByIds';
 
 const AUDIT_POLL_INTERVAL_MS = 5000;
-
-/**
- * Extracts a human-readable message from anything a promise chain can reject with:
- * Apex AuraHandledException ({body: {message}}), body as an array, pageErrors, plain
- * Error objects, thrown strings. The JSON fallback guarantees an opaque 'Unknown error'
- * never reaches the user again.
- */
-function extractErrorMessage(err) {
-    if (!err) return 'Unknown error';
-    if (typeof err === 'string') return err;
-    const body = err.body ?? err;
-    if (Array.isArray(body)) {
-        const joined = body.map(e => e?.message).filter(Boolean).join(', ');
-        if (joined) return joined;
-    }
-    return body?.message
-        ?? err.message
-        ?? body?.pageErrors?.[0]?.message
-        ?? JSON.stringify(err);
-}
 
 function buildDeleteStatsLine(docs, hist) {
     const parts = [];
     if (docs > 0)  parts.push(`${docs} docs`);
     if (hist > 0)  parts.push(`${hist} hist.`);
     return parts.length ? parts.join(' · ') + ' deleted' : null;
-}
-
-/**
- * The record types one rule covers.
- *
- * TEKCO_RecordTypeDeveloperName__c holds a COMMA-SEPARATED LIST — the populations the rule
- * applies to — so it can never be compared as a single value. Its Apex mirror is
- * TEKCO_AnonymizationConfigSelector.recordTypesOf(); this is the only place the string is split
- * on the client.
- *
- * Treating it as one value is exactly what emptied the Fields to Anonymize table: a rule reading
- * "ACCCO_IndividualPerson,ACCCO_Patient" matched no selected record type, so every merged
- * Account rule was filtered out and the object looked unconfigured.
- */
-function recordTypesOf(cfg) {
-    if (!cfg || !cfg.recordTypeDeveloperName) return [];
-    return cfg.recordTypeDeveloperName.split(',').map(v => v.trim()).filter(v => v.length > 0);
-}
-
-/** Records read per before/after sample. Apex caps it again server-side. */
-const SAMPLE_SIZE = 1;
-
-/**
- * Shapes a PreviewSampleDTO for rendering. Shared by both tabs: the two panels are the same
- * panel fed by two endpoints, so a change to the display happens once.
- */
-function mapSampleResult(result) {
-    const rows = (result.rows || []).map((r, index) => ({
-        ...r,
-        key:        `${r.recordId}.${r.fieldApiName}.${index}`,
-        beforeValue: r.beforeValue === '' ? '(empty)' : r.beforeValue,
-        afterValue:  r.afterValue  === '' ? '(empty)' : r.afterValue
-    }));
-
-    const parts = [`${result.recordsSampled} record(s) sampled`];
-    if (result.recordsChanged   > 0) parts.push(`${result.recordsChanged} would change`);
-    if (result.recordsUnchanged > 0) parts.push(`${result.recordsUnchanged} unchanged`);
-    if (result.recordsToDelete  > 0) parts.push(`${result.recordsToDelete} would be deleted`);
-
-    return {
-        rows,
-        summary:  parts.join(' · '),
-        warnings: result.warnings || []
-    };
 }
 
 const RESOLVE_MODE_OPTIONS = [
@@ -130,19 +63,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     _pendingDisabledHistoryFields = [];
     _auditTimer   = null;
 
-    // Configuration health
-    @track configFindings   = [];
-    @track configChecked    = false;
-    @track isCheckingConfig = false;
-
-    // Before/after sample (By Criteria)
-    @track sampleObjectOptions = [];
-    @track sampleObject        = '';
-    @track sampleRows          = [];
-    @track sampleSummary       = null;
-    @track sampleWarnings      = [];
-    @track isLoadingSample     = false;
-
     // ── By ID tab state ───────────────────────────────────────────────────────
     @track byIdFieldFilterText = '';
     @track byIdFieldFilterRT   = '_all_';
@@ -163,14 +83,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     @track byIdErrorMessage          = '';
 
     _byIdAuditTimer = null;
-
-    // Before/after sample (By ID)
-    @track byIdSampleObjectOptions = [];
-    @track byIdSampleObject        = '';
-    @track byIdSampleRows          = [];
-    @track byIdSampleSummary       = null;
-    @track byIdSampleWarnings      = [];
-    @track isLoadingByIdSample     = false;
 
     connectedCallback() {
         this.loadBrands();
@@ -216,8 +128,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             .then(configs => {
                 this.fieldConfigs = configs.map(cfg => ({
                     ...cfg,
-                    configKey:             cfg.developerName,
-                    recordTypeLabel:       recordTypesOf(cfg).join(', '),
+                    configKey:             `${cfg.objectApiName}.${cfg.fieldApiName}.${cfg.recordTypeDeveloperName || ''}`,
                     enabled:               true,
                     originalDeleteHistory: cfg.deleteHistory,
                     isContentDoc:          cfg.patternType === 'DELETE_CONTENT_DOCUMENT'
@@ -249,11 +160,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
                         ? `${count} record(s) (ContentDocumentLinks to delete)`
                         : `${count} record(s)`
             }));
-            // Only objects that hold field-level patterns and actually match can be sampled.
-            this.sampleObjectOptions = results
-                .filter(r => !r.isContentDocOnly && r.count > 0)
-                .map(r => ({ label: r.objectApiName, value: r.objectApiName }));
-            this.resetSample();
             this.isLoadingPreview = false;
         })
         .catch(() => { this.isLoadingPreview = false; });
@@ -292,80 +198,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     handleSelectAllObjects()      { this.selectedObjects = this.objectOptions.map(o => o.value); this.loadRecordTypes(this.selectedObjects); }
     handleSelectAllRecordTypes()  { this.selectedRecordTypes = this.recordTypeOptions.map(o => o.value); }
     handlePreview()               { this.loadFieldConfigs(); this.loadPreview(); }
-
-    /**
-     * Surfaces what the batches would merely "skip": an object or field that does not exist,
-     * a pattern type with no active record, a filter that will not parse. Each of those leaves
-     * a field un-anonymized today with no visible signal.
-     */
-    handleCheckConfig() {
-        this.isCheckingConfig = true;
-        getConfigHealth()
-            .then(findings => {
-                this.configFindings   = (findings || []).map((text, index) => ({ key: index, text }));
-                this.configChecked    = true;
-                this.isCheckingConfig = false;
-            }, err => {
-                this.showError('Configuration check failed', err);
-                this.isCheckingConfig = false;
-            });
-    }
-
-    // ── Before/after sample (By Criteria) ─────────────────────────────────────
-
-    resetSample() {
-        const available = new Set(this.sampleObjectOptions.map(o => o.value));
-        if (!available.has(this.sampleObject)) {
-            this.sampleObject = this.sampleObjectOptions.length === 1
-                ? this.sampleObjectOptions[0].value
-                : '';
-        }
-        this.sampleRows     = [];
-        this.sampleSummary  = null;
-        this.sampleWarnings = [];
-    }
-
-    handleSampleObjectChange(event) {
-        this.sampleObject   = event.detail.value;
-        this.sampleRows     = [];
-        this.sampleSummary  = null;
-        this.sampleWarnings = [];
-    }
-
-    /**
-     * Reads a handful of records and shows what the run would write, without any DML.
-     * Field exclusions ticked in the table below are honoured, so what is shown is what the
-     * launch would actually do.
-     */
-    handleShowSample() {
-        if (!this.sampleObject) return;
-        this.isLoadingSample = true;
-        this.sampleRows      = [];
-        this.sampleSummary   = null;
-        this.sampleWarnings  = [];
-
-        const excludedFields = this.fieldConfigs
-            .filter(cfg => cfg.objectApiName === this.sampleObject && !cfg.enabled)
-            .map(cfg => cfg.configKey);
-
-        previewSample({
-            objectApiName:       this.sampleObject,
-            selectedBrands:      this.selectedBrands,
-            selectedRecordTypes: this.selectedRecordTypes.length > 0 ? this.selectedRecordTypes : null,
-            excludedFields:      excludedFields.length > 0 ? excludedFields : null,
-            sampleSize:          SAMPLE_SIZE
-        })
-        .then(result => {
-            const mapped        = mapSampleResult(result);
-            this.sampleRows     = mapped.rows;
-            this.sampleSummary  = mapped.summary;
-            this.sampleWarnings = mapped.warnings;
-            this.isLoadingSample = false;
-        }, err => {
-            this.showError('Sample preview failed', err);
-            this.isLoadingSample = false;
-        });
-    }
     handleFieldFilterChange(event)   { this.fieldFilterText = event.target.value; }
     handleFieldFilterRtChange(event) { this.fieldFilterRT   = event.detail.value; }
     handleSelectAllRun() {
@@ -430,21 +262,16 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             selectedRecordTypes:   this.selectedRecordTypes.length > 0 ? this.selectedRecordTypes : null,
             disabledHistoryFields: this._pendingDisabledHistoryFields.length > 0 ? this._pendingDisabledHistoryFields : null
         })
-        // Two-argument then(): the rejection handler must only see the Apex failure.
-        // A chained .catch would also swallow throws from the success handler (e.g. the
-        // Lightning container's toast instrumentation) and report a started run as failed.
-        .then(
-            auditLogId => {
-                this.isRunning = false;
-                this.startAuditPoll(); // before the toast, so a toast-layer throw cannot skip it
-                this.showToast('Anonymization Started', `Audit log: ${auditLogId}`, 'success');
-            },
-            err => {
-                this.isRunning    = false;
-                this.errorMessage = extractErrorMessage(err);
-                this.showToast('Error', this.errorMessage, 'error');
-            }
-        );
+        .then(auditLogId => {
+            this.isRunning = false;
+            this.showToast('Anonymization Started', `Audit log: ${auditLogId}`, 'success');
+            this.startAuditPoll();
+        })
+        .catch(err => {
+            this.isRunning    = false;
+            this.errorMessage = err?.body?.message ?? err?.message ?? 'Unknown error';
+            this.showToast('Error', this.errorMessage, 'error');
+        });
     }
 
     startAuditPoll() {
@@ -515,7 +342,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             .then(result => {
                 this.byIdResolveResult = result;
                 this.isByIdResolving   = false;
-                this._refreshByIdSampleOptions(result);
                 if (result.totalValid > 0) this._loadByIdFieldConfigs(result);
             })
             .catch(err => {
@@ -536,8 +362,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             .then(configs => {
                 this.byIdFieldConfigs = configs.map(cfg => ({
                     ...cfg,
-                    configKey:             cfg.developerName,
-                    recordTypeLabel:       recordTypesOf(cfg).join(', '),
+                    configKey:             `${cfg.objectApiName}.${cfg.fieldApiName}.${cfg.recordTypeDeveloperName || ''}`,
                     enabled:               true,
                     deleteHistory:         cfg.deleteHistory !== false,
                     originalDeleteHistory: cfg.deleteHistory !== false,
@@ -545,67 +370,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
                 }));
             })
             .catch(() => { this.byIdFieldConfigs = []; });
-    }
-
-    // ── Before/after sample (By ID) ───────────────────────────────────────────
-
-    _refreshByIdSampleOptions(resolveResult) {
-        this.byIdSampleObjectOptions = [
-            ...(resolveResult.directObjects || []),
-            ...(resolveResult.childObjects  || [])
-        ].map(o => ({ label: o.objectApiName, value: o.objectApiName }));
-
-        const available = new Set(this.byIdSampleObjectOptions.map(o => o.value));
-        if (!available.has(this.byIdSampleObject)) {
-            this.byIdSampleObject = this.byIdSampleObjectOptions.length === 1
-                ? this.byIdSampleObjectOptions[0].value
-                : '';
-        }
-        this.byIdSampleRows     = [];
-        this.byIdSampleSummary  = null;
-        this.byIdSampleWarnings = [];
-    }
-
-    handleByIdSampleObjectChange(event) {
-        this.byIdSampleObject   = event.detail.value;
-        this.byIdSampleRows     = [];
-        this.byIdSampleSummary  = null;
-        this.byIdSampleWarnings = [];
-    }
-
-    handleShowByIdSample() {
-        if (!this.byIdSampleObject) return;
-        const ids = this._parseByIdInput();
-        if (!ids.length) return;
-
-        this.isLoadingByIdSample = true;
-        this.byIdSampleRows      = [];
-        this.byIdSampleSummary   = null;
-        this.byIdSampleWarnings  = [];
-
-        const excludedFields = this.byIdFieldConfigs
-            .filter(cfg => cfg.objectApiName === this.byIdSampleObject && !cfg.enabled)
-            .map(cfg => cfg.configKey);
-
-        previewSampleByIds({
-            rawIds:          ids,
-            resolveMode:     this.byIdResolveMode,
-            targetObject:    this.byIdTargetObject || null,
-            externalIdField: this.byIdExternalIdField || null,
-            objectApiName:   this.byIdSampleObject,
-            excludedFields:  excludedFields.length > 0 ? excludedFields : null,
-            sampleSize:      SAMPLE_SIZE
-        })
-        .then(result => {
-            const mapped            = mapSampleResult(result);
-            this.byIdSampleRows     = mapped.rows;
-            this.byIdSampleSummary  = mapped.summary;
-            this.byIdSampleWarnings = mapped.warnings;
-            this.isLoadingByIdSample = false;
-        }, err => {
-            this.byIdErrorMessage    = extractErrorMessage(err);
-            this.isLoadingByIdSample = false;
-        });
     }
 
     handleByIdFieldToggle(event) {
@@ -681,19 +445,16 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             excludedFields:  excludedFields.length  > 0 ? excludedFields  : null,
             noHistoryFields: noHistoryFields.length > 0 ? noHistoryFields : null
         })
-            // Same two-argument shape as handleConfirmLaunch — see the comment there.
-            .then(
-                auditLogId => {
-                    this.isByIdRunning = false;
-                    this.startByIdAuditPoll();
-                    this.showToast('Anonymization Started', `Audit log: ${auditLogId}`, 'success');
-                },
-                err => {
-                    this.isByIdRunning    = false;
-                    this.byIdErrorMessage = extractErrorMessage(err);
-                    this.showToast('Error', this.byIdErrorMessage, 'error');
-                }
-            );
+            .then(auditLogId => {
+                this.isByIdRunning = false;
+                this.showToast('Anonymization Started', `Audit log: ${auditLogId}`, 'success');
+                this.startByIdAuditPoll();
+            })
+            .catch(err => {
+                this.isByIdRunning    = false;
+                this.byIdErrorMessage = err?.body?.message ?? err?.message ?? 'Unknown error';
+                this.showToast('Error', this.byIdErrorMessage, 'error');
+            });
     }
 
     handleByIdRefreshLogs() { this.loadByIdAuditLogs(); }
@@ -762,11 +523,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     get hasByIdAnyValid()         { return !!(this.byIdResolveResult?.totalValid > 0); }
     get byIdExternalIdFieldDisabled() { return !this.byIdTargetObject || this.byIdExternalIdFieldOptions.length === 0; }
     get hasByIdAuditLogs()        { return this.byIdAuditLogs.length > 0; }
-
-    get hasByIdSampleObjects()    { return this.byIdSampleObjectOptions.length > 0; }
-    get hasByIdSampleRows()        { return this.byIdSampleRows.length > 0; }
-    get hasByIdSampleWarnings()    { return this.byIdSampleWarnings.length > 0; }
-    get isByIdSampleDisabled()     { return !this.byIdSampleObject || this.isLoadingByIdSample; }
     get hasByIdFieldConfigs()     { return this.byIdFieldConfigs.length > 0; }
     get isByIdLaunchDisabled()    { return !this.hasPermission || !this.hasByIdAnyValid || this.isByIdRunning; }
     get byIdLaunchLabel()         { return this.isByIdRunning ? 'Running...' : 'Launch Anonymization'; }
@@ -779,9 +535,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         }
         if (this.byIdFieldFilterRT && this.byIdFieldFilterRT !== '_all_') {
             const isBlank = this.byIdFieldFilterRT === '_blank_';
-            result = result.filter(c => isBlank
-                ? recordTypesOf(c).length === 0
-                : recordTypesOf(c).includes(this.byIdFieldFilterRT));
+            result = result.filter(c => isBlank ? !c.recordTypeDeveloperName : c.recordTypeDeveloperName === this.byIdFieldFilterRT);
         }
         return result;
     }
@@ -790,13 +544,11 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         const seen = new Set();
         const options = [{ label: 'All Record Types', value: '_all_' }];
         (this.byIdFieldConfigs || []).forEach(c => {
-            const covered = recordTypesOf(c);
-            if (covered.length === 0) covered.push('');
-            covered.forEach(rt => {
-                if (seen.has(rt)) return;
+            const rt = c.recordTypeDeveloperName || '';
+            if (!seen.has(rt)) {
                 seen.add(rt);
                 options.push({ label: rt || '(none)', value: rt || '_blank_' });
-            });
+            }
         });
         return options;
     }
@@ -815,13 +567,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     // ── By Criteria getters ───────────────────────────────────────────────────
 
     get hasFieldConfigs()      { return this.fieldConfigs.length > 0; }
-    get hasConfigFindings()    { return this.configFindings.length > 0; }
-    get configIsClean()        { return this.configChecked && this.configFindings.length === 0; }
     get hasPreview()           { return this.previewByObject.length > 0; }
-    get hasSampleObjects()     { return this.sampleObjectOptions.length > 0; }
-    get hasSampleRows()        { return this.sampleRows.length > 0; }
-    get hasSampleWarnings()    { return this.sampleWarnings.length > 0; }
-    get isSampleDisabled()     { return !this.sampleObject || this.isLoadingSample; }
     get hasAuditLogs()         { return this.auditLogs.length > 0; }
     get hasRecordTypeOptions() { return this.recordTypeOptions.length > 0; }
     get isStartDisabled()      { return !this.hasPermission || this.isRunning; }
@@ -836,12 +582,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         // Pre-filter by the main RT selector when record types are selected
         if (this.selectedRecordTypes && this.selectedRecordTypes.length > 0) {
             const selectedSet = new Set(this.selectedRecordTypes);
-            // A rule stays as soon as ONE of the populations it covers is selected — the same
-            // intersection the launch service applies server-side.
-            result = result.filter(c => {
-                const covered = recordTypesOf(c);
-                return covered.length === 0 || covered.some(rt => selectedSet.has(rt));
-            });
+            result = result.filter(c => !c.recordTypeDeveloperName || selectedSet.has(c.recordTypeDeveloperName));
         }
         // Manual text filter
         if (this.fieldFilterText) {
@@ -851,9 +592,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         // Manual RT dropdown filter
         if (this.fieldFilterRT && this.fieldFilterRT !== '_all_') {
             const isBlank = this.fieldFilterRT === '_blank_';
-            result = result.filter(c => isBlank
-                ? recordTypesOf(c).length === 0
-                : recordTypesOf(c).includes(this.fieldFilterRT));
+            result = result.filter(c => isBlank ? !c.recordTypeDeveloperName : c.recordTypeDeveloperName === this.fieldFilterRT);
         }
         return result;
     }
@@ -862,13 +601,11 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         const seen = new Set();
         const options = [{ label: 'All Record Types', value: '_all_' }];
         (this.fieldConfigs || []).forEach(c => {
-            const covered = recordTypesOf(c);
-            if (covered.length === 0) covered.push('');
-            covered.forEach(rt => {
-                if (seen.has(rt)) return;
+            const rt = c.recordTypeDeveloperName || '';
+            if (!seen.has(rt)) {
                 seen.add(rt);
                 options.push({ label: rt || '(none)', value: rt || '_blank_' });
-            });
+            }
         });
         return options;
     }
@@ -890,7 +627,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     }
 
     showError(context, err) {
-        console.error(`[TekcoAnonymizationAdmin] ${context}:`, extractErrorMessage(err));
+        console.error(`[TekcoAnonymizationAdmin] ${context}:`, err?.body?.message ?? err?.message ?? err);
     }
 
     showToast(title, message, variant) {

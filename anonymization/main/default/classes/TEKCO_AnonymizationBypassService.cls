@@ -4,20 +4,13 @@
  *              for the running user before the anonymization batch starts, then restores the original
  *              state once the entire batch chain is complete.
  *
- *              The setting is reached dynamically: it is absent from some orgs, and a compile-time
- *              reference would make the whole package undeployable there even though this code
- *              never runs.
- *
- *              Which setting carries the flags is per-org configuration:
- *              TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BypassObjectApiName__c.
- *              Blank = no bypass at all (Portugal today); set = bypass through the named setting.
- *              Orgs without a CMDT record get TEKCO_BypassSettings__c from the code default.
+ *              The setting is reached dynamically: it is absent from some orgs (Portugal, where
+ *              TEKCO_BypassEnabled__c is false), and a compile-time reference would make the whole
+ *              package undeployable there even though this code never runs.
  */
 public inherited sharing class TEKCO_AnonymizationBypassService {
 
-    private static String bypassObject() {
-        return TEKCO_AnonymizationOrgConfigService.getConfig().bypassObjectApiName;
-    }
+    private static final String BYPASS_OBJECT = 'TEKCO_BypassSettings__c';
 
     public class BypassSnapshot {
         public Boolean              hasPreExistingRecord;
@@ -27,15 +20,15 @@ public inherited sharing class TEKCO_AnonymizationBypassService {
     private static List<String> bypassFieldNames;
 
     private static Boolean bypassAvailable() {
-        return String.isNotBlank(bypassObject())
-            && TEKCO_AnonymizationOrgConfigService.hasObject(bypassObject());
+        return TEKCO_AnonymizationOrgConfigService.getConfig().bypassEnabled
+            && TEKCO_AnonymizationOrgConfigService.hasObject(BYPASS_OBJECT);
     }
 
     private static List<String> getBypassFieldNames() {
         if (bypassFieldNames != null) return bypassFieldNames;
         bypassFieldNames = new List<String>();
         Map<String, Schema.SObjectField> fieldMap =
-            TEKCO_AnonymizationOrgConfigService.getFieldMap(bypassObject());
+            TEKCO_AnonymizationOrgConfigService.getFieldMap(BYPASS_OBJECT);
         if (fieldMap == null) return bypassFieldNames;
         for (String fieldName : fieldMap.keySet()) {
             Schema.DescribeFieldResult fd = fieldMap.get(fieldName).getDescribe();
@@ -50,7 +43,7 @@ public inherited sharing class TEKCO_AnonymizationBypassService {
         List<String> fieldNames = getBypassFieldNames();
         String selectList = fieldNames.isEmpty() ? 'Id' : 'Id, ' + String.join(fieldNames, ', ');
         List<SObject> existing = Database.queryWithBinds(
-            'SELECT ' + selectList + ' FROM ' + bypassObject()
+            'SELECT ' + selectList + ' FROM ' + BYPASS_OBJECT
                 + ' WHERE SetupOwnerId = :userId LIMIT 1',
             new Map<String, Object>{ 'userId' => userId },
             AccessLevel.SYSTEM_MODE
@@ -58,7 +51,7 @@ public inherited sharing class TEKCO_AnonymizationBypassService {
         if (!existing.isEmpty()) return existing[0];
 
         SObject bypassRecord =
-            TEKCO_AnonymizationOrgConfigService.getSObjectType(bypassObject()).newSObject();
+            TEKCO_AnonymizationOrgConfigService.getSObjectType(BYPASS_OBJECT).newSObject();
         bypassRecord.put('SetupOwnerId', userId);
         return bypassRecord;
     }

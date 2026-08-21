@@ -107,38 +107,6 @@
                 </div>
             </div>
 
-            <!-- ── Configuration health ──────────────────────────────────── -->
-            <div class="slds-m-bottom_medium">
-                <lightning-button
-                    label="Check Configuration"
-                    icon-name="utility:check"
-                    onclick={handleCheckConfig}>
-                </lightning-button>
-                <template if:true={isCheckingConfig}>
-                    <lightning-spinner alternative-text="Checking..." size="small" class="slds-m-left_small"></lightning-spinner>
-                </template>
-            </div>
-
-            <template if:true={configIsClean}>
-                <div class="slds-notify slds-notify_alert slds-theme_success slds-m-bottom_medium" role="alert">
-                    <lightning-icon icon-name="utility:success" size="x-small" variant="inverse" class="slds-m-right_x-small"></lightning-icon>
-                    Configuration checked: every object, field, pattern and filter resolves.
-                </div>
-            </template>
-
-            <template if:true={hasConfigFindings}>
-                <div class="slds-notify slds-notify_alert slds-theme_warning slds-m-bottom_medium" role="alert">
-                    <lightning-icon icon-name="utility:warning" size="x-small" class="slds-m-right_x-small"></lightning-icon>
-                    <strong>{configFindings.length} configuration issue(s)</strong> — each one leaves a
-                    field un-anonymized without any error at run time.
-                    <ul class="slds-list_dotted slds-m-top_x-small">
-                        <template for:each={configFindings} for:item="finding">
-                            <li key={finding.key} class="slds-text-body_small">{finding.text}</li>
-                        </template>
-                    </ul>
-                </div>
-            </template>
-
             <!-- Preview button -->
             <div class="slds-m-bottom_medium">
                 <lightning-button
@@ -173,79 +141,6 @@
                                 </template>
                             </div>
                         </div>
-                    </template>
-                </div>
-            </template>
-
-
-            <!-- ── Before/after sample ───────────────────────────────────── -->
-            <template if:true={hasSampleObjects}>
-                <div class="slds-box slds-m-bottom_medium">
-                    <h3 class="slds-text-heading_small slds-m-bottom_x-small">Sample values (before / after)</h3>
-                    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
-                        Reads a few records and shows exactly what the run would write. Nothing is saved.
-                    </p>
-                    <div class="slds-grid slds-gutters slds-grid_vertical-align-end slds-m-bottom_small">
-                        <div class="slds-col slds-size_1-of-2">
-                            <lightning-combobox
-                                label="Object to sample"
-                                value={sampleObject}
-                                options={sampleObjectOptions}
-                                placeholder="Select an object"
-                                onchange={handleSampleObjectChange}>
-                            </lightning-combobox>
-                        </div>
-                        <div class="slds-col">
-                            <lightning-button
-                                label="Show sample"
-                                icon-name="utility:preview"
-                                disabled={isSampleDisabled}
-                                onclick={handleShowSample}>
-                            </lightning-button>
-                        </div>
-                    </div>
-
-                    <template if:true={isLoadingSample}>
-                        <lightning-spinner alternative-text="Building sample..." size="small"></lightning-spinner>
-                    </template>
-
-                    <template if:true={sampleSummary}>
-                        <p class="slds-text-body_small slds-m-bottom_x-small"><strong>{sampleSummary}</strong></p>
-                    </template>
-
-                    <template if:true={hasSampleRows}>
-                        <div class="slds-scrollable_x">
-                            <table class="slds-table slds-table_bordered slds-table_cell-buffer">
-                                <thead>
-                                    <tr class="slds-line-height_reset">
-                                        <th scope="col"><div class="slds-truncate" title="Record">Record</div></th>
-                                        <th scope="col"><div class="slds-truncate" title="Field">Field</div></th>
-                                        <th scope="col"><div class="slds-truncate" title="Pattern">Pattern</div></th>
-                                        <th scope="col"><div class="slds-truncate" title="Before">Before</div></th>
-                                        <th scope="col"><div class="slds-truncate" title="After">After</div></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <template for:each={sampleRows} for:item="row">
-                                        <tr key={row.key} class="slds-hint-parent">
-                                            <td><div class="slds-truncate" title={row.recordId}>{row.recordId}</div></td>
-                                            <td><div class="slds-truncate" title={row.fieldApiName}>{row.fieldApiName}</div></td>
-                                            <td><div class="slds-truncate" title={row.patternType}>{row.patternType}</div></td>
-                                            <td><div title={row.beforeValue}>{row.beforeValue}</div></td>
-                                            <td><div title={row.afterValue}><strong>{row.afterValue}</strong></div></td>
-                                        </tr>
-                                    </template>
-                                </tbody>
-                            </table>
-                        </div>
-                    </template>
-
-                    <template if:true={hasSampleWarnings}>
-                        <ul class="slds-list_dotted slds-m-top_small slds-text-body_small slds-text-color_weak">
-                            <template for:each={sampleWarnings} for:item="warning">
-                                <li key={warning}>{warning}</li>
-                            </template>
-                        </ul>
                     </template>
                 </div>
             </template>
@@ -303,11 +198,9 @@
                                 <thead>
                                     <tr class="slds-line-height_reset">
                                         <th style="width:3rem"><div class="slds-truncate">Run</div></th>
-                                        <th><div class="slds-truncate" title="Configuration record behind this row">Rule</div></th>
                                         <th><div class="slds-truncate">Field</div></th>
                                         <th><div class="slds-truncate">Pattern</div></th>
                                         <th><div class="slds-truncate">Record Type</div></th>
-                                        <th><div class="slds-truncate" title="Additional filter restricting this rule to part of the object">Scope</div></th>
                                         <th><div class="slds-truncate">Del. History</div></th>
                                         <th><div class="slds-truncate">Description</div></th>
                                     </tr>
@@ -322,7 +215,6 @@
                                                     data-key={field.configKey}
                                                     onchange={handleFieldToggle} />
                                             </td>
-                                            <td><div class="slds-truncate" title={field.label}>{field.label}</div></td>
                                             <td><div class="slds-truncate">{field.fieldApiName}</div></td>
                                             <td>
                                                 <div class="slds-truncate">
@@ -335,13 +227,8 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <div class="slds-truncate" title={field.recordTypeLabel}>
-                                                    {field.recordTypeLabel}
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div class="slds-truncate" title={field.additionalFilter}>
-                                                    {field.additionalFilter}
+                                                <div class="slds-truncate">
+                                                    {field.recordTypeDeveloperName}
                                                 </div>
                                             </td>
                                             <td>
@@ -576,79 +463,6 @@
                     </div>
                 </template>
 
-
-                <!-- ── Before/after sample ───────────────────────────────── -->
-                <template if:true={hasByIdSampleObjects}>
-                    <div class="slds-box slds-m-bottom_medium">
-                        <h3 class="slds-text-heading_small slds-m-bottom_x-small">Sample values (before / after)</h3>
-                        <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
-                            Reads a few of the resolved records and shows exactly what the run would write. Nothing is saved.
-                        </p>
-                        <div class="slds-grid slds-gutters slds-grid_vertical-align-end slds-m-bottom_small">
-                            <div class="slds-col slds-size_1-of-2">
-                                <lightning-combobox
-                                    label="Object to sample"
-                                    value={byIdSampleObject}
-                                    options={byIdSampleObjectOptions}
-                                    placeholder="Select an object"
-                                    onchange={handleByIdSampleObjectChange}>
-                                </lightning-combobox>
-                            </div>
-                            <div class="slds-col">
-                                <lightning-button
-                                    label="Show sample"
-                                    icon-name="utility:preview"
-                                    disabled={isByIdSampleDisabled}
-                                    onclick={handleShowByIdSample}>
-                                </lightning-button>
-                            </div>
-                        </div>
-
-                        <template if:true={isLoadingByIdSample}>
-                            <lightning-spinner alternative-text="Building sample..." size="small"></lightning-spinner>
-                        </template>
-
-                        <template if:true={byIdSampleSummary}>
-                            <p class="slds-text-body_small slds-m-bottom_x-small"><strong>{byIdSampleSummary}</strong></p>
-                        </template>
-
-                        <template if:true={hasByIdSampleRows}>
-                            <div class="slds-scrollable_x">
-                                <table class="slds-table slds-table_bordered slds-table_cell-buffer">
-                                    <thead>
-                                        <tr class="slds-line-height_reset">
-                                            <th scope="col"><div class="slds-truncate" title="Record">Record</div></th>
-                                            <th scope="col"><div class="slds-truncate" title="Field">Field</div></th>
-                                            <th scope="col"><div class="slds-truncate" title="Pattern">Pattern</div></th>
-                                            <th scope="col"><div class="slds-truncate" title="Before">Before</div></th>
-                                            <th scope="col"><div class="slds-truncate" title="After">After</div></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <template for:each={byIdSampleRows} for:item="row">
-                                            <tr key={row.key} class="slds-hint-parent">
-                                                <td><div class="slds-truncate" title={row.recordId}>{row.recordId}</div></td>
-                                                <td><div class="slds-truncate" title={row.fieldApiName}>{row.fieldApiName}</div></td>
-                                                <td><div class="slds-truncate" title={row.patternType}>{row.patternType}</div></td>
-                                                <td><div title={row.beforeValue}>{row.beforeValue}</div></td>
-                                                <td><div title={row.afterValue}><strong>{row.afterValue}</strong></div></td>
-                                            </tr>
-                                        </template>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </template>
-
-                        <template if:true={hasByIdSampleWarnings}>
-                            <ul class="slds-list_dotted slds-m-top_small slds-text-body_small slds-text-color_weak">
-                                <template for:each={byIdSampleWarnings} for:item="warning">
-                                    <li key={warning}>{warning}</li>
-                                </template>
-                            </ul>
-                        </template>
-                    </div>
-                </template>
-
                 <!-- Fields to Anonymize table (shown after resolve) -->
                 <template if:true={hasByIdFieldConfigs}>
                     <div class="slds-m-bottom_medium">
@@ -698,7 +512,6 @@
                                     <thead>
                                         <tr class="slds-line-height_reset">
                                             <th style="width:3rem"><div class="slds-truncate">Run</div></th>
-                                            <th><div class="slds-truncate" title="Configuration record behind this row">Rule</div></th>
                                             <th><div class="slds-truncate">Field</div></th>
                                             <th><div class="slds-truncate">Pattern</div></th>
                                             <th><div class="slds-truncate">Record Type</div></th>
@@ -716,7 +529,6 @@
                                                         data-key={field.configKey}
                                                         onchange={handleByIdFieldToggle} />
                                                 </td>
-                                                <td><div class="slds-truncate" title={field.label}>{field.label}</div></td>
                                                 <td><div class="slds-truncate">{field.fieldApiName}</div></td>
                                                 <td>
                                                     <div class="slds-truncate">
@@ -728,7 +540,7 @@
                                                         </template>
                                                     </div>
                                                 </td>
-                                                <td><div class="slds-truncate" title={field.recordTypeLabel}>{field.recordTypeLabel}</div></td>
+                                                <td><div class="slds-truncate">{field.recordTypeDeveloperName}</div></td>
                                                 <td>
                                                     <input
                                                         type="checkbox"

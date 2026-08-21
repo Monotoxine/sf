@@ -1,120 +1,240 @@
 /**
- * @description Deletes the field-history rows of the configured fields on one object. Serves
- *              both chains: a run scoped by criteria and a run scoped by an explicit ID list
- *              differ only in how the parent records are selected.
- *
- *              Merged from TEKCO_FieldHistoryBatch and TEKCO_FieldHistoryByIdBatch. The guard
- *              against an empty field set — which would emit 'Field IN ()', invalid SOQL — had
- *              landed on the By ID side only until 3e893d2, and the object-existence guard on
- *              the By Criteria side only until 62b3ef0.
+ * @author
+ * @description Phase 3 of the anonymization chain: deletes field history records for
+ *              fields where TEKCO_AnonymizationFieldConfig__mdt.TEKCO_DeleteHistory__c = true
  */
-// Deliberately 'without sharing': see TEKCO_AnonymizationFieldBatch.
-public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Database.Stateful {
+public class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Database.Stateful {
 
     public static final Integer DEFAULT_BATCH_SIZE   = 2000;
+    private static final Integer MAX_CAPTURED_ERRORS  = 50;
 
-    private String objectApiName;
-    private TEKCO_AnonymizationRunContext ctx;
+    private String                                        objectApiName;
+    private List<String>                                  objectHistoryConfigDevNames;
+    private List<String>                                  selectedBrands;
+    private Id                                            auditLogId;
+    private List<String>                                  remainingHistoryConfigDevNames;
+    private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
+    private Map<String, List<String>>                     parentFiltersByObject;
+    private Map<String, String>                           additionalFiltersByObject;
 
-    private Integer      recordsDeleted = 0;
-    private Integer      recordsFailed  = 0;
-    private List<String> errors         = new List<String>();
-    private Boolean      aborted        = false;
+    private Integer recordsDeleted                   = 0;
+    private Integer recordsFailed                    = 0;
+    private Integer accumulatedRecordsProcessed      = 0;
+    private Integer accumulatedDocumentsDeleted      = 0;
+    private Integer accumulatedHistoryRecordsDeleted = 0;
+    private List<String> errors                      = new List<String>();
+    private List<String> accumulatedErrors           = new List<String>();
 
-    public TEKCO_FieldHistoryBatch(String objectApiName, TEKCO_AnonymizationRunContext ctx) {
-        this.objectApiName = objectApiName;
-        this.ctx           = ctx;
+    public TEKCO_FieldHistoryBatch(
+        String objectApiName,
+        List<TEKCO_AnonymizationFieldConfig__mdt> objectHistoryConfigs,
+        List<String> selectedBrands,
+        Id auditLogId,
+        List<TEKCO_AnonymizationFieldConfig__mdt> remainingHistoryConfigs,
+        TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
+        List<String> accumulatedErrors,
+        Integer accumulatedRecordsProcessed,
+        Integer accumulatedDocumentsDeleted,
+        Integer accumulatedHistoryRecordsDeleted,
+        Map<String, List<String>> parentFiltersByObject,
+        Map<String, String> additionalFiltersByObject
+    ) {
+        this.objectApiName                = objectApiName;
+        this.objectHistoryConfigDevNames    = TEKCO_AnonymizationBatchUtils.toDevNames(objectHistoryConfigs);
+        this.selectedBrands                 = selectedBrands != null ? selectedBrands : new List<String>();
+        this.auditLogId                     = auditLogId;
+        this.remainingHistoryConfigDevNames = TEKCO_AnonymizationBatchUtils.toDevNames(remainingHistoryConfigs);
+        this.bypassSnapshot                   = bypassSnapshot;
+        this.accumulatedErrors                = accumulatedErrors                != null ? accumulatedErrors                : new List<String>();
+        this.accumulatedRecordsProcessed      = accumulatedRecordsProcessed      != null ? accumulatedRecordsProcessed      : 0;
+        this.accumulatedDocumentsDeleted      = accumulatedDocumentsDeleted      != null ? accumulatedDocumentsDeleted      : 0;
+        this.accumulatedHistoryRecordsDeleted = accumulatedHistoryRecordsDeleted != null ? accumulatedHistoryRecordsDeleted : 0;
+        this.parentFiltersByObject            = parentFiltersByObject != null
+            ? parentFiltersByObject : new Map<String, List<String>>();
+        this.additionalFiltersByObject        = additionalFiltersByObject != null
+            ? additionalFiltersByObject : new Map<String, String>();
     }
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
-        if (!TEKCO_AnonymizationGuard.assertSandboxOrClose(ctx.auditLogId, ctx.bypassSnapshot)) {
-            aborted = true;
-            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
-        }
+        TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
 
-        // Checked before deriving the history object name: without it, a missing object yields a
-        // missing history object and the run reports 'field history not enabled' when the object
-        // itself is what is absent.
-        if (!TEKCO_AnonymizationOrgConfigService.hasObject(objectApiName)) {
+        try { Schema.describeSObjects(new List<String>{ objectApiName }); }
+        catch (Exception e) {
             errors.add('Object not found in org, skipped: ' + objectApiName);
-            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
+            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
         }
 
-        String historyObjectName = TEKCO_AnonymizationScopeQueryBuilder.historyObjectNameFor(objectApiName);
-        String parentIdFieldName = TEKCO_AnonymizationScopeQueryBuilder.historyParentIdFieldFor(objectApiName);
+        String historyObjectName = computeHistoryObjectName(objectApiName);
+        String parentIdFieldName = computeParentIdFieldName(objectApiName);
 
-        if (!TEKCO_AnonymizationOrgConfigService.hasObject(historyObjectName)) {
+        try { Schema.describeSObjects(new List<String>{ historyObjectName }); }
+        catch (Exception e) {
             errors.add('Field history not enabled for object, skipped: ' + objectApiName);
-            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
+            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
         }
 
         try {
-            // Must be a local of this exact name: the By ID query binds ':recordIds'.
-            List<Id> recordIds = ctx.recordIdsFor(objectApiName);
 
-            String soqlQuery = ctx.byId
-                ? TEKCO_AnonymizationScopeQueryBuilder.buildHistoryByIdScopeQuery(
-                      historyObjectName, parentIdFieldName, historyFieldNames(), 'recordIds'
-                  )
-                : TEKCO_AnonymizationScopeQueryBuilder.buildHistoryScopeQuery(
-                      objectApiName,
-                      historyObjectName,
-                      parentIdFieldName,
-                      historyFieldNames(),
-                      ctx.selectedBrands,
-                      ctx.recordTypeSelection(),
-                      historyConfigs(),
-                      ctx.additionalFilterFor(objectApiName)
-                  );
+        List<TEKCO_AnonymizationFieldConfig__mdt> objectHistoryConfigs =
+            TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(objectHistoryConfigDevNames);
 
-            // No targeted field would produce 'Field IN ()' — invalid SOQL. Both builders return
-            // null in that case so the step is skipped rather than reported as a parse error.
-            if (soqlQuery == null) {
-                errors.add('No history fields configured for object, skipped: ' + objectApiName);
-                return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
-            }
-
-            return Database.getQueryLocator(soqlQuery);
-        } catch (Exception e) {
-            errors.add('Failed to build query for ' + objectApiName + ': ' + e.getMessage());
-            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
-        }
-    }
-
-    /** Re-queried from developer names: only those cross chunk boundaries. */
-    private List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs() {
-        return TEKCO_AnonymizationConfigSelector.loadFieldConfigsByDevNames(
-            ctx.historyConfigDevNamesFor(objectApiName)
-        );
-    }
-
-    private Set<String> historyFieldNames() {
         Set<String> fieldApiNames = new Set<String>();
-        for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : historyConfigs()) {
+        for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : objectHistoryConfigs) {
             if (String.isNotBlank(fieldConfig.TEKCO_FieldApiName__c)) {
                 fieldApiNames.add(fieldConfig.TEKCO_FieldApiName__c);
             }
         }
-        return fieldApiNames;
+
+        List<String> escapedFieldNames = new List<String>();
+        for (String fieldName : fieldApiNames) {
+            escapedFieldNames.add('\'' + String.escapeSingleQuotes(fieldName) + '\'');
+        }
+
+        List<String> parentFilter = parentFiltersByObject.get(objectApiName);
+        String parentObjectApiName    = (parentFilter != null && parentFilter.size() > 0) ? parentFilter.get(0) : null;
+        String parentLookupField      = (parentFilter != null && parentFilter.size() > 1) ? parentFilter.get(1) : null;
+        String parentRecordTypeDvName = (parentFilter != null && parentFilter.size() > 2) ? parentFilter.get(2) : null;
+
+        String fieldPrefix = ' WHERE Field IN (' + String.join(escapedFieldNames, ',') + ')'
+            + ' AND ' + parentIdFieldName;
+
+        String soqlQuery;
+        String additionalFilter = additionalFiltersByObject.get(objectApiName);
+
+        if (String.isNotBlank(parentObjectApiName)) {
+            List<String> parentConditions = new List<String>();
+            if (!selectedBrands.isEmpty()) {
+                parentConditions.add('TEKCO_Brand__c IN :selectedBrands');
+            }
+            if (String.isNotBlank(parentRecordTypeDvName)) {
+                parentConditions.add(
+                    'RecordType.DeveloperName = \'' + String.escapeSingleQuotes(parentRecordTypeDvName) + '\''
+                );
+            }
+            String parentSubquery = 'SELECT Id FROM ' + parentObjectApiName;
+            if (!parentConditions.isEmpty()) {
+                parentSubquery += ' WHERE ' + String.join(parentConditions, ' AND ');
+            }
+            List<String> childConditions = new List<String>{
+                parentLookupField + ' IN (' + parentSubquery + ')'
+            };
+            if (String.isNotBlank(additionalFilter)) {
+                childConditions.add(additionalFilter);
+            }
+            soqlQuery = 'SELECT Id FROM ' + historyObjectName
+                + fieldPrefix + ' IN (SELECT Id FROM ' + objectApiName
+                + ' WHERE ' + String.join(childConditions, ' AND ') + ')';
+        } else {
+            List<String> childConditions = new List<String>();
+            if (!selectedBrands.isEmpty()) {
+                TEKCO_AnonymizationOrgConfigService.OrgConfig orgCfg = TEKCO_AnonymizationOrgConfigService.getConfig();
+                if (orgCfg.usesBrandObject()
+                        && String.isNotBlank(orgCfg.brandLookupFieldOnRecord)
+                        && TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, orgCfg.brandLookupFieldOnRecord)) {
+                    List<String> escaped = new List<String>();
+                    for (String b : selectedBrands) escaped.add('\'' + String.escapeSingleQuotes(b) + '\'');
+                    childConditions.add(orgCfg.brandLookupFieldOnRecord + '.' + orgCfg.brandCodeField
+                        + ' IN (' + String.join(escaped, ', ') + ')');
+                } else if (TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, 'tekco_brand__c')) {
+                    childConditions.add('TEKCO_Brand__c IN :selectedBrands');
+                } else if (TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, 'tekco_country__c')) {
+                    List<String> countryValues = TEKCO_AnonymizationOrgConfigService.getCountriesForBrands(selectedBrands);
+                    if (!countryValues.isEmpty()) {
+                        childConditions.add('TEKCO_Country__c IN :countryValues');
+                    }
+                }
+            }
+            if (String.isNotBlank(additionalFilter)) {
+                childConditions.add(additionalFilter);
+            }
+            String childWhere = childConditions.isEmpty()
+                ? ''
+                : ' WHERE ' + String.join(childConditions, ' AND ');
+            soqlQuery = 'SELECT Id FROM ' + historyObjectName + fieldPrefix
+                + ' IN (SELECT Id FROM ' + objectApiName + childWhere + ')';
+        }
+
+        return Database.getQueryLocator(soqlQuery);
+        } catch (Exception e) {
+            errors.add('Failed to build query for ' + objectApiName + ': ' + e.getMessage());
+            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
+        }
     }
 
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
-        TEKCO_FieldHistoryDeleteService.DeleteOutcome outcome =
-            TEKCO_FieldHistoryDeleteService.deleteHistoryRecords(scope);
-
-        recordsDeleted += outcome.recordsDeleted;
-        recordsFailed  += outcome.recordsFailed;
-        for (String e : outcome.errors) {
-            if (errors.size() < TEKCO_AnonymizationRunContext.MAX_CAPTURED_ERRORS) errors.add(e);
+        Database.DeleteResult[] deleteResults = Database.delete(scope, false);
+        for (Database.DeleteResult deleteResult : deleteResults) {
+            if (deleteResult.isSuccess()) {
+                recordsDeleted++;
+            } else {
+                recordsFailed++;
+                if (errors.size() < MAX_CAPTURED_ERRORS) {
+                    List<String> errorMessages = new List<String>();
+                    for (Database.Error dmlError : deleteResult.getErrors()) {
+                        errorMessages.add(dmlError.getMessage());
+                    }
+                    errors.add(TEKCO_AnonymizationBatchUtils.cap(String.join(errorMessages, '; ')));
+                }
+            }
         }
     }
 
     public void finish(Database.BatchableContext bc) {
-        if (aborted) return;
-
-        ctx.addErrors(errors);
-        ctx.addHistoryDeleted(recordsDeleted);
-        ctx.addFailed(recordsFailed);
-        TEKCO_AnonymizationChainRunner.startNext(ctx);
+        for (String e : errors) {
+            if (accumulatedErrors.size() < TEKCO_AnonymizationBatch.MAX_ACCUMULATED_ERRORS) {
+                accumulatedErrors.add(e);
+            }
+        }
+        Integer totalHistoryDeleted = accumulatedHistoryRecordsDeleted + recordsDeleted;
+        List<TEKCO_AnonymizationFieldConfig__mdt> remainingHistoryConfigs =
+            TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(remainingHistoryConfigDevNames);
+        try {
+            if (!remainingHistoryConfigs.isEmpty()) {
+                String nextObjectApiName = remainingHistoryConfigs[0].TEKCO_ObjectApiName__c;
+                List<TEKCO_AnonymizationFieldConfig__mdt> nextObjectConfigs =
+                    TEKCO_AnonymizationBatchUtils.popConfigsForObject(nextObjectApiName, remainingHistoryConfigs);
+                Database.executeBatch(
+                    new TEKCO_FieldHistoryBatch(
+                        nextObjectApiName,
+                        nextObjectConfigs,
+                        selectedBrands,
+                        auditLogId,
+                        remainingHistoryConfigs,
+                        bypassSnapshot,
+                        accumulatedErrors,
+                        accumulatedRecordsProcessed,
+                        accumulatedDocumentsDeleted,
+                        totalHistoryDeleted,
+                        parentFiltersByObject,
+                        additionalFiltersByObject
+                    ),
+                    DEFAULT_BATCH_SIZE
+                );
+            } else {
+                TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
+                TEKCO_AnonymizationAuditService.finalize(
+                    auditLogId, accumulatedRecordsProcessed, recordsFailed,
+                    accumulatedDocumentsDeleted, totalHistoryDeleted, accumulatedErrors
+                );
+            }
+        } catch (Exception e) {
+            try {
+                TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
+            } catch (Exception restoreEx) { }
+            TEKCO_AnonymizationAuditService.closeFailed(
+                auditLogId, accumulatedRecordsProcessed, recordsFailed,
+                accumulatedDocumentsDeleted, totalHistoryDeleted, accumulatedErrors, e.getMessage()
+            );
+        }
     }
+
+
+    private static String computeHistoryObjectName(String objectApiName) {
+        return TEKCO_AnonymizationBatchUtils.computeHistoryObjectName(objectApiName);
+    }
+
+    private static String computeParentIdFieldName(String objectApiName) {
+        return TEKCO_AnonymizationBatchUtils.computeParentIdFieldName(objectApiName);
+    }
+
 }

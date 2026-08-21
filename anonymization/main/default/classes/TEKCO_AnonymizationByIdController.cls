@@ -3,18 +3,8 @@
  */
 public with sharing class TEKCO_AnonymizationByIdController {
 
+    private static final String PATTERN_DELETE_CD  = 'DELETE_CONTENT_DOCUMENT';
     private static final String MODE_EXTERNAL_ID   = 'EXTERNAL_ID';
-
-    /**
-     * Ceiling on how many records one By ID run may resolve, parents and children together.
-     *
-     * The child resolution below is unbounded by nature: a handful of pasted parent IDs can pull
-     * in an arbitrary number of children, and every resolved Id is then carried in the batch's
-     * serialized state from chunk to chunk. Without a ceiling that is a silent scalability wall —
-     * the run simply fails somewhere in the middle. Above this, the user is asked to narrow the
-     * list, or to use the By Criteria tab, which streams through a QueryLocator instead.
-     */
-    private static final Integer MAX_BY_ID_RECORDS = 50000;
 
     @AuraEnabled(cacheable=false)
     public static ResolveResultDTO resolveIds(
@@ -23,8 +13,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
         String targetObject,
         String externalIdField
     ) {
-        TEKCO_AnonymizationGuard.assertCanAnonymize();
-
         ResolveResultDTO result = new ResolveResultDTO();
         result.directObjects   = new List<ObjectScopeDTO>();
         result.childObjects    = new List<ObjectScopeDTO>();
@@ -126,16 +114,22 @@ public with sharing class TEKCO_AnonymizationByIdController {
         List<String> excludedFields,
         List<String> noHistoryFields
     ) {
-        TEKCO_AnonymizationGuard.assertCanAnonymize();
+        if (!FeatureManagement.checkPermission('TEKCO_AnonymizeData')) {
+            throw new AuraHandledException(
+                'Permission denied: the "TEKCO Anonymize Data" custom permission is required.'
+            );
+        }
         TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
 
         if (rawIds == null || rawIds.isEmpty()) {
             throw new AuraHandledException('No IDs provided.');
         }
 
-        // Scope resolution is what makes this tab different: parse the list, resolve external
-        // IDs, walk the configured parent-to-child links, and bound the result. Everything after
-        // it is shared with the By Criteria tab and lives in TEKCO_AnonymizationLaunchService.
+        Set<String> excludedFieldKeys  = new Set<String>();
+        if (excludedFields  != null) excludedFieldKeys.addAll(excludedFields);
+        Set<String> noHistoryFieldKeys = new Set<String>();
+        if (noHistoryFields != null) noHistoryFieldKeys.addAll(noHistoryFields);
+
         List<String> parseErrors = new List<String>();
         Map<String, List<Id>> directIdsByObject;
         if (resolveMode == MODE_EXTERNAL_ID
@@ -180,50 +174,129 @@ public with sharing class TEKCO_AnonymizationByIdController {
             );
         }
 
-        Integer resolvedCount = 0;
-        for (List<Id> ids : allIdsByObject.values()) resolvedCount += ids.size();
-        if (resolvedCount > MAX_BY_ID_RECORDS) {
-            throw new AuraHandledException(
-                resolvedCount + ' records resolved (parents and children), maximum '
-                + MAX_BY_ID_RECORDS + '. Narrow the ID list, or use the By Criteria tab for a '
-                + 'scope of this size.'
-            );
-        }
-
         List<String> objectsToProcess = new List<String>(allIdsByObject.keySet());
 
-        TEKCO_AnonymizationLaunchService.LaunchRequest request =
-            new TEKCO_AnonymizationLaunchService.LaunchRequest();
-        request.byId              = true;
-        request.objectApiNames    = objectsToProcess;
-        request.recordIdsByObject = allIdsByObject;
-        if (excludedFields  != null) request.excludedFieldKeys.addAll(excludedFields);
-        if (noHistoryFields != null) request.disabledHistoryFieldKeys.addAll(noHistoryFields);
-        request.brandFilterLabel  = 'BY_ID (' + resolvedCount + ' record(s))';
-        request.objectsLabel      = String.join(objectsToProcess, ', ');
-        request.nothingToDoMessage =
-            'No active field configurations found for the provided records.';
+        List<TEKCO_AnonymizationFieldConfig__mdt> scopedConfigs = [
+            SELECT DeveloperName, TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c, TEKCO_PatternType__c,
+                   TEKCO_IsActive__c, TEKCO_RecordTypeDeveloperName__c, TEKCO_DeleteHistory__c
+            FROM TEKCO_AnonymizationFieldConfig__mdt
+            WHERE TEKCO_IsActive__c = true
+              AND TEKCO_ObjectApiName__c IN :objectsToProcess
+        ];
 
-        return TEKCO_AnonymizationLaunchService.launch(request);
+        Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>> configsByObject =
+            new Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>>();
+        List<TEKCO_AnonymizationFieldConfig__mdt> contentDocConfigs =
+            new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        Map<String, List<Id>> contentDocIdsByObject  = new Map<String, List<Id>>();
+        List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs =
+            new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        Map<String, List<Id>> historyIdsByObject = new Map<String, List<Id>>();
+
+        for (TEKCO_AnonymizationFieldConfig__mdt fc : scopedConfigs) {
+            String obj      = fc.TEKCO_ObjectApiName__c;
+            String fieldKey = obj + '.' + fc.TEKCO_FieldApiName__c + '.'
+                + (fc.TEKCO_RecordTypeDeveloperName__c != null ? fc.TEKCO_RecordTypeDeveloperName__c : '');
+
+            if (excludedFieldKeys.contains(fieldKey)) continue;
+
+            if (fc.TEKCO_PatternType__c == PATTERN_DELETE_CD) {
+                contentDocConfigs.add(fc);
+                if (!contentDocIdsByObject.containsKey(obj)) {
+                    contentDocIdsByObject.put(obj, allIdsByObject.get(obj));
+                }
+                continue;
+            }
+
+            if (!configsByObject.containsKey(obj)) {
+                configsByObject.put(obj, new List<TEKCO_AnonymizationFieldConfig__mdt>());
+            }
+            configsByObject.get(obj).add(fc);
+
+            if (fc.TEKCO_DeleteHistory__c && !noHistoryFieldKeys.contains(fieldKey)) {
+                historyConfigs.add(fc);
+                if (!historyIdsByObject.containsKey(obj)) {
+                    historyIdsByObject.put(obj, allIdsByObject.get(obj));
+                }
+            }
+        }
+
+        Map<String, TEKCO_AnonymizationPattern__mdt> patternsByType = buildPatternMap();
+        TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot =
+            TEKCO_AnonymizationBypassService.activate();
+
+        Integer totalIds = 0;
+        for (List<Id> ids : allIdsByObject.values()) totalIds += ids.size();
+
+        TEKCO_AnonymizationAuditLog__c auditLog = new TEKCO_AnonymizationAuditLog__c(
+            TEKCO_TriggeredBy__c   = UserInfo.getUserId(),
+            TEKCO_BrandFilter__c   = 'BY_ID (' + totalIds + ' record(s))',
+            TEKCO_ObjectApiName__c = String.join(objectsToProcess, ', '),
+            TEKCO_Status__c        = 'Running',
+            TEKCO_StartTime__c     = Datetime.now()
+        );
+        insert auditLog;
+
+        Id batchJobId;
+
+        List<String> fieldObjects = new List<String>();
+        for (String obj : objectsToProcess) {
+            if (configsByObject.containsKey(obj)) fieldObjects.add(obj);
+        }
+
+        if (!fieldObjects.isEmpty()) {
+            String firstObj = fieldObjects.remove(0);
+            Map<String, List<Id>> remainingObjectIds = new Map<String, List<Id>>();
+            for (String obj : fieldObjects) remainingObjectIds.put(obj, allIdsByObject.get(obj));
+
+            batchJobId = Database.executeBatch(
+                new TEKCO_AnonymizationByIdBatch(
+                    firstObj, allIdsByObject.get(firstObj), configsByObject.get(firstObj),
+                    patternsByType, auditLog.Id, remainingObjectIds,
+                    contentDocConfigs, contentDocIdsByObject,
+                    historyConfigs, historyIdsByObject,
+                    bypassSnapshot, new List<String>(), 0
+                ),
+                TEKCO_AnonymizationByIdBatch.DEFAULT_BATCH_SIZE
+            );
+        } else if (!contentDocConfigs.isEmpty()) {
+            TEKCO_AnonymizationFieldConfig__mdt firstConfig = contentDocConfigs.remove(0);
+            String firstObj = firstConfig.TEKCO_ObjectApiName__c;
+            batchJobId = Database.executeBatch(
+                new TEKCO_ContentDocumentByIdBatch(
+                    firstObj, contentDocIdsByObject.get(firstObj), auditLog.Id,
+                    contentDocConfigs, contentDocIdsByObject,
+                    historyConfigs, historyIdsByObject,
+                    bypassSnapshot, new List<String>(), 0, 0
+                ),
+                TEKCO_ContentDocumentByIdBatch.DEFAULT_BATCH_SIZE
+            );
+        } else {
+            TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
+            update new TEKCO_AnonymizationAuditLog__c(
+                Id               = auditLog.Id,
+                TEKCO_Status__c  = 'Success',
+                TEKCO_EndTime__c = Datetime.now(),
+                TEKCO_ErrorMessage__c = 'No active field configurations found for provided records.'
+            );
+            return auditLog.Id;
+        }
+
+        auditLog.TEKCO_JobId__c = String.valueOf(batchJobId);
+        update auditLog;
+        return auditLog.Id;
     }
 
-    /**
-     * Runs scoped by ID list. Same backward-compatible fallback as getAuditLogs(): a blank
-     * TEKCO_RunMode__c means the log predates the field, and only the 'BY_ID (...)' label put
-     * in the brand filter identified it.
-     */
     @AuraEnabled(cacheable=false)
     public static List<TEKCO_AnonymizationAuditLog__c> getAuditLogsByid() {
-        TEKCO_AnonymizationGuard.assertCanAnonymize();
         return [
             SELECT Name, TEKCO_ObjectApiName__c, TEKCO_BrandFilter__c, TEKCO_Status__c,
                    TEKCO_RecordsProcessed__c, TEKCO_RecordsFailed__c,
                    TEKCO_DocumentsDeleted__c, TEKCO_HistoryRecordsDeleted__c,
-                   TEKCO_StartTime__c, TEKCO_EndTime__c, TEKCO_JobId__c, TEKCO_RunMode__c,
+                   TEKCO_StartTime__c, TEKCO_EndTime__c, TEKCO_JobId__c,
                    TEKCO_TriggeredBy__r.Name, TEKCO_ErrorMessage__c
             FROM TEKCO_AnonymizationAuditLog__c
-            WHERE (TEKCO_RunMode__c = 'BY_ID'
-                   OR (TEKCO_RunMode__c = null AND TEKCO_BrandFilter__c LIKE 'BY_ID%'))
+            WHERE TEKCO_BrandFilter__c LIKE 'BY_ID%'
             ORDER BY TEKCO_StartTime__c DESC
             LIMIT 20
         ];
@@ -231,7 +304,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
 
     @AuraEnabled(cacheable=true)
     public static List<Map<String, String>> getDirectObjects() {
-        TEKCO_AnonymizationGuard.assertCanAnonymize();
         Set<String> seen = new Set<String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fc : [
             SELECT TEKCO_ObjectApiName__c
@@ -253,7 +325,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
 
     @AuraEnabled(cacheable=true)
     public static List<String> getExternalIdFieldsForObject(String objectApiName) {
-        TEKCO_AnonymizationGuard.assertCanAnonymize();
         if (String.isBlank(objectApiName)) return new List<String>();
 
         Set<String> patternTypesForObj = new Set<String>();
@@ -279,7 +350,16 @@ public with sharing class TEKCO_AnonymizationByIdController {
             }
         }
 
-        fields.addAll(TEKCO_AnonymizationOrgConfigService.getExternalIdFieldsOn(objectApiName));
+        String extraFields = TEKCO_AnonymizationOrgConfigService.getConfig().externalIdFields;
+        if (String.isNotBlank(extraFields)) {
+            for (String f : extraFields.split(',')) {
+                String trimmed = f.trim();
+                if (String.isNotBlank(trimmed)
+                        && TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, trimmed.toLowerCase())) {
+                    fields.add(trimmed);
+                }
+            }
+        }
 
         List<String> result = new List<String>(fields);
         result.sort();
@@ -293,18 +373,19 @@ public with sharing class TEKCO_AnonymizationByIdController {
         List<String> invalidOut
     ) {
         Map<String, List<Id>> result = new Map<String, List<Id>>();
-        // Both names are concatenated into dynamic SOQL below and come from client input —
-        // reject anything that is not a configured object with a real field on it.
-        String canonicalObject = TEKCO_AnonymizationGuard.requireConfiguredObject(objectApiName);
-        TEKCO_AnonymizationGuard.requireFieldOnObject(canonicalObject, fieldApiName);
+        try { Schema.describeSObjects(new List<String>{ objectApiName }); }
+        catch (Exception e) {
+            if (invalidOut != null) invalidOut.add(objectApiName + ' — object not found in org');
+            return result;
+        }
         try {
             List<SObject> records = Database.query(
-                'SELECT Id FROM ' + canonicalObject
+                'SELECT Id FROM ' + objectApiName
                 + ' WHERE ' + fieldApiName + ' IN :rawValues'
             );
             List<Id> ids = new List<Id>();
             for (SObject r : records) ids.add(r.Id);
-            if (!ids.isEmpty()) result.put(canonicalObject, ids);
+            if (!ids.isEmpty()) result.put(objectApiName, ids);
         } catch (Exception e) {
             if (invalidOut != null) {
                 invalidOut.add(objectApiName + '.' + fieldApiName + ' — ' + e.getMessage());
@@ -373,13 +454,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
     private static List<Id> resolveChildIds(
         String childObjectApiName, String parentLookupField, List<Id> parentIds
     ) {
-        return resolveChildIds(childObjectApiName, parentLookupField, parentIds, null);
-    }
-
-    /** @param maxRows null = the whole child set (a run); a value = a bounded read (the preview). */
-    private static List<Id> resolveChildIds(
-        String childObjectApiName, String parentLookupField, List<Id> parentIds, Integer maxRows
-    ) {
         try { Schema.describeSObjects(new List<String>{ childObjectApiName }); }
         catch (Exception e) { return new List<Id>(); }
         List<Id> childIds = new List<Id>();
@@ -387,79 +461,14 @@ public with sharing class TEKCO_AnonymizationByIdController {
             List<SObject> children = Database.query(
                 'SELECT Id FROM ' + childObjectApiName
                 + ' WHERE ' + parentLookupField + ' IN :parentIds'
-                + (maxRows == null ? '' : ' LIMIT ' + maxRows)
             );
             for (SObject child : children) childIds.add(child.Id);
         } catch (Exception e) { }
         return childIds;
     }
 
-    /**
-     * Before/after sample of what a By ID run would write on one object, without any DML.
-     *
-     * The ID list is resolved exactly as startAnonymizationByIds() resolves it — same parsing,
-     * same external-ID mode, same parent-to-child hop — then only the first few resolved records
-     * are read. A 50 000-record list previews as cheaply as a five-record one.
-     */
-    @AuraEnabled(cacheable=false)
-    public static TEKCO_AnonymizationPreviewService.PreviewSampleDTO previewSampleByIds(
-        List<String> rawIds,
-        String resolveMode,
-        String targetObject,
-        String externalIdField,
-        String objectApiName,
-        List<String> excludedFields,
-        Integer sampleSize
-    ) {
-        TEKCO_AnonymizationGuard.assertCanAnonymize();
-        if (rawIds == null || rawIds.isEmpty() || String.isBlank(objectApiName)) {
-            throw new AuraHandledException('Provide at least one ID and an object to preview.');
-        }
-        try {
-            List<String> ignoredErrors = new List<String>();
-            Map<String, List<Id>> directIdsByObject =
-                (resolveMode == MODE_EXTERNAL_ID
-                        && String.isNotBlank(targetObject)
-                        && String.isNotBlank(externalIdField))
-                    ? resolveByExternalIds(rawIds, targetObject, externalIdField, ignoredErrors)
-                    : parseAndGroupIds(rawIds, ignoredErrors);
-
-            List<Id> idsForObject = idsForPreview(directIdsByObject, objectApiName);
-
-            return TEKCO_AnonymizationPreviewService.previewByIds(
-                objectApiName, idsForObject, excludedFields, sampleSize
-            );
-        } catch (AuraHandledException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new AuraHandledException('Preview failed: ' + e.getMessage());
-        }
-    }
-
-    /**
-     * Ids of objectApiName within the resolved scope: the pasted ids when it is a direct object,
-     * otherwise the children reached through the configured parent lookup. Bounded to the
-     * preview sample ceiling so the child query never fans out.
-     */
-    private static List<Id> idsForPreview(
-        Map<String, List<Id>> directIdsByObject, String objectApiName
-    ) {
-        for (String obj : directIdsByObject.keySet()) {
-            if (obj.equalsIgnoreCase(objectApiName)) return directIdsByObject.get(obj);
-        }
-
-        Map<String, ChildRelationInfo> childRelByObject = buildChildRelationMap(loadAllActiveConfigs());
-        for (String childObj : childRelByObject.keySet()) {
-            if (!childObj.equalsIgnoreCase(objectApiName)) continue;
-            ChildRelationInfo rel = childRelByObject.get(childObj);
-            List<Id> parentIds = directIdsByObject.get(rel.parentObjectApiName);
-            if (parentIds == null || parentIds.isEmpty()) return new List<Id>();
-            return resolveChildIds(
-                childObj, rel.parentLookupField, parentIds,
-                TEKCO_AnonymizationPreviewService.MAX_SAMPLE_SIZE
-            );
-        }
-        return new List<Id>();
+    private static Map<String, TEKCO_AnonymizationPattern__mdt> buildPatternMap() {
+        return TEKCO_AnonymizationBatchUtils.buildPatternMap();
     }
 
     private class ChildRelationInfo {

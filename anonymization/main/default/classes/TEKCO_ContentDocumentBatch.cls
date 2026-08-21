@@ -1,112 +1,288 @@
 /**
- * @description Deletes the ContentDocuments linked to a set of parent records. Serves both
- *              chains: a run scoped by criteria and a run scoped by an explicit ID list differ
- *              only in which parents they read.
- *
- *              Driven by one DELETE_CONTENT_DOCUMENT field config, which names the parent object
- *              and may narrow the By Criteria scope to a single record type.
- *
- *              Merged from TEKCO_ContentDocumentBatch and TEKCO_ContentDocumentByIdBatch: the
- *              object-existence guard and the try/catch had landed on the By Criteria side only,
- *              which left a By ID run able to die in start() — and, finish() never running, to
- *              leave the whole chain stopped on an audit log stuck at Running.
+ * @author
+ * @description Phase 2 of the anonymization chain: deletes ContentDocument records and
+ *              Attachment records linked to records of the target object, filtered by brand
+ *              and/or Record Type as configured in TEKCO_AnonymizationFieldConfig__mdt
+ *              (TEKCO_PatternType__c = 'DELETE_CONTENT_DOCUMENT')
  */
-// Deliberately 'without sharing': see TEKCO_AnonymizationFieldBatch.
-public without sharing class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, Database.Stateful {
+public class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, Database.Stateful {
 
+    public static final Integer DEFAULT_BATCH_SIZE   = 500;
+    private static final Integer MAX_CAPTURED_ERRORS  = 50;
 
-    /**
-     * Parents per chunk. The two chains have never agreed on this number and this class does not
-     * settle it: TEKCO_ContentDocumentDeleteService stops at the remaining DML budget and reports
-     * the shortfall, because one parent can own hundreds of files and a chunk can resolve far
-     * more than the 10 000-row ceiling. A smaller chunk is less likely to truncate and need a
-     * re-run; a larger one is faster. The By ID side was tuned to 100 when that budget guard was
-     * introduced (14912ab) and the By Criteria side was left at 500. Picking one deserves its own
-     * measurement — this method only makes the disagreement visible in a single place.
-     */
-    public static Integer batchSizeFor(Boolean byId) {
-        return byId == true ? 100 : 500;
+    private String                                        objectApiName;
+    private String                                        recordTypeDvName;
+
+    private List<String>                                  selectedBrands;
+    private Id                                            auditLogId;
+    private List<String>                                  remainingContentDocConfigDevNames;
+    private List<String>                                  historyConfigDevNames;
+    private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
+    private Map<String, List<String>>                     parentFiltersByObject;
+    private Map<String, String>                           additionalFiltersByObject;
+
+    private Integer recordsDeleted               = 0;
+    private Integer recordsFailed                = 0;
+    private Integer accumulatedRecordsProcessed  = 0;
+    private Integer accumulatedDocumentsDeleted  = 0;
+    private List<String> errors                  = new List<String>();
+    private List<String> accumulatedErrors       = new List<String>();
+
+    public TEKCO_ContentDocumentBatch(
+        TEKCO_AnonymizationFieldConfig__mdt currentConfig,
+        List<String> selectedBrands,
+        Id auditLogId,
+        List<TEKCO_AnonymizationFieldConfig__mdt> remainingContentDocConfigs,
+        List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs,
+        TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
+        List<String> accumulatedErrors,
+        Integer accumulatedRecordsProcessed,
+        Integer accumulatedDocumentsDeleted,
+        Map<String, List<String>> parentFiltersByObject,
+        Map<String, String> additionalFiltersByObject
+    ) {
+        this.objectApiName              = currentConfig?.TEKCO_ObjectApiName__c;
+        this.recordTypeDvName           = currentConfig?.TEKCO_RecordTypeDeveloperName__c;
+        this.selectedBrands             = selectedBrands             != null
+            ? selectedBrands : new List<String>();
+        this.auditLogId                 = auditLogId;
+        this.remainingContentDocConfigDevNames = TEKCO_AnonymizationBatchUtils.toDevNames(remainingContentDocConfigs);
+        this.historyConfigDevNames             = TEKCO_AnonymizationBatchUtils.toDevNames(historyConfigs);
+        this.bypassSnapshot              = bypassSnapshot;
+        this.accumulatedErrors           = accumulatedErrors           != null ? accumulatedErrors           : new List<String>();
+        this.accumulatedRecordsProcessed = accumulatedRecordsProcessed != null ? accumulatedRecordsProcessed : 0;
+        this.accumulatedDocumentsDeleted = accumulatedDocumentsDeleted != null ? accumulatedDocumentsDeleted : 0;
+        this.parentFiltersByObject       = parentFiltersByObject != null
+            ? parentFiltersByObject : new Map<String, List<String>>();
+        this.additionalFiltersByObject   = additionalFiltersByObject != null
+            ? additionalFiltersByObject : new Map<String, String>();
     }
 
-    /** Developer name of the DELETE_CONTENT_DOCUMENT config driving this step. */
-    private String configDevName;
-    private TEKCO_AnonymizationRunContext ctx;
-
-    private Integer      recordsDeleted = 0;
-    private Integer      recordsFailed  = 0;
-    private List<String> errors         = new List<String>();
-    private Boolean      aborted        = false;
-
-    public TEKCO_ContentDocumentBatch(String configDevName, TEKCO_AnonymizationRunContext ctx) {
-        this.configDevName = configDevName;
-        this.ctx           = ctx;
-    }
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
-        if (!TEKCO_AnonymizationGuard.assertSandboxOrClose(ctx.auditLogId, ctx.bypassSnapshot)) {
-            aborted = true;
-            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
-        }
+        TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
 
-        TEKCO_AnonymizationFieldConfig__mdt config =
-            TEKCO_AnonymizationChainRunner.configByDevName(configDevName);
-        if (config == null || String.isBlank(config.TEKCO_ObjectApiName__c)) {
-            errors.add('ContentDocument config not found, skipped: ' + configDevName);
-            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
-        }
+        List<String> parentFilter = parentFiltersByObject.get(objectApiName);
 
-        String objectApiName = config.TEKCO_ObjectApiName__c;
-        // requireConfiguredObject() validates a name against the CMDT, not against the org's
-        // schema, so a config for an object this org does not have reaches here.
-        if (!TEKCO_AnonymizationOrgConfigService.hasObject(objectApiName)) {
+        try { Schema.describeSObjects(new List<String>{ objectApiName }); }
+        catch (Exception e) {
             errors.add('Object not found in org, skipped: ' + objectApiName);
-            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
+            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
         }
 
         try {
-            // Must be a local of this exact name: the By ID query binds ':recordIds', and
-            // Database.getQueryLocator resolves binds against the scope that calls it.
-            List<Id> recordIds = ctx.recordIdsFor(objectApiName);
+        String parentObjectApiName    = (parentFilter != null && parentFilter.size() > 0) ? parentFilter.get(0) : null;
+        String parentLookupField      = (parentFilter != null && parentFilter.size() > 1) ? parentFilter.get(1) : null;
+        String parentRecordTypeDvName = (parentFilter != null && parentFilter.size() > 2) ? parentFilter.get(2) : null;
 
-            String soqlQuery = ctx.byId
-                ? TEKCO_AnonymizationScopeQueryBuilder.buildByIdScopeQuery(
-                      objectApiName, new Set<String>{ 'Id' }, 'recordIds'
-                  )
-                : TEKCO_AnonymizationScopeQueryBuilder.buildContentDocScopeQuery(
-                      objectApiName,
-                      ctx.selectedBrands,
-                      TEKCO_AnonymizationConfigSelector.recordTypesOf(config),
-                      ctx.recordTypeSelection(),
-                      ctx.additionalFilterFor(objectApiName)
-                  );
+        String additionalFilter = additionalFiltersByObject.get(objectApiName);
+        String innerFilter = '';
+        if (String.isNotBlank(parentObjectApiName)) {
+            List<String> parentConditions = new List<String>();
+            if (!selectedBrands.isEmpty()) {
+                parentConditions.add('TEKCO_Brand__c IN :selectedBrands');
+            }
+            if (String.isNotBlank(parentRecordTypeDvName)) {
+                parentConditions.add(
+                    'RecordType.DeveloperName = \'' + String.escapeSingleQuotes(parentRecordTypeDvName) + '\''
+                );
+            }
+            String parentSubquery = 'SELECT Id FROM ' + parentObjectApiName;
+            if (!parentConditions.isEmpty()) {
+                parentSubquery += ' WHERE ' + String.join(parentConditions, ' AND ');
+            }
+            List<String> childConditions = new List<String>{
+                parentLookupField + ' IN (' + parentSubquery + ')'
+            };
+            if (String.isNotBlank(recordTypeDvName)) {
+                childConditions.add('RecordType.DeveloperName = \''
+                    + String.escapeSingleQuotes(recordTypeDvName) + '\'');
+            }
+            if (String.isNotBlank(additionalFilter)) {
+                childConditions.add(additionalFilter);
+            }
+            innerFilter = ' WHERE ' + String.join(childConditions, ' AND ');
+        } else {
+            List<String> conditions = new List<String>();
+            if (!selectedBrands.isEmpty()) {
+                TEKCO_AnonymizationOrgConfigService.OrgConfig orgCfg = TEKCO_AnonymizationOrgConfigService.getConfig();
+                if (orgCfg.usesBrandObject()
+                        && String.isNotBlank(orgCfg.brandLookupFieldOnRecord)
+                        && TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, orgCfg.brandLookupFieldOnRecord)) {
+                    List<String> escaped = new List<String>();
+                    for (String b : selectedBrands) escaped.add('\'' + String.escapeSingleQuotes(b) + '\'');
+                    conditions.add(orgCfg.brandLookupFieldOnRecord + '.' + orgCfg.brandCodeField
+                        + ' IN (' + String.join(escaped, ', ') + ')');
+                } else if (TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, 'tekco_brand__c')) {
+                    conditions.add('TEKCO_Brand__c IN :selectedBrands');
+                } else if (TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, 'tekco_country__c')) {
+                    List<String> countryValues = TEKCO_AnonymizationOrgConfigService.getCountriesForBrands(selectedBrands);
+                    if (!countryValues.isEmpty()) {
+                        conditions.add('TEKCO_Country__c IN :countryValues');
+                    }
+                }
+            }
+            if (String.isNotBlank(recordTypeDvName)) {
+                conditions.add(
+                    'RecordType.DeveloperName = \'' + String.escapeSingleQuotes(recordTypeDvName) + '\''
+                );
+            }
+            if (String.isNotBlank(additionalFilter)) {
+                conditions.add(additionalFilter);
+            }
+            if (!conditions.isEmpty()) {
+                innerFilter = ' WHERE ' + String.join(conditions, ' AND ');
+            }
+        }
 
-            return Database.getQueryLocator(soqlQuery);
+        String soqlQuery = 'SELECT Id FROM ' + objectApiName + innerFilter;
+
+        return Database.getQueryLocator(soqlQuery);
         } catch (Exception e) {
             errors.add('Failed to build query for ' + objectApiName + ': ' + e.getMessage());
-            return Database.getQueryLocator(TEKCO_AnonymizationScopeQueryBuilder.EMPTY_LOCATOR_QUERY);
+            return Database.getQueryLocator('SELECT Id FROM User WHERE Id = null');
         }
     }
 
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
         Set<Id> parentIds = new Set<Id>();
-        for (SObject record : scope) parentIds.add(record.Id);
+        for (SObject record : scope) {
+            parentIds.add(record.Id);
+        }
+        if (parentIds.isEmpty()) return;
 
-        TEKCO_ContentDocumentDeleteService.DeleteOutcome outcome =
-            TEKCO_ContentDocumentDeleteService.deleteForParentIds(parentIds);
+        // ServiceReports (must be deleted before ContentDocument) 
+        try {
+            List<SObject> serviceReports = Database.query(
+                'SELECT Id FROM ServiceReport WHERE ParentId IN :parentIds'
+            );
+            if (!serviceReports.isEmpty()) {
+                Database.delete(serviceReports, false);
+            }
+        } catch (Exception e) {
+            // ServiceReport not available in this org — skip
+        }
 
-        recordsDeleted += outcome.recordsDeleted;
-        recordsFailed  += outcome.recordsFailed;
-        for (String e : outcome.errors) {
-            if (errors.size() < TEKCO_AnonymizationRunContext.MAX_CAPTURED_ERRORS) errors.add(e);
+        // ContentDocuments 
+        List<ContentDocumentLink> cdLinks = [
+            SELECT ContentDocumentId
+            FROM ContentDocumentLink
+            WHERE LinkedEntityId IN :parentIds
+        ];
+        if (!cdLinks.isEmpty()) {
+            Set<Id> contentDocumentIds = new Set<Id>();
+            for (ContentDocumentLink cdl : cdLinks) {
+                contentDocumentIds.add(cdl.ContentDocumentId);
+            }
+            List<ContentDocument> toDelete = new List<ContentDocument>();
+            for (Id cdId : contentDocumentIds) {
+                toDelete.add(new ContentDocument(Id = cdId));
+            }
+            Database.DeleteResult[] deleteResults = Database.delete(toDelete, false);
+            for (Database.DeleteResult dr : deleteResults) {
+                if (dr.isSuccess()) {
+                    recordsDeleted++;
+                } else {
+                    recordsFailed++;
+                    if (errors.size() < MAX_CAPTURED_ERRORS) {
+                        List<String> msgs = new List<String>();
+                        for (Database.Error e : dr.getErrors()) msgs.add(e.getMessage());
+                        errors.add(TEKCO_AnonymizationBatchUtils.cap(String.join(msgs, '; ')));
+                    }
+                }
+            }
+        }
+
+        // Attachments 
+        List<Attachment> attachments = [
+            SELECT Id FROM Attachment WHERE ParentId IN :parentIds
+        ];
+        if (!attachments.isEmpty()) {
+            Database.DeleteResult[] deleteResults = Database.delete(attachments, false);
+            for (Database.DeleteResult dr : deleteResults) {
+                if (dr.isSuccess()) {
+                    recordsDeleted++;
+                } else {
+                    recordsFailed++;
+                    if (errors.size() < MAX_CAPTURED_ERRORS) {
+                        List<String> msgs = new List<String>();
+                        for (Database.Error e : dr.getErrors()) msgs.add(e.getMessage());
+                        errors.add(TEKCO_AnonymizationBatchUtils.cap(String.join(msgs, '; ')));
+                    }
+                }
+            }
         }
     }
 
     public void finish(Database.BatchableContext bc) {
-        if (aborted) return;
-
-        ctx.addErrors(errors);
-        ctx.addDocumentsDeleted(recordsDeleted);
-        ctx.addFailed(recordsFailed);
-        TEKCO_AnonymizationChainRunner.startNext(ctx);
+        for (String e : errors) {
+            if (accumulatedErrors.size() < TEKCO_AnonymizationBatch.MAX_ACCUMULATED_ERRORS) {
+                accumulatedErrors.add(e);
+            }
+        }
+        Integer totalDocsDeleted = accumulatedDocumentsDeleted + recordsDeleted;
+        List<TEKCO_AnonymizationFieldConfig__mdt> remainingContentDocConfigs =
+            TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(remainingContentDocConfigDevNames);
+        List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs =
+            TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(historyConfigDevNames);
+        try {
+            if (!remainingContentDocConfigs.isEmpty()) {
+                TEKCO_AnonymizationFieldConfig__mdt nextConfig = remainingContentDocConfigs.remove(0);
+                Database.executeBatch(
+                    new TEKCO_ContentDocumentBatch(
+                        nextConfig,
+                        selectedBrands,
+                        auditLogId,
+                        remainingContentDocConfigs,
+                        historyConfigs,
+                        bypassSnapshot,
+                        accumulatedErrors,
+                        accumulatedRecordsProcessed,
+                        totalDocsDeleted,
+                        parentFiltersByObject,
+                        additionalFiltersByObject
+                    ),
+                    DEFAULT_BATCH_SIZE
+                );
+            } else if (!historyConfigs.isEmpty()) {
+                String firstHistoryObject = historyConfigs[0].TEKCO_ObjectApiName__c;
+                List<TEKCO_AnonymizationFieldConfig__mdt> firstObjectHistoryConfigs =
+                    TEKCO_AnonymizationBatchUtils.popConfigsForObject(firstHistoryObject, historyConfigs);
+                Database.executeBatch(
+                    new TEKCO_FieldHistoryBatch(
+                        firstHistoryObject,
+                        firstObjectHistoryConfigs,
+                        selectedBrands,
+                        auditLogId,
+                        historyConfigs,
+                        bypassSnapshot,
+                        accumulatedErrors,
+                        accumulatedRecordsProcessed,
+                        totalDocsDeleted,
+                        0,
+                        parentFiltersByObject,
+                        additionalFiltersByObject
+                    ),
+                    TEKCO_FieldHistoryBatch.DEFAULT_BATCH_SIZE
+                );
+            } else {
+                TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
+                TEKCO_AnonymizationAuditService.finalize(
+                    auditLogId, accumulatedRecordsProcessed, recordsFailed,
+                    totalDocsDeleted, 0, accumulatedErrors
+                );
+            }
+        } catch (Exception e) {
+            try {
+                TEKCO_AnonymizationBypassService.restore(bypassSnapshot);
+            } catch (Exception restoreEx) {}
+            TEKCO_AnonymizationAuditService.closeFailed(
+                auditLogId, accumulatedRecordsProcessed, recordsFailed,
+                totalDocsDeleted, 0, accumulatedErrors, e.getMessage()
+            );
+        }
     }
+
+
+
 }
