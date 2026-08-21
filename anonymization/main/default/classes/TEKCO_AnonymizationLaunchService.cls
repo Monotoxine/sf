@@ -49,25 +49,47 @@ public with sharing class TEKCO_AnonymizationLaunchService {
             new List<TEKCO_AnonymizationFieldConfig__mdt>();
         List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs =
             new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        Map<String, String> additionalFiltersByObject = new Map<String, String>();
+        // The additional filter belongs to the CONFIG, and an object's scope is the OR of the
+        // filters of the configs still retained. Two consequences, both wanted:
+        //
+        //   - two configs on one object no longer fight. Address.Street carries one filter for
+        //     ACCCO_IndividualPerson and another for ACCCO_Patient; the object used to keep only
+        //     whichever arrived first — in an unspecified order — so one of the two populations
+        //     was never anonymized, silently, on a run reporting Success. Both terms now apply.
+        //   - unticking a field removes its term from the OR, which can only NARROW the scope.
+        //     The previous shape had to read the filter before the exclusion check or unticking
+        //     one field dropped the object's only filter and WIDENED the run. That trap is now a
+        //     property of the model rather than a comment to respect.
+        //
+        // A retained config with NO filter means "no restriction" and dominates the OR: the
+        // object is read unfiltered, as it would have been before.
+        //
+        // By Criteria only. A By ID run named its records explicitly; narrowing them further
+        // with a configured filter would silently drop records the user asked for.
+        Map<String, Set<String>> filterTermsByObject = new Map<String, Set<String>>();
+        Set<String> objectsWithAnUnfilteredConfig = new Set<String>();
+        List<TEKCO_AnonymizationFieldConfig__mdt> retainedFilterConfigs =
+            new List<TEKCO_AnonymizationFieldConfig__mdt>();
 
         for (TEKCO_AnonymizationFieldConfig__mdt config : scopedConfigs) {
             String objectApiName = config.TEKCO_ObjectApiName__c;
             String fieldKey      = TEKCO_AnonymizationConfigSelector.configKey(config);
 
-            // Collected BEFORE the exclusion check, deliberately: the filter belongs to the
-            // object, not to the config that happens to carry it. Reading it after would mean
-            // that unticking that one field drops the filter and WIDENS the run's scope.
-            //
-            // By Criteria only. A By ID run named its records explicitly; narrowing them further
-            // with a configured filter would silently drop records the user asked for.
-            if (!request.byId
-                    && !additionalFiltersByObject.containsKey(objectApiName)
-                    && String.isNotBlank(config.TEKCO_AdditionalFilter__c)) {
-                additionalFiltersByObject.put(objectApiName, config.TEKCO_AdditionalFilter__c);
-            }
-
             if (request.excludedFieldKeys.contains(fieldKey)) continue;
+
+            if (!request.byId) {
+                if (String.isBlank(config.TEKCO_AdditionalFilter__c)) {
+                    objectsWithAnUnfilteredConfig.add(objectApiName);
+                } else {
+                    if (!filterTermsByObject.containsKey(objectApiName)) {
+                        filterTermsByObject.put(objectApiName, new Set<String>());
+                    }
+                    if (filterTermsByObject.get(objectApiName)
+                            .add(config.TEKCO_AdditionalFilter__c)) {
+                        retainedFilterConfigs.add(config);
+                    }
+                }
+            }
 
             if (config.TEKCO_PatternType__c == PATTERN_DELETE_CONTENT_DOCUMENT) {
                 contentDocConfigs.add(config);
@@ -84,6 +106,9 @@ public with sharing class TEKCO_AnonymizationLaunchService {
                 historyConfigs.add(config);
             }
         }
+
+        Map<String, String> additionalFiltersByObject =
+            combineFilters(filterTermsByObject, objectsWithAnUnfilteredConfig);
 
         // Field phase objects, in the caller's order, restricted to those that still have a
         // config after the exclusions.
@@ -136,7 +161,8 @@ public with sharing class TEKCO_AnonymizationLaunchService {
 
             TEKCO_AnonymizationRunContext ctx = buildContext(
                 request, auditLog.Id, bypassSnapshot, scopedConfigs,
-                configDevNamesByObject, historyDevNamesByObject, additionalFiltersByObject
+                configDevNamesByObject, historyDevNamesByObject, additionalFiltersByObject,
+                retainedFilterConfigs
             );
             planSteps(ctx, fieldObjects, contentDocConfigs, historyDevNamesByObject);
 
@@ -161,7 +187,7 @@ public with sharing class TEKCO_AnonymizationLaunchService {
     ) {
         List<String> objectApiNames = request.objectApiNames;
         List<TEKCO_AnonymizationFieldConfig__mdt> configs = [
-            SELECT DeveloperName, TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c,
+            SELECT DeveloperName, MasterLabel, TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c,
                    TEKCO_PatternType__c, TEKCO_IsActive__c, TEKCO_RecordTypeDeveloperName__c,
                    TEKCO_DeleteHistory__c, TEKCO_AdditionalFilter__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
@@ -191,7 +217,8 @@ public with sharing class TEKCO_AnonymizationLaunchService {
         List<TEKCO_AnonymizationFieldConfig__mdt> scopedConfigs,
         Map<String, List<String>> configDevNamesByObject,
         Map<String, List<String>> historyDevNamesByObject,
-        Map<String, String> additionalFiltersByObject
+        Map<String, String> additionalFiltersByObject,
+        List<TEKCO_AnonymizationFieldConfig__mdt> filterConfigs
     ) {
         TEKCO_AnonymizationRunContext ctx = new TEKCO_AnonymizationRunContext();
         ctx.auditLogId                    = auditLogId;
@@ -207,8 +234,41 @@ public with sharing class TEKCO_AnonymizationLaunchService {
         ctx.addErrors(TEKCO_AnonymizationGuard.validatePatternTypes(scopedConfigs));
         // Same idea for a malformed additional filter: it would only surface hours later, as a
         // whole object skipped in the middle of the chain.
-        ctx.addErrors(TEKCO_AnonymizationGuard.validateAdditionalFilters(additionalFiltersByObject));
+        ctx.addErrors(TEKCO_AnonymizationGuard.validateAdditionalFilters(filterConfigs));
         return ctx;
+    }
+
+    /**
+     * One SOQL condition per object, as the OR of its retained configs' filters.
+     *
+     * An object with at least one retained config carrying NO filter is read unfiltered: that
+     * config applies to every record of the object, so restricting the query would drop records
+     * it is configured to anonymize.
+     */
+    @TestVisible
+    private static Map<String, String> combineFilters(
+        Map<String, Set<String>> filterTermsByObject,
+        Set<String> objectsWithAnUnfilteredConfig
+    ) {
+        Map<String, String> combined = new Map<String, String>();
+        for (String objectApiName : filterTermsByObject.keySet()) {
+            if (objectsWithAnUnfilteredConfig.contains(objectApiName)) continue;
+
+            List<String> terms = new List<String>();
+            for (String term : filterTermsByObject.get(objectApiName)) {
+                terms.add('(' + term + ')');
+            }
+            if (terms.isEmpty()) continue;
+            // Sorted so the same configuration always produces the same query — a query that
+            // varies between runs is impossible to compare in a debug log.
+            terms.sort();
+            // Parenthesised as a whole, always. whereClause() joins conditions with AND, and AND
+            // binds tighter than OR in SOQL: an unwrapped "(x) OR (y)" next to a brand condition
+            // would read "(brand AND x) OR y" and reach records outside the brand filter. The
+            // single-term case is wrapped too — a lone filter is free to contain its own OR.
+            combined.put(objectApiName, '(' + String.join(terms, ' OR ') + ')');
+        }
+        return combined;
     }
 
     /** Fields first, then ContentDocuments, then history — the order the chain must follow. */

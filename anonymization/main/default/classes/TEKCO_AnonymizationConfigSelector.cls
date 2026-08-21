@@ -91,23 +91,23 @@ public inherited sharing class TEKCO_AnonymizationConfigSelector {
     }
 
     /**
-     * The identity of one field configuration, as a single string: Object.Field.RecordType,
-     * with an empty last segment when the config is not record-type scoped.
+     * The identity of one field configuration: its DeveloperName.
      *
-     * THIS IS A CONTRACT, NOT A CONVENIENCE. The key is written by the LWC when the user
-     * unticks a field, sent back to the controllers as excludedFields / disabledHistoryFields,
-     * and re-derived here to decide what to skip. If the two sides ever disagree on the format
-     * — a separator, a null handled differently — the exclusions stop matching in silence: the
-     * user unticks a field, the UI shows it excluded, and the run anonymizes it anyway.
+     * The key travels to the LWC on the field DTO, comes back as excludedFields /
+     * disabledHistoryFields, and is compared here to decide what to skip. The client never
+     * builds it — it echoes back what the server sent — so there is no format for the two sides
+     * to disagree about.
      *
-     * The mirror of this method in JavaScript is buildConfigKey() in
-     * lwc/tekcoDataAnonymizationAdmin. Change one and you must change the other.
+     * IT USED TO BE Object.Field.RecordType, built independently on each side. Two problems,
+     * both real: the format was a hand-kept contract whose breach was silent (untick a field,
+     * see it excluded, watch the run anonymize it anyway), and it COLLIDED. Address.Street is
+     * carried by two configs that differ only by their additional filter, so both produced
+     * `Address.Street.` and unticking either unticked both. A DeveloperName is unique by
+     * construction and cannot collide.
      */
     public static String configKey(TEKCO_AnonymizationFieldConfig__mdt config) {
         if (config == null) return '';
-        String recordType = config.TEKCO_RecordTypeDeveloperName__c;
-        return config.TEKCO_ObjectApiName__c + '.' + config.TEKCO_FieldApiName__c + '.'
-            + (recordType != null ? recordType : '');
+        return config.DeveloperName;
     }
 
     /**

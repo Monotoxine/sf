@@ -28,7 +28,12 @@ public without sharing class TEKCO_AnonymizationPreviewService {
 
     /** Hard ceiling on the sample, whatever the UI asks for: bounds heap, SOQL rows and CPU. */
     public static final Integer MAX_SAMPLE_SIZE = 20;
-    private static final Integer DEFAULT_SAMPLE_SIZE = 5;
+    /**
+     * What a caller gets when it asks for nothing. One record is enough: the sample renders
+     * a row per configured field, so a single record already fills the table, and reading one
+     * case vertically is what the panel is for.
+     */
+    private static final Integer DEFAULT_SAMPLE_SIZE = 1;
     /** Values are for eyeballing, not for export — long text bodies are truncated. */
     private static final Integer MAX_VALUE_LENGTH = 120;
     private static final String  PATTERN_EMAIL_LOREM = 'EMAIL_MESSAGE_LOREM';

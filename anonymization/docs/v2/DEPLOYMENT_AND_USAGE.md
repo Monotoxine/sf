@@ -185,7 +185,7 @@ field simply keeps its PII, the run still finishes `Success`, and nothing anywhe
 | An object API name that does not exist in this org | Every config on that object is skipped at batch start |
 | A field API name that does not exist on its object | That config is skipped |
 | A pattern type with no active `TEKCO_AnonymizationPattern__mdt` record | Falls through to the `REGEX` default; with no regex configured the value is returned unchanged |
-| A `TEKCO_AdditionalFilter__c` that will not parse | The step fails hours into the run, not at launch |
+| A `TEKCO_AdditionalFilter__c` that will not parse | The step fails hours into the run, not at launch. The finding names the **configuration record**, not just the object: `Contact` carries five rules sharing one filter and `User` six, so the object alone would not say which record to open |
 
 A clean configuration shows a green banner. Findings show as a warning list, one line each,
 naming the config's DeveloperName so it can be found in Setup.
@@ -234,10 +234,13 @@ filters, and loads the list of fields that would be modified.
 
 Pick an object in **Object to sample** and click **Show sample**.
 
-The tool reads at most **20 records**, applies the patterns in memory, and shows a table of
-`Record · Field · Pattern · Before · After`. **Nothing is written — the sample performs no
-DML at all.** It runs the same `applyPatternsTo()` the batch runs, so what it shows is what
-the run will do.
+The tool reads **one record**, applies the patterns in memory, and shows a table of
+`Record · Field · Pattern · Before · After` — one row per configured field. **Nothing is
+written — the sample performs no DML at all.** It runs the same `applyPatternsTo()` the batch
+runs, so what it shows is what the run will do.
+
+One record is deliberate: the panel already renders a row per field, so a single case read
+vertically is the useful unit. Twenty is the hard server-side ceiling, whatever is asked for.
 
 > **This is the only defence against a pattern that is configured, active, resolvable — and
 > functionally wrong.** It exists because of a real incident: a misconfigured pattern produced
@@ -254,10 +257,12 @@ Use **Filter by field** and **Record Type** to narrow a long list.
 
 | Column | Meaning |
 |---|---|
-| **Run** | Uncheck to exclude the field **from this run only**. The config is not modified. |
+| **Run** | Uncheck to exclude the rule **from this run only**. The config is not modified. |
+| **Rule** | Label of the configuration record behind the row. This is its identity — two rules can agree on object, field and record type and still be different records. It is also what a *Check Configuration* finding names, so a finding maps straight to a row. |
 | **Field** | API name of the field. |
 | **Pattern** | Algorithm applied. |
 | **Record Type** | Record Type this rule targets. Empty = all. |
+| **Scope** | The rule's `TEKCO_AdditionalFilter__c`, when it has one — the extra condition restricting it to part of the object. *By Criteria only*: a By ID run names its records explicitly and applies no filter, so the By ID table shows **Rule** but no **Scope**. |
 | **Del. History** | Checked = the field's change history is deleted after anonymization. Uncheck for this run only. |
 | **Description** | Functional description carried by the pattern record. |
 
@@ -266,9 +271,10 @@ Use **Filter by field** and **Record Type** to narrow a long list.
 with `TEKCO_DeleteHistory__c = true`; it never enables it for a field that was not configured
 for it.
 
-> Unticking a field excludes it by its key `Object.Field.RecordType`. That string is a contract
-> between the LWC and Apex — see the configuration model in
-> [`SOLUTION_AND_ARCHITECTURE.md`](SOLUTION_AND_ARCHITECTURE.md).
+> Unticking a rule excludes it by the configuration's **DeveloperName**, sent by the server and
+> echoed back unchanged. Two rules on the same object and field are therefore excluded
+> independently — which is exactly what the **Scope** column lets you tell apart. See the
+> configuration model in [`SOLUTION_AND_ARCHITECTURE.md`](SOLUTION_AND_ARCHITECTURE.md).
 
 ---
 
@@ -480,7 +486,13 @@ idempotent, which is what makes re-launching after a failure safe.
 | Field | Purpose |
 |---|---|
 | `TEKCO_RecordTypeDeveloperName__c` | Restricts the rule to one Record Type. Empty = all. |
-| `TEKCO_AdditionalFilter__c` | SOQL condition appended to the WHERE clause. Administrator-authored and concatenated as written — validated at launch, not sanitized. |
+| `TEKCO_AdditionalFilter__c` | SOQL condition restricting **this rule** to part of the object. Shown in the **Scope** column. Administrator-authored and concatenated as written — validated at launch, not sanitized. |
+
+> **Several rules on one object combine their filters with `OR`.** The object's scope is the
+> union of the filters of the rules still ticked, so `Address.Street` — one rule filtered to
+> `ACCCO_IndividualPerson`, another to `ACCCO_Patient` — reads both populations. A ticked rule
+> carrying **no** filter means "no restriction" and lifts it for the whole object. Unticking a
+> rule removes its term, which can only narrow the scope.
 
 **Parent / child:**
 

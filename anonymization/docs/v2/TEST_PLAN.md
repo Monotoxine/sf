@@ -170,10 +170,13 @@ run that still reports `Success`.
 **Intent**: `TEKCO_AdditionalFilter__c` is the one string that reaches dynamic SOQL without
 validation. Malformed, it used to fail hours into a run.
 
-**Steps**: set a config's `TEKCO_AdditionalFilter__c` to `CreatedDate >>> TODAY`.
-Check Configuration.
+**Steps**: set `TEKCO_AdditionalFilter__c` to `CreatedDate >>> TODAY` on
+`Contact_Patient_Email` — whose filter is shared by five configs. Check Configuration.
 
-**Expected**: a warning naming the object and the filter. Undo.
+**Expected**: **one** warning, naming the **configuration records** and not just the object —
+*"the additional filter of Contact Patient Email, Contact Patient FirstName, Contact Patient
+LastName (+2) is not a valid condition on Contact…"*. The object alone would not say which of
+the five to open in Setup. Undo.
 
 ## C6 — `KEEP` is *not* reported
 
@@ -222,17 +225,18 @@ never be **higher** — no brand selected means no brand restriction, which is t
 **Expected**: a dark badge on that line. The number is the count of **parent records that have
 linked files**, not the number of files.
 
-## D5 — Unticking a field does not widen the scope
+## D5 — Unticking a rule never widens the scope
 
-**Intent**: the additional filter belongs to the object, not to the config that carries it. Read
-in the wrong order, unticking one field would drop the object's filter and **widen** the run.
-Nothing in the unit tests guards this today.
+**Intent**: the additional filter belongs to the rule, and an object's scope is the `OR` of the
+filters of the rules still ticked. Removing a term from an `OR` can only narrow. The previous
+shape kept one filter per object and had to read it *before* the exclusion check, or unticking
+one field dropped the object's only filter and **widened** the run.
 
-**Steps**: pick an object whose configs carry a `TEKCO_AdditionalFilter__c`. Preview scope, note
-the count. Untick one field of that object in the **Fields to Anonymize** table. Preview again.
+**Steps**: pick an object whose rules carry a `TEKCO_AdditionalFilter__c` — the **Scope** column
+shows which. Preview scope, note the count. Untick one rule of that object. Preview again.
 
-**Expected**: the count is **unchanged**. If it grows, stop — the filter was dropped and a run
-would reach records it must not touch.
+**Expected**: the count **falls, or stays equal**. Equal is normal when another ticked rule
+carries the same filter, or when a ticked rule carries none. **It must never grow.**
 
 ---
 
@@ -245,8 +249,9 @@ the targeted e-mails left intact.*
 
 **Steps**: after a preview, pick an object in **Object to sample**, click **Show sample**.
 
-**Expected**: a table of `Record · Field · Pattern · Before · After`, at most **20 records**.
-`Before` matches what Query Editor returns for those Ids.
+**Expected**: a table of `Record · Field · Pattern · Before · After` for **one** record, one row
+per configured field. `Before` matches what Query Editor returns for that Id. Twenty is the
+server-side ceiling, not the value used.
 
 ## E2 — The sample writes nothing
 
@@ -293,8 +298,8 @@ characters), the chain fell through — on a non-standard org, check
 
 ## F1 — An unticked field is not anonymized
 
-**Intent**: exclusion travels as a key `Object.Field.RecordType`, built independently in the LWC
-and in Apex. A silent disagreement means an unticked field gets anonymized anyway.
+**Intent**: exclusion travels as the configuration's `DeveloperName`, sent by the server and
+echoed back unchanged, so an unticked rule is the rule the server skips.
 
 **Steps**: untick exactly one field. Note its current value on a record in scope. Launch. When the
 run finishes, query that record.
@@ -303,8 +308,8 @@ run finishes, query that record.
 
 ## F2 — The same, on a field scoped to a record type
 
-**Intent**: the key's last segment is the record type, and empty when unscoped. This is the case
-where the two implementations could diverge.
+**Intent**: a record-type-scoped rule must be excludable on its own, without touching the other
+rules on the same field.
 
 **Steps**: repeat F1 with a config carrying `TEKCO_RecordTypeDeveloperName__c`, on a record of
 that record type.
@@ -316,6 +321,25 @@ that record type.
 **Steps**: use **Filter by field** with a partial API name, then **Record Type**.
 
 **Expected**: the table narrows; the ticks you had set are preserved through filtering.
+
+## F4 — Two rules on the same field are told apart, and ticked apart
+
+**Intent**: `Address.Street` is carried by two configurations differing only by their additional
+filter. They used to render as two identical rows sharing one exclusion key, so unticking either
+unticked both, and no choice between them existed.
+
+**Steps**: select `Address` and preview.
+
+**Expected**: two rows for `Street`, distinguished by the **Rule** column (`IndividualP Address`
+/ `Patient Address`) and by **Scope**, which shows each one's filter.
+
+Untick `IndividualP Address`.
+
+**Expected**: `Patient Address` **stays ticked**. Preview again — the count falls.
+
+Re-tick it and untick `Patient Address` instead.
+
+**Expected**: the mirror image. Each rule is independently selectable.
 
 ---
 
@@ -379,6 +403,28 @@ past those ceilings, the individual identities do not.
 
 **Expected**: By Criteria runs only on the left, By ID runs only on the right. The discriminant is
 `TEKCO_RunMode__c`; logs written before that field existed fall back to the old brand-filter test.
+
+## G7 — Both Address populations are anonymized
+
+**Intent**: the defect that motivated the change. Only one of the two `Address.Street` filters
+was ever applied — whichever the platform returned first, with no `ORDER BY` deciding it — so one
+population kept its street numbers, silently, on a run reporting `Success`.
+
+**Steps**: before the run, note the street of one address whose parent Account is an
+`ACCCO_IndividualPerson` **and** one whose parent is an `ACCCO_Patient`:
+
+```sql
+SELECT Id, Street, ACCCO_RelatedAccount__r.RecordType.DeveloperName FROM Address
+WHERE ACCCO_RelatedAccount__r.RecordType.DeveloperName IN ('ACCCO_IndividualPerson','ACCCO_Patient')
+```
+
+Run with both `Address` rules ticked. Re-query.
+
+**Expected**: **both** street numbers have shifted. If one is untouched, the `OR` did not reach
+it — compare the two rows' **Scope** values against the record's parent record type.
+
+> `ADDRESS_STREET_RANDOM` shifts by a random 1–20, so compare that the number *changed*, not what
+> it became.
 
 ---
 
@@ -661,8 +707,8 @@ leaves nothing else to read.
 | C — Configuration check | C1–C6 | | |
 | D — Scope and preview | D1–D5 | | |
 | E — Before/after sample | E1–E4 | | |
-| F — Field selection | F1–F3 | | |
-| G — By Criteria run | G1–G6 | | |
+| F — Field selection | F1–F4 | | |
+| G — By Criteria run | G1–G7 | | |
 | H — History and files | H1–H5 | | |
 | I — By ID | I1–I7 | | |
 | J — One run at a time | J1–J5 | | |
@@ -672,7 +718,7 @@ leaves nothing else to read.
 ## If you can only run six
 
 **C1** the configuration is clean · **E2** the sample writes nothing · **E3** the sample matches
-the run · **D5** unticking a field does not widen the scope · **G2** the bypass comes back down ·
-**J1** a second launch is refused.
+the run · **D5** unticking a rule never widens the scope · **G7** both Address populations are
+reached · **G2** the bypass comes back down · **J1** a second launch is refused.
 
 Those six cover the failures that are both plausible and silent. Everything else announces itself.

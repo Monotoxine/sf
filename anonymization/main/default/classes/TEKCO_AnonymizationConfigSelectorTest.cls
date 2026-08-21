@@ -45,34 +45,50 @@ private class TEKCO_AnonymizationConfigSelectorTest {
 
     // ─── validatePatternTypes ──────────────────────────────────────────────────
 
-    // ─── configKey : le contrat partagé avec le LWC ──────────────────────────────
+    // ─── configKey : l'identite d'une config ─────────────────────────────────────
 
     /**
-     * Ce format est écrit par le LWC quand l'utilisateur décoche un champ et relu côté serveur
-     * pour décider quoi exclure. Le figer ici : un changement silencieux ferait que les
-     * exclusions cessent de correspondre et qu'un champ décoché soit anonymisé quand même.
+     * La cle voyage vers le LWC sur le DTO et revient telle quelle dans excludedFields. Le
+     * DeveloperName est unique par construction : c'est ce qui remplace l'ancien
+     * Objet.Champ.RecordType, construit des deux cotes et surtout capable d'entrer en collision.
      */
     @isTest
-    static void configKey_recordTypeScoped() {
+    static void configKey_isTheDeveloperName() {
         TEKCO_AnonymizationFieldConfig__mdt config = new TEKCO_AnonymizationFieldConfig__mdt(
+            DeveloperName                    = 'Patient_PersonEmail',
             TEKCO_ObjectApiName__c           = 'Account',
             TEKCO_FieldApiName__c            = 'PersonEmail',
             TEKCO_RecordTypeDeveloperName__c = 'Patient'
         );
-        System.assertEquals('Account.PersonEmail.Patient',
+        System.assertEquals('Patient_PersonEmail',
             TEKCO_AnonymizationConfigSelector.configKey(config),
-            'Objet.Champ.RecordType — le format que le LWC construit de son côté');
+            'La cle est le DeveloperName, pas une chaine composee');
     }
 
+    /**
+     * Le cas qui a motive le changement. IndividualP_Address et Patient_Address visent le meme
+     * objet et le meme champ sans record type, et ne different que par leur filtre : l'ancienne
+     * cle valait 'Address.Street.' pour les deux, donc decocher l'une decochait l'autre.
+     */
     @isTest
-    static void configKey_withoutRecordType_endsWithAnEmptySegment() {
-        TEKCO_AnonymizationFieldConfig__mdt config = new TEKCO_AnonymizationFieldConfig__mdt(
-            TEKCO_ObjectApiName__c = 'Account',
-            TEKCO_FieldApiName__c  = 'Phone'
+    static void configKey_twoConfigsOnTheSameFieldDoNotCollide() {
+        TEKCO_AnonymizationFieldConfig__mdt individual = new TEKCO_AnonymizationFieldConfig__mdt(
+            DeveloperName             = 'IndividualP_Address',
+            TEKCO_ObjectApiName__c    = 'Address',
+            TEKCO_FieldApiName__c     = 'Street',
+            TEKCO_AdditionalFilter__c = 'X = 1'
         );
-        System.assertEquals('Account.Phone.',
-            TEKCO_AnonymizationConfigSelector.configKey(config),
-            'Le segment vide est significatif : le LWC produit la meme chose avec || \'\'');
+        TEKCO_AnonymizationFieldConfig__mdt patient = new TEKCO_AnonymizationFieldConfig__mdt(
+            DeveloperName             = 'Patient_Address',
+            TEKCO_ObjectApiName__c    = 'Address',
+            TEKCO_FieldApiName__c     = 'Street',
+            TEKCO_AdditionalFilter__c = 'X = 2'
+        );
+
+        System.assertNotEquals(
+            TEKCO_AnonymizationConfigSelector.configKey(individual),
+            TEKCO_AnonymizationConfigSelector.configKey(patient),
+            'Deux configs sur le meme objet et le meme champ restent distinguables');
     }
 
     @isTest

@@ -257,27 +257,92 @@ private class TEKCO_AnonymizationGuardTest {
 
     // ─── Validations de configuration ────────────────────────────────────────────
 
+    private static TEKCO_AnonymizationFieldConfig__mdt filterConfig(
+        String devName, String label, String objectApiName, String filter
+    ) {
+        return new TEKCO_AnonymizationFieldConfig__mdt(
+            DeveloperName             = devName,
+            MasterLabel               = label,
+            TEKCO_ObjectApiName__c    = objectApiName,
+            TEKCO_AdditionalFilter__c = filter
+        );
+    }
+
     @isTest
-    static void validateAdditionalFilters_malformedFilter_isReported() {
+    static void validateAdditionalFilters_malformedFilter_namesTheConfig() {
         List<String> warnings = TEKCO_AnonymizationGuard.validateAdditionalFilters(
-            new Map<String, String>{ 'Account' => 'ceci n est pas une condition' }
+            new List<TEKCO_AnonymizationFieldConfig__mdt>{
+                filterConfig('Patient_Address', 'Patient Address', 'Account', 'ceci n est pas une condition')
+            }
         );
 
-        System.assertEquals(1, warnings.size(), 'Le filtre invalide est signalé au lancement');
-        System.assert(warnings[0].contains('Account'), 'Le message nomme l objet : ' + warnings[0]);
+        System.assertEquals(1, warnings.size(), 'Le filtre invalide est signalé');
+        System.assert(warnings[0].contains('Patient Address'),
+            'Le message nomme la config, pas seulement l objet : ' + warnings[0]);
+        System.assert(warnings[0].contains('Account'),
+            'L objet reste dans le message : ' + warnings[0]);
+    }
+
+    /**
+     * Contact porte cinq configs partageant un filtre, User six. Une seule requête, un seul
+     * avertissement, mais qui nomme les configs concernées — c est tout l intérêt du changement.
+     */
+    @isTest
+    static void validateAdditionalFilters_sharedFilter_namesThemTogether() {
+        List<String> warnings = TEKCO_AnonymizationGuard.validateAdditionalFilters(
+            new List<TEKCO_AnonymizationFieldConfig__mdt>{
+                filterConfig('C_Email',     'Contact Patient Email',     'Account', 'pas une condition'),
+                filterConfig('C_FirstName', 'Contact Patient FirstName', 'Account', 'pas une condition'),
+                filterConfig('C_LastName',  'Contact Patient LastName',  'Account', 'pas une condition'),
+                filterConfig('C_Street',    'Contact Patient Street',    'Account', 'pas une condition')
+            }
+        );
+
+        System.assertEquals(1, warnings.size(),
+            'Un filtre identique partagé par plusieurs configs ne produit qu un avertissement');
+        System.assert(warnings[0].contains('Contact Patient Email'),
+            'La première config est nommée : ' + warnings[0]);
+        System.assert(warnings[0].contains('(+1)'),
+            'Au-delà de trois noms, le reste est compté : ' + warnings[0]);
+    }
+
+    @isTest
+    static void validateAdditionalFilters_differentFiltersOnOneObject_areBothChecked() {
+        List<String> warnings = TEKCO_AnonymizationGuard.validateAdditionalFilters(
+            new List<TEKCO_AnonymizationFieldConfig__mdt>{
+                filterConfig('IndividualP_Address', 'IndividualP Address', 'Account', 'premier invalide'),
+                filterConfig('Patient_Address',     'Patient Address',     'Account', 'second invalide')
+            }
+        );
+
+        System.assertEquals(2, warnings.size(),
+            'Deux filtres distincts sur un même objet sont contrôlés séparément — '
+            + 'l ancienne version n en voyait qu un');
     }
 
     @isTest
     static void validateAdditionalFilters_validFilter_isSilent() {
         System.assertEquals(0,
             TEKCO_AnonymizationGuard.validateAdditionalFilters(
-                new Map<String, String>{ 'Account' => 'IsDeleted = false' }
+                new List<TEKCO_AnonymizationFieldConfig__mdt>{
+                    filterConfig('Ok', 'Ok', 'Account', 'IsDeleted = false')
+                }
             ).size(),
             'Un filtre valide ne produit aucun avertissement');
 
         System.assertEquals(0,
             TEKCO_AnonymizationGuard.validateAdditionalFilters(null).size(),
-            'Aucun filtre : rien à signaler');
+            'Aucune config : rien à signaler');
+
+        System.assertEquals(0,
+            TEKCO_AnonymizationGuard.validateAdditionalFilters(
+                new List<TEKCO_AnonymizationFieldConfig__mdt>{
+                    new TEKCO_AnonymizationFieldConfig__mdt(
+                        DeveloperName = 'NoFilter', TEKCO_ObjectApiName__c = 'Account'
+                    )
+                }
+            ).size(),
+            'Une config sans filtre n est pas contrôlée');
     }
 
     /**

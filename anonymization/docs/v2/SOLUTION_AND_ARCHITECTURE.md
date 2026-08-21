@@ -145,9 +145,11 @@ meant to protect with its PII and no visible signal.
 
 ### 3.5 The before/after sample
 
-`previewSample` reads at most **20 records**, applies the patterns in memory and throws the
-result away — **no DML, ever**. It shares `applyPatternsTo()` with the run, so what it shows
-is what the run will do.
+`previewSample` reads **one record** by default — 20 is the hard ceiling, whatever the caller
+asks for — applies the patterns in memory and throws the result away — **no DML, ever**. It
+shares `applyPatternsTo()` with the run, so what it shows is what the run will do. One record
+already fills the table: the panel renders a row per configured field, so a single case read
+vertically is the useful unit.
 
 It exists because of a real incident: a misconfigured pattern produced a run reported as
 `Success` with the targeted e-mails left intact, and nothing revealed it until the data was
@@ -161,7 +163,7 @@ gone elsewhere.
 | Errors per producer | 50 | `RunContext.MAX_CAPTURED_ERRORS` |
 | Errors per run | 200 | `RunContext.MAX_ACCUMULATED_ERRORS` |
 | Records per By ID run | 50 000 | `TEKCO_AnonymizationByIdController.MAX_BY_ID_RECORDS` |
-| Records per preview | 20 | `TEKCO_AnonymizationPreviewService.MAX_SAMPLE_SIZE` |
+| Records per preview | 1 by default, 20 maximum | `TEKCO_AnonymizationPreviewService.DEFAULT_SAMPLE_SIZE` / `MAX_SAMPLE_SIZE` |
 
 ### 3.7 `without sharing`, deliberately
 
@@ -246,12 +248,29 @@ One record per field to process. `TEKCO_ObjectApiName__c`, `TEKCO_FieldApiName__
 `TEKCO_DeleteHistory__c`, `TEKCO_AdditionalFilter__c`, and the parent link fields used by
 the By ID chain to reach children.
 
-**The config key.** The interface identifies a configuration as
-`Object.Field.RecordType`, with an empty last segment when unscoped. That string is a
-contract: the LWC writes it when a field is unticked, sends it back as `excludedFields`,
-and the server re-derives it to decide what to skip. It is defined once on each side —
-`TEKCO_AnonymizationConfigSelector.configKey()` and `buildConfigKey()` in the LWC — and
-each names the other. A silent disagreement means an unticked field gets anonymized anyway.
+**The config key is the `DeveloperName`.** It travels to the interface on the field DTO,
+comes back as `excludedFields` / `disabledHistoryFields`, and
+`TEKCO_AnonymizationConfigSelector.configKey()` compares it to decide what to skip. The client
+never builds it — it echoes back what the server sent — so there is no format for the two sides
+to disagree about.
+
+It used to be `Object.Field.RecordType`, built independently in Apex and in the LWC. Two
+problems, both real. The format was a hand-kept contract whose breach was silent: untick a
+field, watch the UI show it excluded, watch the run anonymize it anyway. And it **collided** —
+`Address.Street` is carried by two configurations that differ only by their additional filter,
+so both produced `Address.Street.` and unticking either unticked both.
+
+**The additional filter belongs to the configuration**, not to the object. An object's scope is
+the OR of the filters of its **retained** configurations, parenthesised as a whole because
+`whereClause()` joins conditions with `AND` and `AND` binds tighter than `OR`. A retained
+configuration carrying no filter means "no restriction" and lifts it for the whole object.
+
+That shape replaced a first-wins map, and it fixes two things at once. `Address` used to keep
+only whichever filter the platform happened to return first — no `ORDER BY` decided it — so one
+of its two populations was never anonymized, silently, on a run reporting `Success`. And
+unticking a field now removes a term from an `OR`, which can only narrow; the old shape had to
+read the filter *before* the exclusion check or unticking one field dropped the object's only
+filter and **widened** the run.
 
 ### `TEKCO_AnonymizationOrgConfig__mdt`
 
@@ -276,6 +295,12 @@ existed have it blank, and the queries fall back to the old test for those.
 - **Coverage is whatever is configured.** Nothing enumerates the PII the configuration does
   *not* cover. Objects such as Task, Event and Chatter feeds are absent unless someone adds
   them.
+- **The record-type dimension is redundant as configured.** 31 `(object, field)` pairs are
+  carried by more than one configuration, and all 31 use the same pattern and the same history
+  setting across their record types — the dimension only ever narrows scope, never varies the
+  transformation. 32 of the 98 records exist for that reason alone. Folding it into a
+  comma-separated list on the existing field would bring the set to 66; that change is designed
+  and not yet made.
 - **Asset Files cannot be deleted** by the ContentDocument phase.
 - **Aborting a job by hand leaves the bypass raised.** `finish()` never runs, so nothing
   restores it — see [`DEPLOYMENT_AND_USAGE.md`](DEPLOYMENT_AND_USAGE.md) for the manual recovery.

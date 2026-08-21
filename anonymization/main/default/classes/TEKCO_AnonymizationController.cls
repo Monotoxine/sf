@@ -135,6 +135,8 @@ public with sharing class TEKCO_AnonymizationController {
         if (selectedObjects == null || selectedObjects.isEmpty()) {
             fieldConfigRecords = [
                 SELECT
+                    DeveloperName,
+                    MasterLabel,
                     TEKCO_ObjectApiName__c,
                     TEKCO_FieldApiName__c,
                     TEKCO_PatternType__c,
@@ -152,6 +154,8 @@ public with sharing class TEKCO_AnonymizationController {
         } else {
             fieldConfigRecords = [
                 SELECT
+                    DeveloperName,
+                    MasterLabel,
                     TEKCO_ObjectApiName__c,
                     TEKCO_FieldApiName__c,
                     TEKCO_PatternType__c,
@@ -174,6 +178,13 @@ public with sharing class TEKCO_AnonymizationController {
 
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : fieldConfigRecords) {
             FieldConfigDTO fieldConfigDto                 = new FieldConfigDTO();
+            // The config key. The client echoes it back as excludedFields / disabledHistoryFields
+            // rather than rebuilding it — see TEKCO_AnonymizationConfigSelector.configKey().
+            fieldConfigDto.developerName                  = fieldConfig.DeveloperName;
+            // Shown as the rule's identity in the field table. Two configs can be identical on
+            // object, field and record type — Address.Street is — and the label is what tells
+            // them apart, in the UI and in a Check Configuration finding alike.
+            fieldConfigDto.label                          = fieldConfig.MasterLabel;
             fieldConfigDto.objectApiName                  = fieldConfig.TEKCO_ObjectApiName__c;
             fieldConfigDto.fieldApiName                   = fieldConfig.TEKCO_FieldApiName__c;
             fieldConfigDto.patternType                    = fieldConfig.TEKCO_PatternType__c;
@@ -428,6 +439,8 @@ public with sharing class TEKCO_AnonymizationController {
     }
     
         public class FieldConfigDTO {
+        @AuraEnabled public String  developerName;
+        @AuraEnabled public String  label;
         @AuraEnabled public String  objectApiName;
         @AuraEnabled public String  fieldApiName;
         @AuraEnabled public String  patternType;

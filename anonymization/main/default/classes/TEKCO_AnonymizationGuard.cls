@@ -218,29 +218,78 @@ public inherited sharing class TEKCO_AnonymizationGuard {
      * query. A malformed one already fails safely — start() catches it and skips the step — but
      * only hours into the run. Parsing it here surfaces it at launch instead.
      *
-     * One query per filtered object, bounded by the object count.
+     * Takes the CONFIGS rather than a filter-per-object map, so a finding can name the record to
+     * open in Setup. An object is not an address: Contact carries five configs sharing one filter
+     * and User six, while Address carries two that differ — "the filter on Contact is invalid"
+     * tells the reader nothing about which of the five to fix.
+     *
+     * One query per DISTINCT (object, filter), not per config: the fifteen configs carrying a
+     * filter today collapse to five queries. Configs sharing a filter are named together on the
+     * one finding.
      *
      * This does NOT catch a filter that is valid but wrong. Such a filter silently narrows the
      * scope, the run ends in Success and the PII stays. Only the scope preview shows that.
      */
-    public static List<String> validateAdditionalFilters(Map<String, String> filtersByObject) {
+    public static List<String> validateAdditionalFilters(
+        List<TEKCO_AnonymizationFieldConfig__mdt> configs
+    ) {
         List<String> warnings = new List<String>();
-        if (filtersByObject == null || filtersByObject.isEmpty()) return warnings;
+        if (configs == null || configs.isEmpty()) return warnings;
 
-        for (String objectApiName : filtersByObject.keySet()) {
-            String filter = filtersByObject.get(objectApiName);
-            if (String.isBlank(filter)) continue;
+        // Keyed on object + filter so one query covers every config that shares the condition,
+        // and so the finding can list them all.
+        Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>> configsByObjectAndFilter =
+            new Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>>();
+        for (TEKCO_AnonymizationFieldConfig__mdt config : configs) {
+            if (config == null || String.isBlank(config.TEKCO_AdditionalFilter__c)) continue;
+            if (String.isBlank(config.TEKCO_ObjectApiName__c)) continue;
+            String key = config.TEKCO_ObjectApiName__c + KEY_SEPARATOR
+                + config.TEKCO_AdditionalFilter__c;
+            if (!configsByObjectAndFilter.containsKey(key)) {
+                configsByObjectAndFilter.put(
+                    key, new List<TEKCO_AnonymizationFieldConfig__mdt>()
+                );
+            }
+            configsByObjectAndFilter.get(key).add(config);
+        }
+
+        for (List<TEKCO_AnonymizationFieldConfig__mdt> sharing : configsByObjectAndFilter.values()) {
+            String objectApiName = sharing[0].TEKCO_ObjectApiName__c;
+            String filter        = sharing[0].TEKCO_AdditionalFilter__c;
             try {
                 Database.query('SELECT Id FROM ' + objectApiName + ' WHERE ' + filter + ' LIMIT 1');
             } catch (Exception e) {
                 warnings.add(TEKCO_AnonymizationRunContext.cap(
-                    'Config warning: the additional filter on ' + objectApiName
-                    + ' is not a valid condition, so that object will be skipped: ' + e.getMessage()
+                    'Config warning: the additional filter of ' + describe(sharing)
+                    + ' is not a valid condition on ' + objectApiName
+                    + ', so that rule will be skipped: ' + e.getMessage()
                 ));
             }
         }
         return warnings;
     }
+
+    /** Names of the configs sharing one filter, at most three then a count. */
+    private static String describe(List<TEKCO_AnonymizationFieldConfig__mdt> configs) {
+        List<String> names = new List<String>();
+        for (TEKCO_AnonymizationFieldConfig__mdt config : configs) {
+            if (names.size() == MAX_NAMED_CONFIGS) break;
+            names.add(
+                String.isNotBlank(config.MasterLabel) ? config.MasterLabel : config.DeveloperName
+            );
+        }
+        names.sort();
+        String described = String.join(names, ', ');
+        Integer remaining = configs.size() - names.size();
+        return remaining > 0 ? described + ' (+' + remaining + ')' : described;
+    }
+
+    /** Configs listed by name on a shared-filter finding before it turns into a count. */
+    private static final Integer MAX_NAMED_CONFIGS = 3;
+
+    /** Joins object and filter into one map key. A control character, because a filter can
+     *  legitimately contain any punctuation. */
+    private static final String KEY_SEPARATOR = '\u0001';
 
     /**
      * Everything wrong with the configuration, reported before any run rather than as lines
@@ -254,14 +303,17 @@ public inherited sharing class TEKCO_AnonymizationGuard {
         List<String> findings = new List<String>();
 
         List<TEKCO_AnonymizationFieldConfig__mdt> configs = [
-            SELECT DeveloperName, TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c,
+            SELECT DeveloperName, MasterLabel, TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c,
                    TEKCO_PatternType__c, TEKCO_RecordTypeDeveloperName__c,
                    TEKCO_AdditionalFilter__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
             WHERE TEKCO_IsActive__c = true
         ];
 
-        Map<String, String> filtersByObject = new Map<String, String>();
+        // Filters are checked on the configs that survive the object check: querying a filter on
+        // an object that does not exist here would only restate the finding above it.
+        List<TEKCO_AnonymizationFieldConfig__mdt> filterConfigs =
+            new List<TEKCO_AnonymizationFieldConfig__mdt>();
         Set<String> missingObjects = new Set<String>();
 
         for (TEKCO_AnonymizationFieldConfig__mdt config : configs) {
@@ -292,14 +344,13 @@ public inherited sharing class TEKCO_AnonymizationGuard {
                 );
             }
 
-            if (String.isNotBlank(config.TEKCO_AdditionalFilter__c)
-                    && !filtersByObject.containsKey(objectApiName)) {
-                filtersByObject.put(objectApiName, config.TEKCO_AdditionalFilter__c);
+            if (String.isNotBlank(config.TEKCO_AdditionalFilter__c)) {
+                filterConfigs.add(config);
             }
         }
 
         findings.addAll(validatePatternTypes(configs));
-        findings.addAll(validateAdditionalFilters(filtersByObject));
+        findings.addAll(validateAdditionalFilters(filterConfigs));
         return findings;
     }
 

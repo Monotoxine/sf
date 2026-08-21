@@ -303,9 +303,11 @@
                                 <thead>
                                     <tr class="slds-line-height_reset">
                                         <th style="width:3rem"><div class="slds-truncate">Run</div></th>
+                                        <th><div class="slds-truncate" title="Configuration record behind this row">Rule</div></th>
                                         <th><div class="slds-truncate">Field</div></th>
                                         <th><div class="slds-truncate">Pattern</div></th>
                                         <th><div class="slds-truncate">Record Type</div></th>
+                                        <th><div class="slds-truncate" title="Additional filter restricting this rule to part of the object">Scope</div></th>
                                         <th><div class="slds-truncate">Del. History</div></th>
                                         <th><div class="slds-truncate">Description</div></th>
                                     </tr>
@@ -320,6 +322,7 @@
                                                     data-key={field.configKey}
                                                     onchange={handleFieldToggle} />
                                             </td>
+                                            <td><div class="slds-truncate" title={field.label}>{field.label}</div></td>
                                             <td><div class="slds-truncate">{field.fieldApiName}</div></td>
                                             <td>
                                                 <div class="slds-truncate">
@@ -334,6 +337,11 @@
                                             <td>
                                                 <div class="slds-truncate">
                                                     {field.recordTypeDeveloperName}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="slds-truncate" title={field.additionalFilter}>
+                                                    {field.additionalFilter}
                                                 </div>
                                             </td>
                                             <td>
@@ -690,6 +698,7 @@
                                     <thead>
                                         <tr class="slds-line-height_reset">
                                             <th style="width:3rem"><div class="slds-truncate">Run</div></th>
+                                            <th><div class="slds-truncate" title="Configuration record behind this row">Rule</div></th>
                                             <th><div class="slds-truncate">Field</div></th>
                                             <th><div class="slds-truncate">Pattern</div></th>
                                             <th><div class="slds-truncate">Record Type</div></th>
@@ -707,6 +716,7 @@
                                                         data-key={field.configKey}
                                                         onchange={handleByIdFieldToggle} />
                                                 </td>
+                                                <td><div class="slds-truncate" title={field.label}>{field.label}</div></td>
                                                 <td><div class="slds-truncate">{field.fieldApiName}</div></td>
                                                 <td>
                                                     <div class="slds-truncate">

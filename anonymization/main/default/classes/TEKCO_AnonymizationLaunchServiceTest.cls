@@ -164,4 +164,91 @@ private class TEKCO_AnonymizationLaunchServiceTest {
         System.assertNotEquals(null, auditLogId,
             'Configs with no record type of their own survive any record-type selection');
     }
+
+    // ─── combineFilters : le perimetre d un objet est le OR de ses configs retenues ──────
+
+    /**
+     * Le cas Address. Deux configs, deux filtres exclusifs : l ancienne version n en gardait
+     * qu un, au hasard de l ordre de la requete, et une des deux populations n etait jamais
+     * anonymisee.
+     */
+    @isTest
+    static void combineFilters_twoFiltersOnOneObject_areBothApplied() {
+        Map<String, String> combined = TEKCO_AnonymizationLaunchService.combineFilters(
+            new Map<String, Set<String>>{
+                'Address' => new Set<String>{ 'A = 1', 'B = 2' }
+            },
+            new Set<String>()
+        );
+
+        String filter = combined.get('Address');
+        System.assert(filter.contains('A = 1'), 'Le premier filtre est present : ' + filter);
+        System.assert(filter.contains('B = 2'), 'Le second aussi : ' + filter);
+        System.assert(filter.contains(' OR '), 'Les deux sont combines en OR : ' + filter);
+    }
+
+    /**
+     * whereClause() joint les conditions avec AND, et AND lie plus fort que OR en SOQL. Sans
+     * parentheses englobantes, "marque AND (A) OR (B)" se lit "(marque AND A) OR B" et attrape
+     * des enregistrements hors du filtre de marque.
+     */
+    @isTest
+    static void combineFilters_isParenthesisedAsAWhole() {
+        String twoTerms = TEKCO_AnonymizationLaunchService.combineFilters(
+            new Map<String, Set<String>>{ 'Address' => new Set<String>{ 'A = 1', 'B = 2' } },
+            new Set<String>()
+        ).get('Address');
+        System.assert(twoTerms.startsWith('(') && twoTerms.endsWith(')'),
+            'Expression englobee : ' + twoTerms);
+
+        String oneTerm = TEKCO_AnonymizationLaunchService.combineFilters(
+            new Map<String, Set<String>>{ 'Account' => new Set<String>{ 'X = 1 OR Y = 2' } },
+            new Set<String>()
+        ).get('Account');
+        System.assert(oneTerm.startsWith('(') && oneTerm.endsWith(')'),
+            'Un filtre unique est englobe lui aussi, il peut contenir son propre OR : ' + oneTerm);
+    }
+
+    /**
+     * Une config retenue sans filtre s applique a tous les enregistrements de l objet :
+     * restreindre la requete lui retirerait des enregistrements qu elle doit anonymiser.
+     */
+    @isTest
+    static void combineFilters_anUnfilteredConfigLiftsTheRestriction() {
+        Map<String, String> combined = TEKCO_AnonymizationLaunchService.combineFilters(
+            new Map<String, Set<String>>{ 'Account' => new Set<String>{ 'A = 1' } },
+            new Set<String>{ 'Account' }
+        );
+
+        System.assertEquals(null, combined.get('Account'),
+            'Aucun filtre pour cet objet : il est lu en entier');
+    }
+
+    /**
+     * Decocher un champ retire son terme du OR. C est ce qui remplace l ancien piege d ordre :
+     * un terme retire d un OR ne peut que retrecir, jamais elargir.
+     */
+    @isTest
+    static void combineFilters_droppingATermNarrows() {
+        String both = TEKCO_AnonymizationLaunchService.combineFilters(
+            new Map<String, Set<String>>{ 'Address' => new Set<String>{ 'A = 1', 'B = 2' } },
+            new Set<String>()
+        ).get('Address');
+        String one = TEKCO_AnonymizationLaunchService.combineFilters(
+            new Map<String, Set<String>>{ 'Address' => new Set<String>{ 'A = 1' } },
+            new Set<String>()
+        ).get('Address');
+
+        System.assertNotEquals(both, one, 'Retirer une config change la requete');
+        System.assert(!one.contains('B = 2'), 'Le terme de la config decochee a disparu : ' + one);
+    }
+
+    @isTest
+    static void combineFilters_noFilterAtAll_returnsEmpty() {
+        System.assertEquals(0,
+            TEKCO_AnonymizationLaunchService.combineFilters(
+                new Map<String, Set<String>>(), new Set<String>()
+            ).size(),
+            'Aucun objet filtre : aucune entree');
+    }
 }
