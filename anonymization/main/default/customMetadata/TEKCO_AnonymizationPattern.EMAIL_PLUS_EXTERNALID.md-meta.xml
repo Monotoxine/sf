@@ -12,7 +12,7 @@
     </values>
     <values>
         <field>TEKCO_ExternalIdField__c</field>
-        <value xsi:type="xsd:string">TEKCO_ExternalId__c</value>
+        <value xsi:type="xsd:string">ALH_ExternalSystemID__c</value>
     </values>
     <values>
         <field>TEKCO_IsActive__c</field>
