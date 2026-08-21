@@ -8,6 +8,7 @@ import getRecordTypes     from '@salesforce/apex/TEKCO_AnonymizationController.g
 import getFieldConfigs    from '@salesforce/apex/TEKCO_AnonymizationController.getFieldConfigs';
 import getPreviewCounts   from '@salesforce/apex/TEKCO_AnonymizationController.getPreviewCounts';
 import getAuditLogs       from '@salesforce/apex/TEKCO_AnonymizationController.getAuditLogs';
+import getConfigHealth    from '@salesforce/apex/TEKCO_AnonymizationController.getConfigHealth';
 import startAnonymization from '@salesforce/apex/TEKCO_AnonymizationController.startAnonymization';
 import previewSample      from '@salesforce/apex/TEKCO_AnonymizationController.previewSample';
 
@@ -124,6 +125,11 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     _pendingExcludedFields        = [];
     _pendingDisabledHistoryFields = [];
     _auditTimer   = null;
+
+    // Configuration health
+    @track configFindings   = [];
+    @track configChecked    = false;
+    @track isCheckingConfig = false;
 
     // Before/after sample (By Criteria)
     @track sampleObjectOptions = [];
@@ -281,6 +287,24 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     handleSelectAllObjects()      { this.selectedObjects = this.objectOptions.map(o => o.value); this.loadRecordTypes(this.selectedObjects); }
     handleSelectAllRecordTypes()  { this.selectedRecordTypes = this.recordTypeOptions.map(o => o.value); }
     handlePreview()               { this.loadFieldConfigs(); this.loadPreview(); }
+
+    /**
+     * Surfaces what the batches would merely "skip": an object or field that does not exist,
+     * a pattern type with no active record, a filter that will not parse. Each of those leaves
+     * a field un-anonymized today with no visible signal.
+     */
+    handleCheckConfig() {
+        this.isCheckingConfig = true;
+        getConfigHealth()
+            .then(findings => {
+                this.configFindings   = (findings || []).map((text, index) => ({ key: index, text }));
+                this.configChecked    = true;
+                this.isCheckingConfig = false;
+            }, err => {
+                this.showError('Configuration check failed', err);
+                this.isCheckingConfig = false;
+            });
+    }
 
     // ── Before/after sample (By Criteria) ─────────────────────────────────────
 
@@ -781,6 +805,8 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     // ── By Criteria getters ───────────────────────────────────────────────────
 
     get hasFieldConfigs()      { return this.fieldConfigs.length > 0; }
+    get hasConfigFindings()    { return this.configFindings.length > 0; }
+    get configIsClean()        { return this.configChecked && this.configFindings.length === 0; }
     get hasPreview()           { return this.previewByObject.length > 0; }
     get hasSampleObjects()     { return this.sampleObjectOptions.length > 0; }
     get hasSampleRows()        { return this.sampleRows.length > 0; }

@@ -107,6 +107,38 @@
                 </div>
             </div>
 
+            <!-- ── Configuration health ──────────────────────────────────── -->
+            <div class="slds-m-bottom_medium">
+                <lightning-button
+                    label="Check Configuration"
+                    icon-name="utility:check"
+                    onclick={handleCheckConfig}>
+                </lightning-button>
+                <template if:true={isCheckingConfig}>
+                    <lightning-spinner alternative-text="Checking..." size="small" class="slds-m-left_small"></lightning-spinner>
+                </template>
+            </div>
+
+            <template if:true={configIsClean}>
+                <div class="slds-notify slds-notify_alert slds-theme_success slds-m-bottom_medium" role="alert">
+                    <lightning-icon icon-name="utility:success" size="x-small" variant="inverse" class="slds-m-right_x-small"></lightning-icon>
+                    Configuration checked: every object, field, pattern and filter resolves.
+                </div>
+            </template>
+
+            <template if:true={hasConfigFindings}>
+                <div class="slds-notify slds-notify_alert slds-theme_warning slds-m-bottom_medium" role="alert">
+                    <lightning-icon icon-name="utility:warning" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+                    <strong>{configFindings.length} configuration issue(s)</strong> — each one leaves a
+                    field un-anonymized without any error at run time.
+                    <ul class="slds-list_dotted slds-m-top_x-small">
+                        <template for:each={configFindings} for:item="finding">
+                            <li key={finding.key} class="slds-text-body_small">{finding.text}</li>
+                        </template>
+                    </ul>
+                </div>
+            </template>
+
             <!-- Preview button -->
             <div class="slds-m-bottom_medium">
                 <lightning-button

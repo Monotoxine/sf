@@ -37,6 +37,10 @@ public with sharing class TEKCO_AnonymizationLaunchService {
     }
 
     public static Id launch(LaunchRequest request) {
+        // Both tabs come through here, so the concurrency check cannot be forgotten on one of
+        // them. Two runs at once corrupt the bypass snapshot — see the method's own comment.
+        TEKCO_AnonymizationGuard.assertNoRunInProgress();
+
         List<TEKCO_AnonymizationFieldConfig__mdt> scopedConfigs = loadScopedConfigs(request);
 
         Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>> configsByObject =
@@ -201,6 +205,9 @@ public with sharing class TEKCO_AnonymizationLaunchService {
         // Configs whose pattern type resolves to nothing would be skipped silently at execute()
         // time — surface them at launch as warnings seeded into the audit trail.
         ctx.addErrors(TEKCO_AnonymizationGuard.validatePatternTypes(scopedConfigs));
+        // Same idea for a malformed additional filter: it would only surface hours later, as a
+        // whole object skipped in the middle of the chain.
+        ctx.addErrors(TEKCO_AnonymizationGuard.validateAdditionalFilters(additionalFiltersByObject));
         return ctx;
     }
 

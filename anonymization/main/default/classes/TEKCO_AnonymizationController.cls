@@ -375,6 +375,25 @@ public with sharing class TEKCO_AnonymizationController {
     }
 
     /**
+     * Everything wrong with the configuration, before any run: objects that do not exist in this
+     * org, fields that do not exist on their object, pattern types with no active record, and
+     * additional filters that will not parse.
+     *
+     * These are all conditions the batches merely "skip" today, as a line in a capped error list
+     * discovered halfway through a run — while the field they were meant to protect keeps its
+     * PII with no visible signal.
+     */
+    @AuraEnabled(cacheable=false)
+    public static List<String> getConfigHealth() {
+        TEKCO_AnonymizationGuard.assertCanAnonymize();
+        try {
+            return TEKCO_AnonymizationGuard.validateConfiguration();
+        } catch (Exception e) {
+            throw new AuraHandledException('Configuration check failed: ' + e.getMessage());
+        }
+    }
+
+    /**
      * Before/after sample of what a By Criteria run would write on one object, without any DML.
      * Bounded to TEKCO_AnonymizationPreviewService.MAX_SAMPLE_SIZE records whatever is asked.
      */

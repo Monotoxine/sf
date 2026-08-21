@@ -59,6 +59,7 @@
         <members>TEKCO_AnonymizationBypassService</members>
         <members>TEKCO_AnonymizationOrgConfigService</members>
         <members>TEKCO_AnonymizationPatternService</members>
+        <members>TEKCO_AnonymizationScheduler</members>
         <members>TEKCO_ContentDocumentDeleteService</members>
         <members>TEKCO_FieldHistoryDeleteService</members>
         <name>ApexClass</name>

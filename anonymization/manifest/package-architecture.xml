@@ -78,6 +78,8 @@
         <members>TEKCO_AnonymizationOrgConfigService</members>
         <members>TEKCO_AnonymizationOrgConfigServiceTest</members>
         <members>TEKCO_AnonymizationPatternService</members>
+        <members>TEKCO_AnonymizationScheduler</members>
+        <members>TEKCO_AnonymizationSchedulerTest</members>
         <members>TEKCO_AnonymizationPatternServiceTest</members>
         <members>TEKCO_ContentDocumentDeleteService</members>
         <members>TEKCO_ContentDocumentDeleteServiceTest</members>

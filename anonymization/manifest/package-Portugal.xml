@@ -14,6 +14,7 @@
         <members>TEKCO_AnonymizationBypassService</members>
         <members>TEKCO_AnonymizationController</members>
         <members>TEKCO_AnonymizationPatternService</members>
+        <members>TEKCO_AnonymizationScheduler</members>
         <members>TEKCO_ContentDocumentBatch</members>
         <members>TEKCO_FieldHistoryBatch</members>
         <members>TEKCO_AnonymizationAuditService</members>
