@@ -107,7 +107,6 @@
         <members>TEKCO_AnonymizationPattern__mdt.NAME_FIRST_LETTER_SFID</members>
         <members>TEKCO_AnonymizationPattern__mdt.PHONE_MASK</members>
         <members>TEKCO_AnonymizationPattern__mdt.SSN_SEQUENTIAL</members>
-        <members>TEKCO_AnonymizationOrgConfig__mdt.Portugal_ALH</members>
         <name>CustomMetadata</name>
     </types>
     <types>

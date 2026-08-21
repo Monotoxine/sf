@@ -221,6 +221,15 @@ public with sharing class TEKCO_AnonymizationByIdController {
             }
         }
 
+        // What finish() reloads for each next object — carries the user's exclusions
+        // across the chain instead of reloading everything active.
+        Map<String, List<String>> configDevNamesByObject = new Map<String, List<String>>();
+        for (String obj : configsByObject.keySet()) {
+            configDevNamesByObject.put(
+                obj, TEKCO_AnonymizationBatchUtils.toDevNames(configsByObject.get(obj))
+            );
+        }
+
         Map<String, TEKCO_AnonymizationPattern__mdt> patternsByType = buildPatternMap();
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot =
             TEKCO_AnonymizationBypassService.activate();
@@ -255,7 +264,8 @@ public with sharing class TEKCO_AnonymizationByIdController {
                     patternsByType, auditLog.Id, remainingObjectIds,
                     contentDocConfigs, contentDocIdsByObject,
                     historyConfigs, historyIdsByObject,
-                    bypassSnapshot, new List<String>(), 0
+                    bypassSnapshot, new List<String>(), 0,
+                    configDevNamesByObject
                 ),
                 TEKCO_AnonymizationByIdBatch.DEFAULT_BATCH_SIZE
             );

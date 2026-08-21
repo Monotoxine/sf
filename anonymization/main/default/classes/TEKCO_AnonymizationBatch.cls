@@ -19,6 +19,12 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
     private List<String>                                  historyConfigDevNames;
     private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
 
+    /**
+     * Config DeveloperNames per object, as filtered by the controller (user exclusions and
+     * record-type selection applied). finish() loads the next object's configs from here —
+     * reloading everything active would silently resurrect the fields the user unchecked.
+     */
+    private Map<String, List<String>>                     configDevNamesByObject;
     private Map<String, List<String>>                     parentFiltersByObject;
     private Map<String, String>                           additionalFiltersByObject;
     private Map<Id, String>                               recordTypeDevNameById =
@@ -43,6 +49,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
         List<String> accumulatedErrors,
         Integer accumulatedRecordsProcessed,
+        Map<String, List<String>> configDevNamesByObject,
         Map<String, List<String>> parentFiltersByObject,
         Map<String, String> additionalFiltersByObject
     ) {
@@ -57,6 +64,8 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         this.bypassSnapshot             = bypassSnapshot;
         this.accumulatedErrors          = accumulatedErrors != null ? accumulatedErrors : new List<String>();
         this.accumulatedRecordsProcessed = accumulatedRecordsProcessed != null ? accumulatedRecordsProcessed : 0;
+        this.configDevNamesByObject = configDevNamesByObject != null
+            ? configDevNamesByObject : new Map<String, List<String>>();
         this.parentFiltersByObject = parentFiltersByObject != null
             ? parentFiltersByObject : new Map<String, List<String>>();
         this.additionalFiltersByObject = additionalFiltersByObject != null
@@ -179,22 +188,16 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                 }
                 topConditions.add(parentLookupField + ' IN (' + parentSubquery + ')');
             } else if (!selectedBrands.isEmpty()) {
-                TEKCO_AnonymizationOrgConfigService.OrgConfig orgCfg = TEKCO_AnonymizationOrgConfigService.getConfig();
-                if (orgCfg.usesBrandObject() && String.isNotBlank(orgCfg.brandLookupFieldOnRecord)
-                        && TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, orgCfg.brandLookupFieldOnRecord)) {
-                    List<String> escaped = new List<String>();
-                    for (String b : selectedBrands) escaped.add('\'' + String.escapeSingleQuotes(b) + '\'');
-                    topConditions.add(orgCfg.brandLookupFieldOnRecord + '.' + orgCfg.brandCodeField
-                        + ' IN (' + String.join(escaped, ', ') + ')');
-                } else if (hasEmailMessageLorem) {
+                String brandCondition = TEKCO_AnonymizationOrgConfigService.buildBrandCondition(
+                    objectApiName, selectedBrands
+                );
+                if (brandCondition != null) {
+                    topConditions.add(brandCondition);
+                } else if (hasEmailMessageLorem
+                        && TEKCO_AnonymizationOrgConfigService.hasField('Case', 'TEKCO_Brand__c')) {
+                    // EmailMessage carries no brand field of its own — scope through the parent
+                    // Case. Guarded, because that field does not exist in every org.
                     topConditions.add('Parent.TEKCO_Brand__c IN :selectedBrands');
-                } else if (TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, 'tekco_brand__c')) {
-                    topConditions.add('TEKCO_Brand__c IN :selectedBrands');
-                } else if (TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, 'tekco_country__c')) {
-                    List<String> countryValues = TEKCO_AnonymizationOrgConfigService.getCountriesForBrands(selectedBrands);
-                    if (!countryValues.isEmpty()) {
-                        topConditions.add('TEKCO_Country__c IN :countryValues');
-                    }
                 }
             }
 
@@ -241,8 +244,13 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
         try {
             if (!remainingObjects.isEmpty()) {
                 String nextObjectApiName = remainingObjects.remove(0);
+                // The controller filtered these configs (user exclusions, record types).
+                // Reloading everything active would resurrect the unchecked fields.
+                List<String> nextDevNames = configDevNamesByObject.get(nextObjectApiName);
                 List<TEKCO_AnonymizationFieldConfig__mdt> nextObjectConfigs =
-                    TEKCO_AnonymizationBatchUtils.loadFieldConfigs(nextObjectApiName);
+                    (nextDevNames != null && !nextDevNames.isEmpty())
+                        ? TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(nextDevNames)
+                        : TEKCO_AnonymizationBatchUtils.loadFieldConfigs(nextObjectApiName);
                 Database.executeBatch(
                     new TEKCO_AnonymizationBatch(
                         nextObjectApiName,
@@ -256,6 +264,7 @@ public class TEKCO_AnonymizationBatch implements Database.Batchable<SObject>, Da
                         bypassSnapshot,
                         accumulatedErrors,
                         totalProcessed,
+                        configDevNamesByObject,
                         parentFiltersByObject,
                         additionalFiltersByObject
                     ),

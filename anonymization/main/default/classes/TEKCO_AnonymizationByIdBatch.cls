@@ -26,6 +26,12 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
     private List<TEKCO_AnonymizationFieldConfig__mdt>    historyConfigs;
     private Map<String, List<Id>>                        historyIdsByObject;
     private TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
+    /**
+     * Config DeveloperNames per object, as filtered by the controller (user exclusions
+     * applied). finish() loads the next object's configs from here — reloading everything
+     * active would silently resurrect the fields the user unchecked.
+     */
+    private Map<String, List<String>>                    configDevNamesByObject;
 
     private Map<Id, String> recordTypeDevNameById   = new Map<Id, String>();
     private Integer recordsProcessed                = 0;
@@ -47,7 +53,8 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
         Map<String, List<Id>> historyIdsByObject,
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot,
         List<String> accumulatedErrors,
-        Integer accumulatedRecordsProcessed
+        Integer accumulatedRecordsProcessed,
+        Map<String, List<String>> configDevNamesByObject
     ) {
         this.objectApiName              = objectApiName;
         this.recordIds                  = recordIds             != null ? recordIds             : new List<Id>();
@@ -62,6 +69,8 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
         this.bypassSnapshot             = bypassSnapshot;
         this.accumulatedErrors          = accumulatedErrors     != null ? accumulatedErrors     : new List<String>();
         this.accumulatedRecordsProcessed = accumulatedRecordsProcessed != null ? accumulatedRecordsProcessed : 0;
+        this.configDevNamesByObject      = configDevNamesByObject != null
+            ? configDevNamesByObject : new Map<String, List<String>>();
     }
 
     public Database.QueryLocator start(Database.BatchableContext bc) {
@@ -187,13 +196,19 @@ public class TEKCO_AnonymizationByIdBatch implements Database.Batchable<SObject>
             if (!remainingObjectIds.isEmpty()) {
                 String nextObj = new List<String>(remainingObjectIds.keySet())[0];
                 List<Id> nextIds = remainingObjectIds.remove(nextObj);
-                List<TEKCO_AnonymizationFieldConfig__mdt> nextConfigs = TEKCO_AnonymizationBatchUtils.loadFieldConfigs(nextObj);
+                // The controller filtered these configs (user exclusions). Reloading
+                // everything active would resurrect the fields the user unchecked.
+                List<String> nextDevNames = configDevNamesByObject.get(nextObj);
+                List<TEKCO_AnonymizationFieldConfig__mdt> nextConfigs =
+                    (nextDevNames != null && !nextDevNames.isEmpty())
+                        ? TEKCO_AnonymizationBatchUtils.loadFieldConfigsByDevNames(nextDevNames)
+                        : TEKCO_AnonymizationBatchUtils.loadFieldConfigs(nextObj);
                 Database.executeBatch(
                     new TEKCO_AnonymizationByIdBatch(
                         nextObj, nextIds, nextConfigs, patternsByType, auditLogId,
                         remainingObjectIds, contentDocConfigs, contentDocIdsByObject,
                         historyConfigs, historyIdsByObject, bypassSnapshot,
-                        accumulatedErrors, totalProcessed
+                        accumulatedErrors, totalProcessed, configDevNamesByObject
                     ),
                     DEFAULT_BATCH_SIZE
                 );
