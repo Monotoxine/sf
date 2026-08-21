@@ -275,6 +275,17 @@ covers. Blank means every record type; a single name is a list of one, which is 
 configuration written before the change behaves identically.
 `TEKCO_AnonymizationConfigSelector.recordTypesOf()` is the only place the string is split.
 
+**The user's record-type selection is a scope filter, exactly like the brands.** It rides on
+`RunContext.selectedRecordTypes` and becomes a condition on all three scope queries through
+`TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition()` — the same function the preview
+count and the sample call.
+
+It used to stop at the launch service, where it only decided which *rules* to keep. That was
+enough while each rule named one record type, and stopped being enough the moment a rule could
+cover two: selecting `ACCCO_Patient` kept a rule covering `ACCCO_IndividualPerson,ACCCO_Patient`,
+the query read every Account, and both populations were anonymized — while the count and the
+sample, which did honour the selection, showed only Patients.
+
 The two fields answer different questions, and both are needed. The record type says *which
 populations* — it is re-checkable per record, because the record carries its `RecordTypeId`. The
 filter says *which subset*, for objects where the record type does not discriminate: every

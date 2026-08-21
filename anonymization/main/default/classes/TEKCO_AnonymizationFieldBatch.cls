@@ -94,6 +94,8 @@ public without sharing class TEKCO_AnonymizationFieldBatch implements Database.B
                       objectApiName,
                       selection.fields,
                       selectedBrands,
+                      ctx.recordTypeSelection(),
+                      startConfigs,
                       ctx.additionalFilterFor(objectApiName),
                       selection.hasEmailMessageLorem
                   );

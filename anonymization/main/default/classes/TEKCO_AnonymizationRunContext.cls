@@ -50,6 +50,19 @@ public class TEKCO_AnonymizationRunContext {
     public List<String> selectedBrands = new List<String>();
     /** By Criteria only: per-object SOQL fragment declared on the field configs. */
     public Map<String, String> additionalFiltersByObject = new Map<String, String>();
+
+    /**
+     * The record types the user selected, or empty for "every record type".
+     *
+     * A SCOPE filter, exactly like selectedBrands: it decides which records a run reads, not
+     * which rules it keeps. It used to stop at the launch service, which only used it to drop
+     * rules covering none of the selected populations — so a rule covering
+     * "ACCCO_IndividualPerson,ACCCO_Patient" survived a selection of ACCCO_Patient alone and was
+     * then applied to both, while the preview count and the sample showed only Patients.
+     *
+     * A handful of strings: no weight on the Database.Stateful payload.
+     */
+    public List<String> selectedRecordTypes = new List<String>();
     /** By ID only: the records to touch, per object. Never used by the By Criteria chain. */
     public Map<String, List<Id>> recordIdsByObject = new Map<String, List<Id>>();
 
@@ -156,6 +169,11 @@ public class TEKCO_AnonymizationRunContext {
 
     public String additionalFilterFor(String objectApiName) {
         return additionalFiltersByObject.get(objectApiName);
+    }
+
+    /** The user's record-type selection, never null so callers can pass it straight through. */
+    public List<String> recordTypeSelection() {
+        return selectedRecordTypes != null ? selectedRecordTypes : new List<String>();
     }
 
     public List<Id> recordIdsFor(String objectApiName) {

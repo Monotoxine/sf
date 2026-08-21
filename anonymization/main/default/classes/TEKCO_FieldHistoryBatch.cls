@@ -62,6 +62,8 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
                       parentIdFieldName,
                       historyFieldNames(),
                       ctx.selectedBrands,
+                      ctx.recordTypeSelection(),
+                      historyConfigs(),
                       ctx.additionalFilterFor(objectApiName)
                   );
 
@@ -80,12 +82,15 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
     }
 
     /** Re-queried from developer names: only those cross chunk boundaries. */
+    private List<TEKCO_AnonymizationFieldConfig__mdt> historyConfigs() {
+        return TEKCO_AnonymizationConfigSelector.loadFieldConfigsByDevNames(
+            ctx.historyConfigDevNamesFor(objectApiName)
+        );
+    }
+
     private Set<String> historyFieldNames() {
         Set<String> fieldApiNames = new Set<String>();
-        for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig :
-                TEKCO_AnonymizationConfigSelector.loadFieldConfigsByDevNames(
-                    ctx.historyConfigDevNamesFor(objectApiName)
-                )) {
+        for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : historyConfigs()) {
             if (String.isNotBlank(fieldConfig.TEKCO_FieldApiName__c)) {
                 fieldApiNames.add(fieldConfig.TEKCO_FieldApiName__c);
             }

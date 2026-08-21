@@ -74,7 +74,9 @@ public without sharing class TEKCO_AnonymizationPreviewService {
 
         List<String> conditions = new List<String>();
         conditions.add(TEKCO_AnonymizationOrgConfigService.buildBrandCondition(safeObject, selectedBrands));
-        conditions.add(recordTypeCondition(safeObject, selectedRecordTypes, configs));
+        conditions.add(TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition(
+            safeObject, selectedRecordTypes, configs
+        ));
         // The very condition the launch builds, from the same function: a sample describing a
         // scope the run does not have would defeat the point of having a sample.
         conditions.add(TEKCO_AnonymizationScopeQueryBuilder.combineAdditionalFilters(configs));
@@ -263,29 +265,6 @@ public without sharing class TEKCO_AnonymizationPreviewService {
             kept.add(fc);
         }
         return kept;
-    }
-
-    private static String recordTypeCondition(
-        String objectApiName,
-        List<String> selectedRecordTypes,
-        List<TEKCO_AnonymizationFieldConfig__mdt> configs
-    ) {
-        if (selectedRecordTypes == null || selectedRecordTypes.isEmpty()) return null;
-        if (!TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, 'recordtypeid')) return null;
-
-        // Only the record types this object actually declares — a Case record type must not end
-        // up filtering an Account query.
-        Set<String> declared = new Set<String>();
-        for (TEKCO_AnonymizationFieldConfig__mdt fc : configs) {
-            declared.addAll(TEKCO_AnonymizationConfigSelector.recordTypesOf(fc));
-        }
-        List<String> escaped = new List<String>();
-        for (String rt : selectedRecordTypes) {
-            if (declared.contains(rt)) escaped.add('\'' + String.escapeSingleQuotes(rt) + '\'');
-        }
-        if (escaped.isEmpty()) return null;
-        escaped.sort();
-        return 'RecordType.DeveloperName IN (' + String.join(escaped, ', ') + ')';
     }
 
     private static Map<Id, String> loadRecordTypeDevNames(String objectApiName) {

@@ -145,4 +145,36 @@ private class TEKCO_AnonymizationRunContextTest {
     }
 
     // ─── toDevNames ────────────────────────────────────────────────────────────
+
+    // ─── selectedRecordTypes : la selection doit atteindre les requetes ──────────
+
+    /**
+     * Elle s arretait au service de lancement, ou elle ne servait qu a ecarter des regles. Une
+     * regle couvrant deux populations survivait donc a la selection d une seule, puis etait
+     * appliquee aux deux.
+     */
+    @isTest
+    static void selectedRecordTypes_travelWithTheContext() {
+        TEKCO_AnonymizationRunContext ctx = new TEKCO_AnonymizationRunContext();
+        ctx.selectedRecordTypes = new List<String>{ 'ACCCO_Patient' };
+
+        TEKCO_AnonymizationRunContext restored = (TEKCO_AnonymizationRunContext) JSON.deserialize(
+            JSON.serialize(ctx), TEKCO_AnonymizationRunContext.class
+        );
+
+        System.assertEquals(1, restored.recordTypeSelection().size(),
+            'La selection survit a la serialisation entre deux chunks');
+        System.assertEquals('ACCCO_Patient', restored.recordTypeSelection()[0]);
+    }
+
+    @isTest
+    static void recordTypeSelection_neverReturnsNull() {
+        TEKCO_AnonymizationRunContext ctx = new TEKCO_AnonymizationRunContext();
+        System.assertEquals(0, ctx.recordTypeSelection().size(),
+            'Vide par defaut : aucune restriction');
+
+        ctx.selectedRecordTypes = null;
+        System.assertEquals(0, ctx.recordTypeSelection().size(),
+            'Null est traite comme vide, les appelants passent la valeur telle quelle');
+    }
 }
