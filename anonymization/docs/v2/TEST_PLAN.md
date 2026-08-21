@@ -360,14 +360,13 @@ Re-tick it and untick `Patient Address` instead.
 
 **Expected**: the mirror image. Each rule is independently selectable.
 
-## F5 — A rule covering several record types *(after consolidation)*
+## F5 — A rule covering several record types
 
-**Intent**: `TEKCO_RecordTypeDeveloperName__c` now holds a **list**. The 98 records still carry
-one name each, so this case only becomes runnable once they are merged — the code is ready, the
-data is not.
+**Intent**: `TEKCO_RecordTypeDeveloperName__c` holds a **list**, and the TEKCO set is now merged:
+the 26 `Account_*` rules each carry `ACCCO_IndividualPerson,ACCCO_Patient`. *(On the Portugal org
+the configuration is not consolidated, so this case does not apply there.)*
 
-**Steps**: on a rule covering several populations, e.g. `ACCCO_IndividualPerson,ACCCO_Patient`:
-select its object and preview.
+**Steps**: select `Account` and preview.
 
 **Expected**: **one** row for that field, its **Record Type** column showing both names. The
 **Record Types** selector at the top of the page offers each name separately, and ticking either
@@ -462,14 +461,18 @@ it — compare the two rows' **Scope** values against the record's parent record
 > `ADDRESS_STREET_RANDOM` shifts by a random 1–20, so compare that the number *changed*, not what
 > it became.
 
-## G8 — Coverage is respected per population *(after consolidation)*
+## G8 — Coverage is respected per population
 
 **Intent**: a rule covering only part of an object's populations must not reach the others. On
-ALH, 11 rules are in that case — `ALH_FiscalNumber__c` concerns Hospital only, `Description`
-Patient only.
+TEKCO, `Patient_MedicalRecordNumber` is the case — it covers `ACCCO_Patient` only, while the 26
+merged `Account_*` rules cover both populations. On Portugal, 11 rules are in that case.
 
-**Steps**: run over an object whose rules have uneven coverage. Then query one record of a
-population a given rule does **not** cover.
+**Steps**: run over `Account`. Then query an `ACCCO_IndividualPerson` record.
+
+**Expected**: its `HealthCloudGA__MedicalRecordNumber__c` is **untouched**, while its name, e-mail
+and phone did change.
+
+Same check the other way round on a record of a population a given rule does **not** cover.
 
 **Expected**: the field that rule drives is **untouched** on that record, while the fields driven
 by rules covering it did change.

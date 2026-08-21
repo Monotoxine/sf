@@ -104,6 +104,29 @@ Drop `--dry-run` once it passes.
 > **`--post-destructive-changes`, not `--pre-`.** The replacements must exist before the old
 > classes go, or the deployment fails on classes that still reference them.
 
+### 2.3 Deploying the record-type consolidation
+
+A field no longer needs one configuration per record type:
+`TEKCO_RecordTypeDeveloperName__c` holds a comma-separated list. The TEKCO set was merged
+accordingly — 26 pairs of `IndividualP_X` + `Patient_X` became one `Account_X` — which means 52
+records must disappear as the 26 replacements arrive:
+
+```bash
+sf project deploy start --manifest anonymization/manifest/package.xml \
+    --post-destructive-changes anonymization/manifest/destructiveChanges-recordtype-consolidation.xml \
+    --dry-run --target-org <alias>
+```
+
+> **Deploy the Apex first, or in the same transaction.** A version that reads
+> `TEKCO_RecordTypeDeveloperName__c` as a single name would match nothing against
+> `ACCCO_IndividualPerson,ACCCO_Patient` and would silently anonymize no Account field at all.
+> `package.xml` carries both the classes and the records, so a single deployment is safe.
+
+> The Portugal org is not concerned: its 21 `ALH_*` configurations were left untouched, and
+> `package-Portugal.xml` does not change.
+
+---
+
 > **The delta is not small, and it cannot be.** A first attempt listed only the components
 > the architectural commits touched and failed with 17 errors, all cascading from a method
 > the org had never received. Closing the dependency graph pulls in the whole class set.
