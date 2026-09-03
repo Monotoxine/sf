@@ -227,6 +227,26 @@ showed. It did not become wrong — it was wrong on the high side.
 **Expected**: the second count is lower, or equal if every record carries that brand. It must
 never be **higher** — no brand selected means no brand restriction, which is the widest scope.
 
+## D2b — Objects the brand filter cannot reach are named
+
+**Intent**: `buildBrandCondition()` returns nothing for an object carrying no way to honour the
+selection — no lookup to the brand object, no `TEKCO_Brand__c`, no `TEKCO_Country__c`. The run
+then reads the **whole table**. The count said so; nothing said why. On a tool that destroys PII
+irreversibly, an unfiltered scope has to be stated.
+
+**Steps**: select one brand, plus at least one object with a brand field **and** one without
+(on Portugal, `ALH_Prescription__c` or an object scoped only through its parent). **Preview
+Scope**.
+
+**Expected**: a warning line above the counts, naming exactly the objects with no brand field:
+
+> Brand filter not applicable on: X, Y — these objects carry no brand field, so every record
+> will be processed. The counts above already reflect that.
+
+The named objects show their **full** total; the others are narrowed. Then change the brand
+selection: the line **disappears** until the next preview — it must never describe a selection
+the user has left. With no brand selected at all, no line appears: nothing was asked of it.
+
 ## D3 — The record type filter narrows the scope
 
 **Steps**: same, with a record type.
@@ -804,7 +824,7 @@ leaves nothing else to read.
 | A — Deployment | A1–A3 | | |
 | B — Access | B1–B2 | | |
 | C — Configuration check | C1–C6 | | |
-| D — Scope and preview | D1, D1b, D2–D5 | | |
+| D — Scope and preview | D1, D1b, D2, D2b, D3–D5 | | |
 | E — Before/after sample | E1–E4 | | |
 | F — Field selection | F1–F6 | | |
 | G — By Criteria run | G1–G9 | | |
