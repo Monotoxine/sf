@@ -122,6 +122,12 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     @track isRunning        = false;
     @track errorMessage     = '';
     @track previewNote      = null;
+    /**
+     * One line naming the objects a brand-filtered run would process in full, because they
+     * carry no field to filter the selected brands on. Grouped rather than one warning per
+     * object: a notice repeated on every row stops being read.
+     */
+    @track brandScopeNote   = null;
 
     @track showConfirmPanel    = false;
     @track confirmSummaryLines = [];
@@ -230,6 +236,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     loadPreview() {
         this.isLoadingPreview = true;
         this.previewByObject  = [];
+        this.brandScopeNote   = null;
         this.previewNote = this.selectedObjects.length > 0
             ? null
             : 'No object selected — all configured objects will be included.';
@@ -249,6 +256,16 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
                         ? `${count} record(s) (ContentDocumentLinks to delete)`
                         : `${count} record(s)`
             }));
+            // brandFilterApplied is false only when a brand was selected and the object has no
+            // way to honour it; it is undefined when no brand was selected at all.
+            const unfilteredObjects = results
+                .filter(r => r.brandFilterApplied === false)
+                .map(r => r.objectApiName);
+            this.brandScopeNote = unfilteredObjects.length > 0
+                ? `Brand filter not applicable on: ${unfilteredObjects.join(', ')} — `
+                  + 'these objects carry no brand field, so every record will be processed. '
+                  + 'The counts above already reflect that.'
+                : null;
             // Only objects that hold field-level patterns and actually match can be sampled.
             this.sampleObjectOptions = results
                 .filter(r => !r.isContentDocOnly && r.count > 0)
@@ -275,20 +292,29 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
     // ── By Criteria handlers ──────────────────────────────────────────────────
 
-    handleBrandChange(event)      { this.selectedBrands = event.detail.value; }
+    handleBrandChange(event) {
+        this.selectedBrands = event.detail.value;
+        // The note describes a specific brand selection; keeping it would misreport the new one.
+        this.brandScopeNote = null;
+    }
     handleObjectChange(event) {
         this.selectedObjects = event.detail.value;
         this.fieldConfigs    = [];
         this.previewByObject = [];
         this.previewNote     = null;
+        this.brandScopeNote  = null;
         this.loadRecordTypes(this.selectedObjects);
     }
     handleRecordTypeChange(event) {
         this.selectedRecordTypes = event.detail.value;
         this.fieldConfigs        = [];
         this.previewByObject     = [];
+        this.brandScopeNote      = null;
     }
-    handleSelectAllBrands()       { this.selectedBrands = this.brandOptions.map(o => o.value); }
+    handleSelectAllBrands() {
+        this.selectedBrands = this.brandOptions.map(o => o.value);
+        this.brandScopeNote = null;
+    }
     handleSelectAllObjects()      { this.selectedObjects = this.objectOptions.map(o => o.value); this.loadRecordTypes(this.selectedObjects); }
     handleSelectAllRecordTypes()  { this.selectedRecordTypes = this.recordTypeOptions.map(o => o.value); }
     handlePreview()               { this.loadFieldConfigs(); this.loadPreview(); }

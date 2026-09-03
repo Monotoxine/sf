@@ -159,6 +159,14 @@
                     <template if:true={previewNote}>
                         <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">{previewNote}</p>
                     </template>
+                    <template if:true={brandScopeNote}>
+                        <div class="slds-box slds-box_x-small slds-theme_warning slds-m-bottom_small">
+                            <lightning-icon icon-name="utility:warning" size="x-small"
+                                alternative-text="Warning" class="slds-m-right_x-small">
+                            </lightning-icon>
+                            <span class="slds-text-body_small">{brandScopeNote}</span>
+                        </div>
+                    </template>
                     <template for:each={previewByObject} for:item="obj">
                         <div key={obj.objectApiName} class="slds-grid slds-m-bottom_xx-small">
                             <div class="slds-col slds-size_1-of-3">

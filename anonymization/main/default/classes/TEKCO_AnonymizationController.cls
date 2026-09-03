@@ -258,6 +258,8 @@ public with sharing class TEKCO_AnonymizationController {
             );
         }
 
+        Boolean hasBrandSelection = selectedBrands != null && !selectedBrands.isEmpty();
+
         List<PreviewCountDTO> results = new List<PreviewCountDTO>();
         for (String objectApiName : objectsToCount) {
             PreviewCountDTO dto    = new PreviewCountDTO();
@@ -274,6 +276,11 @@ public with sharing class TEKCO_AnonymizationController {
                 );
                 if (brandCondition != null) {
                     conditions.add(brandCondition);
+                }
+                // Reuses the value just computed: no extra describe, no extra query. Reported so
+                // the UI can name the objects a brand-filtered run will process in full.
+                if (hasBrandSelection) {
+                    dto.brandFilterApplied = brandCondition != null;
                 }
                 // Same function the run and the sample use, so the announced count and the
                 // records actually processed cannot describe different scopes.
@@ -427,6 +434,13 @@ public with sharing class TEKCO_AnonymizationController {
         @AuraEnabled public String  objectApiName;
         @AuraEnabled public Integer count;
         @AuraEnabled public Boolean isContentDocOnly;
+        /**
+         * Whether the brand selection actually narrowed this object's scope.
+         * null when no brand was selected (nothing to apply); false when brands were selected
+         * but this object carries no way to filter on them — the run then processes the whole
+         * table, which the count already reflects but nothing else made visible.
+         */
+        @AuraEnabled public Boolean brandFilterApplied;
     }
     
         public class FieldConfigDTO {

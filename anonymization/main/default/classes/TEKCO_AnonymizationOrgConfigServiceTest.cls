@@ -195,6 +195,22 @@ private class TEKCO_AnonymizationOrgConfigServiceTest {
         }
     }
 
+    /**
+     * The semantics the preview's brandFilterApplied flag reports: an object with no way to
+     * honour the selection yields no condition, so the run reads the whole table. The UI names
+     * those objects from this null — if it ever became a condition, the notice would be wrong.
+     */
+    @isTest
+    static void buildBrandCondition_nullWhenObjectCarriesNoBrandField() {
+        TEKCO_AnonymizationOrgConfigService.setConfigForTest(tekcoModeConfig());
+
+        System.assertEquals(null,
+            TEKCO_AnonymizationOrgConfigService.buildBrandCondition(
+                'AsyncApexJob', new List<String>{ 'B1' }
+            ),
+            'An object with neither TEKCO_Brand__c nor TEKCO_Country__c must yield no condition');
+    }
+
     @isTest
     static void toInClause_escapesQuotes() {
         System.assertEquals(
