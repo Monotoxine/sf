@@ -10,8 +10,13 @@
  * chaque utilisateur cible : Salesforce envoie un lien de verification que
  * l'utilisateur clique une seule fois.
  *
- * Ce batch NE modifie AUCUNE adresse email : il ne fait qu'envoyer les liens.
- * Pour retirer un suffixe ".invalid", voir scripts/apex/user-email/.
+ * Ce batch NE modifie AUCUNE adresse email : il ne fait qu'envoyer les liens,
+ * exactement comme le bouton "Verify" de Setup > Users, mais en masse. C'est
+ * donc le remplacement direct du clic manuel utilisateur par utilisateur.
+ *
+ * Si, dans votre org, ce clic retire aussi le suffixe ".invalid", ce batch
+ * suffit a lui seul : laisser includeInvalidAddresses = true (defaut).
+ * Sinon, corriger d'abord les adresses via scripts/apex/user-email/.
  *
  * Exemple d'appel :
  *   Database.executeBatch(new MassUserEmailVerificationBatch(), 50);
@@ -43,6 +48,21 @@ public with sharing class MassUserEmailVerificationBatch
     /** Mode simulation : compte les cibles sans envoyer d'email. */
     public Boolean dryRun = false;
 
+    /**
+     * Inclure les adresses se terminant par ".invalid" dans le scope.
+     *
+     * Defaut : true. Plusieurs orgs rapportent que l'action "Verify" retire le
+     * suffixe une fois le lien clique par l'utilisateur ; ce comportement n'est
+     * pas documente publiquement, mais le pari asymetrique penche clairement du
+     * cote de l'inclusion : si l'org ne decape pas le suffixe, le message part
+     * vers un TLD reserve (RFC 2606) et bounce, sans effet de bord ; si elle le
+     * decape, exclure ces adresses ecarterait precisement les utilisateurs a
+     * traiter.
+     *
+     * Passer a false pour ne cibler que les adresses deja propres.
+     */
+    public Boolean includeInvalidAddresses = true;
+
     public Integer sentCount = 0;
     public Integer skippedCount = 0;
     public Integer failedCount = 0;
@@ -65,14 +85,14 @@ public with sharing class MassUserEmailVerificationBatch
     }
 
     public Database.QueryLocator start(Database.BatchableContext ctx) {
-        // Les adresses en .invalid sont exclues : envoyer un lien de verification
-        // a une adresse .invalid ne peut par definition pas aboutir. ".invalid"
-        // est un TLD reserve (RFC 2606) concu pour ne jamais resoudre.
         String soql =
             'SELECT Id, Username, Email FROM User ' +
             'WHERE IsActive = true ' +
-            'AND Email != null ' +
-            'AND (NOT Email LIKE \'%.invalid\')';
+            'AND Email != null';
+
+        if (includeInvalidAddresses == false) {
+            soql += ' AND (NOT Email LIKE \'%.invalid\')';
+        }
 
         // Filtrage a la source quand le champ standard est disponible : plus
         // efficace que le repli TwoFactorMethodsInfo, et sans permission

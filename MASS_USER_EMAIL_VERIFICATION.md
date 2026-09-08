@@ -55,36 +55,79 @@ users concernés, et inventaire des triggers et flows actifs sur `User`.
 > de rattrapage de masse ci-dessous est **identique**. Le diagnostic sert
 > uniquement à savoir s'il faudra refaire ce rattrapage au prochain lot.
 
-### Les deux réponses à apporter
+### La réponse directe : le bouton « Verify », en masse
 
-**① Le stock (utilisateurs déjà créés) → update de masse.**
+L'action manuelle que vous répétez utilisateur par utilisateur — **Verify** à côté
+de l'adresse dans Setup → Users — a un équivalent en masse documenté par
+Salesforce : l'**async email verification**.
 
-Modifier `User.Email` par API déclenche **exactement le même mail de confirmation**
-que votre édition manuelle. L'API ne contourne rien, mais elle ne saute rien non
-plus. 500 utilisateurs corrigés en une passe = 500 mails de confirmation envoyés,
-au lieu de 500 éditions à la main. C'est le remplacement 1:1 de votre travail
-manuel.
+```apex
+System.UserManagement.sendAsyncEmailConfirmation(userId, templateId, networkId, returnUrl);
+```
+
+C'est exactement la même action, déclenchée par lot au lieu d'un clic par fiche.
+`MassUserEmailVerificationBatch` en est un wrapper bulkifié :
+
+```apex
+MassUserEmailVerificationBatch b = new MassUserEmailVerificationBatch();
+b.dryRun = true;                        // simulation d'abord
+b.onlyUnverified = true;
+b.includeInvalidAddresses = true;       // defaut : on garde les .invalid
+Database.executeBatch(b, 50);
+```
+
+> **Point non tranché — à valider chez vous en une passe.** Plusieurs orgs
+> rapportent que ce clic retire *aussi* le suffixe `.invalid` une fois le lien
+> cliqué. Ce comportement n'est **pas documenté publiquement**, et une
+> [idée IdeaExchange](https://ideas.salesforce.com/s/idea/a0B8W00000H3rbFUAR/sandbox-login-verification-emails-should-bypass-the-invalid-suffix-and-pass)
+> demande justement que les mails de vérification contournent le `.invalid`,
+> ce qui suggère l'inverse pour au moins une catégorie de messages.
+>
+> Le batch inclut donc les `.invalid` **par défaut** : si l'org ne décape pas le
+> suffixe, le message bounce sans effet de bord ; si elle le décape, les exclure
+> écarterait précisément les utilisateurs à traiter.
+>
+> **Test décisif** : lancer le batch avec `dryRun = false` sur **un seul**
+> utilisateur en `.invalid` (via `emailDomainFilter`), et regarder si le mail
+> arrive et si le suffixe disparaît après le clic. C'est votre geste manuel,
+> à l'identique. Le résultat vaut mieux que toute déduction.
+
+**Si le suffixe disparaît** → c'est terminé, le batch seul remplace votre travail
+manuel. Le reste de ce document ne concerne que les autres cas de figure.
+
+**Si le suffixe reste** → il faut corriger l'adresse avant : voir ci-dessous.
+
+### Repli : corriger l'adresse en masse
+
+Modifier `User.Email` par API déclenche le même mail de confirmation qu'une
+édition manuelle dans l'interface. L'API ne contourne rien, mais ne saute rien
+non plus : 500 utilisateurs en une passe au lieu de 500 éditions.
 
 - Data Loader : `scripts/soql/users-invalid-email.soql` (export → nettoyage du CSV → Update)
 - ou Apex : `scripts/apex/user-email/02-strip-invalid-emails.apex`
 
-Chaque utilisateur reçoit le lien à sa vraie adresse et clique une fois (72 h).
-L'ancienne adresse reste affichée jusqu'au clic.
+⚠️ **Anomalie connue Salesforce, active depuis Summer '26** : le mail de
+confirmation part bien, mais le clic sur *Verify Email Address* renvoie vers la
+page de login **sans appliquer le changement**. Contournement documenté : éditer
+la fiche utilisateur, retirer le `.invalid`, et cocher *Generate new password and
+notify user immediately*. À vérifier avant de lancer un rattrapage de masse par
+update, sous peine de 500 mails sans effet.
+Voir [Issue a02Ka00000mGGGyIAO](https://help.salesforce.com/s/issue?language=en_US&id=a02Ka00000mGGGyIAO).
 
-**② Le flux (utilisateurs à venir) → dépend du diagnostic ci-dessus.**
+### Et pour les lots suivants
 
-- **H1** → corriger le mapping Talend pour insérer la **vraie** adresse. À
-  l'insert il n'y a pas de vérification de changement : l'adresse est posée
-  directement et définitivement. C'est la correction la moins chère.
+Selon le diagnostic H1/H2/H3 ci-dessus :
+
+- **H1** → corriger le mapping Talend pour insérer la vraie adresse. À l'insert,
+  aucune vérification de changement : l'adresse est posée directement.
 - **H2** → conditionner ou désactiver le trigger/flow qui suffixe.
-- **H3** → rien à corriger dans le flux : le suffixe ne reviendra qu'au prochain
-  refresh de sandbox, et le rattrapage sera à rejouer à ce moment-là.
+- **H3** → rien à corriger : le suffixe ne reviendra qu'au prochain refresh.
 
-Sans cette étape, le rattrapage de masse est à refaire à chaque lot.
+Sans cette étape, le rattrapage est à rejouer à chaque lot.
 
-**③ Si vous voulez aussi supprimer le clic utilisateur** — pour que l'update de
-masse s'applique immédiatement, sans que personne n'ait à cliquer : c'est la §3
-(Authorized Email Domains), et uniquement elle.
+Enfin, pour supprimer **le clic utilisateur lui-même** — application immédiate,
+sans que personne n'ait à cliquer : c'est la §3 (Authorized Email Domains), et
+uniquement elle.
 
 ---
 
@@ -205,11 +248,11 @@ b.emailDomainFilter = 'mondomaine.com';       // null = tous les domaines
 Database.executeBatch(b, 50);
 ```
 
-Le batch exclut systématiquement les adresses en `.invalid` de son scope. Ce n'est
-pas une précaution : `.invalid` est un TLD **réservé par la [RFC 2606](https://datatracker.ietf.org/doc/html/rfc2606)**,
-conçu pour ne jamais résoudre. Aucun serveur mail n'existe derrière — un lien de
-vérification envoyé là n'arrive nulle part. D'où l'ordre imposé : corriger
-l'adresse (§0①) **puis** vérifier.
+Le batch **inclut** les adresses en `.invalid` par défaut (`includeInvalidAddresses`),
+pour la raison exposée en §0 : le comportement du décapage n'est pas tranché
+publiquement, et le coût d'une inclusion inutile (un bounce) est très inférieur au
+coût d'une exclusion à tort (les utilisateurs à traiter sont écartés). Passer le
+flag à `false` pour ne cibler que les adresses déjà propres.
 
 ### Suivre l'avancement sans code
 
@@ -231,31 +274,31 @@ fois.** Pour supprimer complètement le clic, c'est §3 et uniquement §3.
 
 ```
 0. Diagnostic            scripts/apex/user-email/00-diagnose-invalid-origin.apex
-                         + créer 1 user à la main et relire l'email stocké  (§0)
-                         -> détermine H1 / H2 / H3
-1. Audit                 scripts/apex/user-email/01-audit-users-email.apex
+                         + créer 1 user à la main et relire l'email stocké   (§0)
+1. TEST DÉCISIF          batch async sur UN SEUL user en .invalid            (§0)
+                         (dryRun = false + emailDomainFilter sur un domaine test)
+                         -> le suffixe disparaît après le clic ?
+                            OUI  -> aller directement en 5, c'est terminé
+                            NON  -> dérouler 2 à 6
 2. Délivrabilité         Setup > Deliverability > Access to Send Email = "All email"
-                         (en sandbox la valeur par défaut "System email only"
-                          bloque AUSSI les mails de confirmation : rien ne part)
-3. Corriger la source    selon le diagnostic de l'étape 0                   (§0②)
-                         -> évite d'avoir à rejouer le rattrapage au prochain lot
-4. (optionnel) Domaine   Setup > Authorized Email Domains                   (§3)
+                         (en sandbox le défaut "System email only" bloque tout)
+3. Corriger la source    selon le diagnostic de l'étape 0                    (§0)
+4. (optionnel) Domaine   Setup > Authorized Email Domains                    (§3)
                          -> uniquement si le clic utilisateur doit disparaître
-5. Rattrapage du stock   Data Loader : scripts/soql/users-invalid-email.soql
+5. Vérification en masse scripts/apex/user-email/03-send-bulk-email-verification.apex
+6. Repli si nécessaire   correction des adresses en masse                    (§0)
+                         Data Loader : scripts/soql/users-invalid-email.soql
                          ou Apex     : scripts/apex/user-email/02-strip-invalid-emails.apex
-                         (DRY_RUN = true d'abord, puis un lot pilote)
-6. Vérification en masse scripts/apex/user-email/03-send-bulk-email-verification.apex
-                         (dryRun = true d'abord)
-7. Contrôle              rejouer l'audit de l'étape 1
+                         ⚠️ vérifier d'abord l'anomalie Summer '26            (§0)
+7. Contrôle              rejouer scripts/apex/user-email/01-audit-users-email.apex
 ```
 
-L'étape 5 est la réponse directe au besoin « ne plus le faire user par user », et
-elle ne dépend **pas** du résultat de l'étape 0. Les deux variantes (Data Loader et
-Apex) sont **strictement équivalentes** du point de vue de Salesforce : mêmes mails
-de confirmation envoyés, mêmes règles. Choisir selon l'outillage de l'équipe.
+L'étape 1 coûte deux minutes et peut rendre les étapes 2, 3, 4 et 6 inutiles.
+Elle passe avant tout le reste.
 
-L'étape 6 ne concerne que la vérification « expéditeur » (cas B du §1) : elle est
-inutile si le besoin s'arrête à faire disparaître le `.invalid`.
+Les deux variantes de l'étape 6 (Data Loader et Apex) sont **strictement
+équivalentes** du point de vue de Salesforce : mêmes mails envoyés, mêmes règles.
+Choisir selon l'outillage de l'équipe.
 
 ---
 

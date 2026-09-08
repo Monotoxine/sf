@@ -3,18 +3,28 @@
  *
  * Execution : sf apex run --file scripts/apex/user-email/03-send-bulk-email-verification.apex
  *
- * Prerequis :
- *   - les adresses ne doivent plus contenir ".invalid" (cf. script 02)
- *   - Setup > Deliverability > Access to Send Email = "All email"
+ * C'EST L'EQUIVALENT EN MASSE DU BOUTON "Verify" DE SETUP > USERS.
+ * Meme action, declenchee par lot au lieu d'un clic par fiche.
  *
- * Commencer IMPERATIVEMENT par un run en dryRun = true, puis par un domaine
- * de test, avant de lancer sur l'ensemble des utilisateurs.
+ * Prerequis : Setup > Deliverability > Access to Send Email = "All email".
+ * En sandbox le defaut "System email only" bloque tout envoi.
+ *
+ * PREMIER RUN = TEST DECISIF. Cibler UN SEUL utilisateur en .invalid via
+ * emailDomainFilter, avec dryRun = false, puis observer :
+ *   - le mail arrive-t-il a la vraie adresse ?
+ *   - le suffixe .invalid disparait-il apres le clic ?
+ * Si oui, ce script seul remplace tout le travail manuel et il n'y a pas de
+ * correction d'adresses a faire. Si non, passer par le script 02.
  */
 
 MassUserEmailVerificationBatch batch = new MassUserEmailVerificationBatch();
 
 // true = compte les cibles sans rien envoyer.
 batch.dryRun = true;
+
+// true (defaut) = garde les adresses en .invalid dans le scope.
+// Cf. en-tete : c'est precisement ce que le test decisif doit trancher.
+batch.includeInvalidAddresses = true;
 
 // null = tous les domaines. Renseigner pour cibler un lot.
 batch.emailDomainFilter = null;

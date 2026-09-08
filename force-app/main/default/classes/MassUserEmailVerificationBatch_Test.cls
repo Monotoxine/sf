@@ -35,7 +35,7 @@ private class MassUserEmailVerificationBatch_Test {
     }
 
     @IsTest
-    static void invalidEmailsAreExcludedFromScope() {
+    static void invalidEmailsAreInScopeByDefault() {
         User invalidUser = buildUser('mvt2', 'mvt2@masstest.example.com.invalid');
         insert invalidUser;
 
@@ -48,10 +48,32 @@ private class MassUserEmailVerificationBatch_Test {
         Database.executeBatch(batch, 50);
         Test.stopTest();
 
+        System.assert(
+            batch.sentCount >= 1,
+            'Par defaut une adresse en .invalid doit rester dans le scope : '
+                + 'l action Verify peut retirer le suffixe cote org.'
+        );
+    }
+
+    @IsTest
+    static void invalidEmailsCanBeExcludedExplicitly() {
+        User invalidUser = buildUser('mvt4', 'mvt4@masstest.example.com.invalid');
+        insert invalidUser;
+
+        MassUserEmailVerificationBatch batch = new MassUserEmailVerificationBatch();
+        batch.dryRun = true;
+        batch.onlyUnverified = false;
+        batch.includeInvalidAddresses = false;
+        batch.emailDomainFilter = 'masstest.example.com.invalid';
+
+        Test.startTest();
+        Database.executeBatch(batch, 50);
+        Test.stopTest();
+
         System.assertEquals(
             0,
             batch.sentCount,
-            'Une adresse en .invalid ne doit jamais entrer dans le scope du batch.'
+            'includeInvalidAddresses = false doit exclure les adresses suffixees.'
         );
     }
 
