@@ -96,13 +96,15 @@ Database.executeBatch(b, 50);
 
 ### 3. Run pilote sur un seul utilisateur
 
+Pour **un seul** utilisateur, le batch est surdimensionné : il s'exécute en
+asynchrone, donc ses compteurs partent dans un autre log que celui du lancement.
+Un appel direct suffit et remonte l'erreur immédiatement :
+
 ```apex
-MassUserEmailVerificationBatch b = new MassUserEmailVerificationBatch();
-b.userIds = new Set<Id>{ '005XXXXXXXXXXXXXXX' };   // prime sur les autres filtres
-Database.executeBatch(b, 50);
+System.UserManagement.sendAsyncEmailConfirmation('005XXXXXXXXXXXXXXX', null, null, null);
 ```
 
-Vérifier que le mail arrive bien, puis que la fiche passe en `Email Verified`
+Vérifier ensuite que le mail arrive, puis que la fiche passe en `Email Verified`
 après le clic.
 
 ### 4. Le lot chargé par l'intégration
@@ -124,6 +126,20 @@ Database.executeBatch(new MassUserEmailVerificationBatch(), 50);
 Script prêt à l'emploi et commenté :
 `scripts/apex/user-email/02-send-bulk-email-verification.apex`
 (ou `00-standalone-send-verification.apex` si vous ne déployez pas la classe)
+
+### 6. Contrôler le résultat
+
+```bash
+sf apex run --file scripts/apex/user-email/03-check-results.apex
+```
+
+Le batch étant asynchrone, ses compteurs `sentCount` / `failedCount` sont écrits
+dans le log de l'exécution asynchrone, **pas** dans celui du lancement — qui ne
+montre que l'Id du job. Ce script récupère l'état des derniers jobs
+(`AsyncApexJob`), l'état de vérification d'utilisateurs précis, et le volume
+restant, sans avoir à fouiller les logs.
+
+Équivalent dans l'interface : **Setup → Apex Jobs**.
 
 ---
 
