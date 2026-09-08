@@ -1,21 +1,31 @@
 /**
- * 02 - CORRECTION : retire le suffixe ".invalid" des emails utilisateurs.
+ * 02 - CORRECTION EN MASSE : retire le suffixe ".invalid" des emails utilisateurs.
  *
  * Execution : sf apex run --file scripts/apex/user-email/02-strip-invalid-emails.apex
  *
- * ATTENTION - lire avant d'executer :
+ * C'EST LE REMPLACEMENT 1:1 DU TRAVAIL MANUEL DANS L'INTERFACE.
  *
- * Modifier User.Email declenche "Email Change Verification" : Salesforce envoie
- * "Verify your new Salesforce email address" a la NOUVELLE adresse et la
- * modification n'est appliquee qu'apres le clic de l'utilisateur (72h).
- * Ce script n'a donc d'effet immediat que si l'org est configuree pour
- * contourner cette verification :
+ * Editer l'email d'un utilisateur dans Setup > Users declenche l'envoi du mail
+ * "Verify your new Salesforce email address" a la nouvelle adresse. Faire le
+ * meme changement par API (ce script, ou Data Loader en mode Update) declenche
+ * EXACTEMENT le meme mail. L'API ne contourne rien, mais elle ne saute rien non
+ * plus : 500 utilisateurs corriges = 500 mails de confirmation envoyes en une
+ * passe, au lieu de 500 editions a la main.
  *
+ * Comportement apres execution :
+ *   - chaque utilisateur recoit le mail de confirmation a sa VRAIE adresse
+ *   - l'adresse affichee reste l'ancienne (.invalid) tant que l'utilisateur
+ *     n'a pas clique (lien valable 72h)
+ *   - apres le clic, la nouvelle adresse remplace l'ancienne
+ *
+ * Pour supprimer AUSSI le clic utilisateur (application immediate) :
  *   Setup > Authorized Email Domains > <ton domaine> > Edit
  *     -> desactiver "Require email verification"
  *   (ou cle DKIM active sur le domaine + option de bypass dans Deliverability)
  *
- * Sans cela, l'update part quand meme mais reste "pending" cote Salesforce.
+ * Prerequis : Setup > Deliverability > Access to Send Email = "All email",
+ * sinon aucun mail de confirmation ne part.
+ *
  * Voir MASS_USER_EMAIL_VERIFICATION.md pour l'arbre de decision complet.
  */
 

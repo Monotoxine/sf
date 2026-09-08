@@ -1,0 +1,18 @@
+-- Export Data Loader : utilisateurs actifs dont l'email porte encore ".invalid".
+--
+-- Usage :
+--   1. Data Loader > Export > objet User > coller cette requete
+--   2. Dans le CSV obtenu, retirer le suffixe ".invalid" de la colonne EMAIL
+--      (Excel : =SUBSTITUE(B2;".invalid";"")  /  LibreOffice : =SUBSTITUTE(...))
+--   3. Ne conserver que les colonnes ID et EMAIL
+--   4. Data Loader > Update > objet User > mapper ID et EMAIL
+--
+-- Chaque ligne mise a jour declenche l'envoi du mail
+-- "Verify your new Salesforce email address" a la nouvelle adresse,
+-- exactement comme une edition manuelle dans Setup > Users.
+
+SELECT Id, Username, Email, Name, Profile.Name
+FROM User
+WHERE Email LIKE '%.invalid'
+  AND IsActive = true
+ORDER BY Username

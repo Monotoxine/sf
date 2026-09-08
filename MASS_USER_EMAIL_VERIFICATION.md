@@ -6,6 +6,59 @@ Salesforce user par user**.
 
 ---
 
+## 0. Le cas concret : users créés par Talend, `.invalid` qui ne part jamais
+
+**Symptôme.** Talend crée l'utilisateur. L'adresse contient `.invalid`. Aucun mail
+de confirmation ne part. Seule solution trouvée jusqu'ici : rouvrir chaque
+utilisateur dans **Setup → Users**, éditer l'email à la main, un par un.
+
+**Cause.** Talend fait un **INSERT**, et le `.invalid` est déjà présent dans les
+données source. Or Email Change Verification se déclenche sur un **changement**
+d'adresse, pas sur une création : à l'insert, Salesforce pose l'adresse telle
+quelle et n'a **rien à confirmer**. D'où le silence.
+
+Quand vous éditez ensuite l'utilisateur dans l'interface, vous produisez ce
+changement — et le mail part. C'est la seule différence entre les deux chemins.
+
+**Vérification en une requête** — si ces utilisateurs sont bien créés avec le
+suffixe déjà présent, le problème est dans le mapping Talend, pas dans Salesforce :
+
+```sql
+SELECT Id, Username, Email, CreatedDate, CreatedBy.Name
+FROM User
+WHERE Email LIKE '%.invalid'
+ORDER BY CreatedDate DESC
+```
+
+### Les deux réponses à apporter
+
+**① Le stock (utilisateurs déjà créés) → update de masse.**
+
+Modifier `User.Email` par API déclenche **exactement le même mail de confirmation**
+que votre édition manuelle. L'API ne contourne rien, mais elle ne saute rien non
+plus. 500 utilisateurs corrigés en une passe = 500 mails de confirmation envoyés,
+au lieu de 500 éditions à la main. C'est le remplacement 1:1 de votre travail
+manuel.
+
+- Data Loader : `scripts/soql/users-invalid-email.soql` (export → nettoyage du CSV → Update)
+- ou Apex : `scripts/apex/user-email/02-strip-invalid-emails.apex`
+
+Chaque utilisateur reçoit le lien à sa vraie adresse et clique une fois (72 h).
+L'ancienne adresse reste affichée jusqu'au clic.
+
+**② Le flux (utilisateurs à venir) → corriger le mapping Talend.**
+
+C'est la vraie correction, et la moins chère : faire insérer la **vraie** adresse
+dès la création. À l'insert il n'y a pas de vérification de changement, donc
+l'adresse est posée directement et définitivement. Plus aucun `.invalid`, plus
+aucun rattrapage de masse à refaire au prochain lot.
+
+**③ Si vous voulez aussi supprimer le clic utilisateur** — pour que l'update de
+masse s'applique immédiatement, sans que personne n'ait à cliquer : c'est la §3
+(Authorized Email Domains), et uniquement elle.
+
+---
+
 ## 1. Le point clé : il y a DEUX vérifications différentes
 
 C'est la source de 90 % de la confusion sur ce sujet. Salesforce appelle les deux
@@ -30,23 +83,21 @@ fonctionne.
 
 ---
 
-## 2. D'où vient le `.invalid` ? (à trancher en premier)
+## 2. Vérifier l'origine du `.invalid` avant d'agir
 
-Deux origines possibles, deux corrections très différentes :
+Deux origines possibles :
 
-**a) Rafraîchissement / clonage de sandbox.** Salesforce suffixe automatiquement
-tous les emails (et usernames) pour que les users de production ne reçoivent pas
-les mails de la sandbox. C'est le cas le plus fréquent.
+**a) Les données source de Talend contiennent déjà le suffixe.** C'est le cas
+décrit en §0, et le plus courant quand les utilisateurs sont créés par intégration.
+La correction durable est dans le mapping Talend.
 
-**b) Le flux Talend insère lui-même des adresses en `.invalid`.**
+**b) Rafraîchissement / clonage de sandbox.** Salesforce suffixe automatiquement
+les emails **et** les usernames des utilisateurs existants pour que les users de
+production ne reçoivent pas les mails de la sandbox. Ce cas ne concerne que les
+utilisateurs présents lors du refresh, jamais ceux créés après.
 
-> Si c'est le cas (b), **corrigez le flux Talend, pas les données.** À la
-> **création** d'un utilisateur, l'adresse email est posée directement : il n'y a
-> **pas** d'Email Change Verification à l'insert. En insérant la bonne adresse dès
-> le départ, tout le problème A disparaît, et il ne reste que B (§5).
-> C'est de loin la correction la moins chère.
-
-Le script d'audit tranche la question :
+Le `CreatedDate` tranche : des utilisateurs créés **après** le dernier refresh et
+porteurs d'un `.invalid` relèvent forcément du cas (a).
 
 ```bash
 sf apex run --file scripts/apex/user-email/01-audit-users-email.apex
@@ -138,20 +189,26 @@ fois.** Pour supprimer complètement le clic, c'est §3 et uniquement §3.
 1. Audit                 scripts/apex/user-email/01-audit-users-email.apex
 2. Délivrabilité         Setup > Deliverability > Access to Send Email = "All email"
                          (en sandbox la valeur par défaut "System email only"
-                          bloque AUSSI les mails de vérification)
-3. Domaine               Setup > Authorized Email Domains  (§3)
-4. Corriger le flux      Talend insère la bonne adresse dès la création  (§2b)
-5. Nettoyage des données scripts/apex/user-email/02-strip-invalid-emails.apex
-                         (DRY_RUN = true d'abord)
+                          bloque AUSSI les mails de confirmation : rien ne part)
+3. Corriger le flux      Talend insère la vraie adresse dès la création   (§0②)
+                         -> supprime le problème pour tous les lots suivants
+4. (optionnel) Domaine   Setup > Authorized Email Domains                 (§3)
+                         -> uniquement si le clic utilisateur doit disparaître
+5. Rattrapage du stock   Data Loader : scripts/soql/users-invalid-email.soql
+                         ou Apex     : scripts/apex/user-email/02-strip-invalid-emails.apex
+                         (DRY_RUN = true d'abord, puis un lot pilote)
 6. Vérification en masse scripts/apex/user-email/03-send-bulk-email-verification.apex
-                         (dryRun = true d'abord, puis un domaine pilote)
+                         (dryRun = true d'abord)
 7. Contrôle              rejouer l'audit de l'étape 1
 ```
 
-Alternative à l'étape 5 sans Apex : export des `Id` + `Email` via Data Loader,
-suppression du suffixe dans le CSV, réimport en mode **Update**. Le comportement
-vis-à-vis de la vérification est **identique** à celui du script — Data Loader ne
-contourne rien.
+Les étapes 5 (Data Loader) et 5 (Apex) sont **strictement équivalentes** du point
+de vue de Salesforce : mêmes mails de confirmation envoyés, mêmes règles. Choisir
+selon l'outillage de l'équipe — Data Loader si vous êtes déjà dans cet écosystème,
+Apex si vous voulez un dry-run et un log détaillé.
+
+L'étape 6 ne concerne que la vérification « expéditeur » (cas B du §1) : elle est
+inutile si votre besoin s'arrête à faire disparaître le `.invalid`.
 
 ---
 
