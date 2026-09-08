@@ -1,0 +1,6 @@
+FirstName,LastName,Alias,Username,Email,ProfileId,TimeZoneSidKey,LocaleSidKey,EmailEncodingKey,LanguageLocaleKey,Department
+Test01,VerifEmail,tverif01,test01.verif@REMPLACER-DOMAINE.com,TON.ADRESSE+test01@gmail.com,REMPLACER_PROFILE_ID,Europe/Paris,fr_FR_EURO,UTF-8,fr,TEST-VERIF
+Test02,VerifEmail,tverif02,test02.verif@REMPLACER-DOMAINE.com,TON.ADRESSE+test02@gmail.com,REMPLACER_PROFILE_ID,Europe/Paris,fr_FR_EURO,UTF-8,fr,TEST-VERIF
+Test03,VerifEmail,tverif03,test03.verif@REMPLACER-DOMAINE.com,TON.ADRESSE+test03@gmail.com,REMPLACER_PROFILE_ID,Europe/Paris,fr_FR_EURO,UTF-8,fr,TEST-VERIF
+Test04,VerifEmail,tverif04,test04.verif@REMPLACER-DOMAINE.com,TON.ADRESSE+test04@gmail.com,REMPLACER_PROFILE_ID,Europe/Paris,fr_FR_EURO,UTF-8,fr,TEST-VERIF
+Test05,VerifEmail,tverif05,test05.verif@REMPLACER-DOMAINE.com,TON.ADRESSE+test05@gmail.com,REMPLACER_PROFILE_ID,Europe/Paris,fr_FR_EURO,UTF-8,fr,TEST-VERIF

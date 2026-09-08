@@ -201,6 +201,67 @@ quelques jours d'intervalle, ou n'activer que celle qui manque réellement.
 
 ---
 
+## Jeu de test — créer des utilisateurs pour valider la chaîne
+
+`scripts/data/users-test-verification.csv` — 5 utilisateurs à importer via
+**Salesforce Inspector → Data Import**, objet `User`, action **Insert**.
+
+### 1. Préparer les valeurs
+
+```bash
+sf apex run --file scripts/apex/user-email/04-prepare-test-users.apex
+```
+
+Sort le `ProfileId` à utiliser, les licences restantes, et un exemple de suffixe
+d'username en usage dans l'org. Deux substitutions à faire dans le CSV :
+
+| Placeholder | Remplacer par |
+|---|---|
+| `REMPLACER_PROFILE_ID` | un ProfileId de l'org (ex. `00e...`) |
+| `REMPLACER-DOMAINE.com` | le suffixe d'username en usage dans l'org |
+| `TON.ADRESSE+testNN@gmail.com` | une adresse dont vous relevez la boîte |
+
+### 2. L'astuce qui rend le test praticable
+
+La colonne `Email` doit pointer vers une **boîte réelle** que vous relevez : c'est
+là qu'arrivent les liens de vérification. Le sous-adressage règle le problème —
+`vous+test01@gmail.com`, `vous+test02@gmail.com`… arrivent tous dans **une seule**
+boîte, et Salesforce les traite comme cinq adresses distinctes.
+
+Le `Username`, lui, n'a pas besoin d'être délivrable. Il doit en revanche être
+unique sur **toutes** les orgs Salesforce, pas seulement la vôtre — d'où la reprise
+du suffixe déjà en place.
+
+### 3. Enchaîner le test
+
+```apex
+// a. constater qu'ils sont non vérifiés
+//    -> 04-prepare-test-users.apex, section 4
+
+// b. lancer la vérification sur eux seuls
+MassUserEmailVerificationBatch b = new MassUserEmailVerificationBatch();
+b.emailDomainFilter = 'gmail.com';     // ou userIds
+Database.executeBatch(b, 50);
+
+// c. relever la boîte, cliquer un lien, revérifier l'état
+```
+
+### 4. Nettoyer
+
+```bash
+sf apex run --file scripts/apex/user-email/05-deactivate-test-users.apex
+```
+
+> **⚠️ Un utilisateur Salesforce ne se supprime pas.** La seule sortie est la
+> désactivation, qui libère la licence. D'où le marqueur `Department = 'TEST-VERIF'`
+> porté par le CSV : c'est ce qui permet de retrouver ces comptes ensuite. Ne pas
+> le retirer.
+
+> **⚠️ Chaque utilisateur consomme une licence** dès sa création. Vérifier le
+> disponible avant l'import (section 2 du script de préparation).
+
+---
+
 ## Points de vigilance
 
 **Délivrabilité.** `Setup → Deliverability → Access to Send Email` doit être sur
