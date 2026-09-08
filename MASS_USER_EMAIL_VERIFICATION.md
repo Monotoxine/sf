@@ -8,27 +8,52 @@ Salesforce user par user**.
 
 ## 0. Le cas concret : users créés par Talend, `.invalid` qui ne part jamais
 
-**Symptôme.** Talend crée l'utilisateur. L'adresse contient `.invalid`. Aucun mail
+**Symptôme.** Talend crée l'utilisateur. L'adresse porte `.invalid`. Aucun mail
 de confirmation ne part. Seule solution trouvée jusqu'ici : rouvrir chaque
 utilisateur dans **Setup → Users**, éditer l'email à la main, un par un.
 
-**Cause.** Talend fait un **INSERT**, et le `.invalid` est déjà présent dans les
-données source. Or Email Change Verification se déclenche sur un **changement**
-d'adresse, pas sur une création : à l'insert, Salesforce pose l'adresse telle
-quelle et n'a **rien à confirmer**. D'où le silence.
+**Pourquoi rien ne part.** Email Change Verification se déclenche sur un
+**changement** d'adresse, pas sur une création. À l'insert, Salesforce pose
+l'adresse telle quelle et n'a **rien à confirmer** — d'où le silence. Quand vous
+éditez ensuite l'utilisateur dans l'interface, vous produisez ce changement, et le
+mail part. C'est la seule différence entre les deux chemins.
 
-Quand vous éditez ensuite l'utilisateur dans l'interface, vous produisez ce
-changement — et le mail part. C'est la seule différence entre les deux chemins.
+### D'où vient le suffixe ? Trois hypothèses, un test décisif
 
-**Vérification en une requête** — si ces utilisateurs sont bien créés avec le
-suffixe déjà présent, le problème est dans le mapping Talend, pas dans Salesforce :
+C'est le point à trancher, et il ne se tranche que dans votre org :
+
+| | Hypothèse | Correction |
+|---|---|---|
+| **H1** | le suffixe est déjà dans la charge utile envoyée par Talend | mapping Talend |
+| **H2** | un trigger / flow maison sur `User` l'ajoute à l'insert | désactiver ou conditionner ce code |
+| **H3** | comportement plateforme au refresh/clone de sandbox | ne concerne que les users **présents lors du refresh** |
+
+**H3 est le seul comportement documenté par Salesforce**, et il s'applique aux
+utilisateurs *copiés* au moment de la création, du refresh ou du clonage de la
+sandbox — pas aux utilisateurs créés après. La documentation ne décrit aucun ajout
+de `.invalid` à l'insert d'un nouvel utilisateur.
+
+Cela dit, H2 est fréquent en entreprise : un `before insert` maison sur `User` qui
+suffixe les emails est un garde-fou « sécurité sandbox » très classique, et de
+l'extérieur il est indiscernable d'un comportement standard.
+
+**Test décisif, deux minutes.** Créez **un** utilisateur à la main dans
+Setup → Users avec une adresse propre, puis relisez la valeur réellement stockée :
 
 ```sql
-SELECT Id, Username, Email, CreatedDate, CreatedBy.Name
-FROM User
-WHERE Email LIKE '%.invalid'
-ORDER BY CreatedDate DESC
+SELECT Id, Username, Email, CreatedDate FROM User ORDER BY CreatedDate DESC LIMIT 1
 ```
+
+- adresse **propre** en base → le suffixe vient de Talend (**H1**)
+- adresse **suffixée** en base → il est ajouté côté org (**H2** ou **H3**)
+
+Le script `scripts/apex/user-email/00-diagnose-invalid-origin.apex` automatise le
+reste : type d'org, date du dernier refresh, comparaison avec le `CreatedDate` des
+users concernés, et inventaire des triggers et flows actifs sur `User`.
+
+> **Ce diagnostic ne bloque rien.** Quelle que soit l'hypothèse retenue, la méthode
+> de rattrapage de masse ci-dessous est **identique**. Le diagnostic sert
+> uniquement à savoir s'il faudra refaire ce rattrapage au prochain lot.
 
 ### Les deux réponses à apporter
 
@@ -46,12 +71,16 @@ manuel.
 Chaque utilisateur reçoit le lien à sa vraie adresse et clique une fois (72 h).
 L'ancienne adresse reste affichée jusqu'au clic.
 
-**② Le flux (utilisateurs à venir) → corriger le mapping Talend.**
+**② Le flux (utilisateurs à venir) → dépend du diagnostic ci-dessus.**
 
-C'est la vraie correction, et la moins chère : faire insérer la **vraie** adresse
-dès la création. À l'insert il n'y a pas de vérification de changement, donc
-l'adresse est posée directement et définitivement. Plus aucun `.invalid`, plus
-aucun rattrapage de masse à refaire au prochain lot.
+- **H1** → corriger le mapping Talend pour insérer la **vraie** adresse. À
+  l'insert il n'y a pas de vérification de changement : l'adresse est posée
+  directement et définitivement. C'est la correction la moins chère.
+- **H2** → conditionner ou désactiver le trigger/flow qui suffixe.
+- **H3** → rien à corriger dans le flux : le suffixe ne reviendra qu'au prochain
+  refresh de sandbox, et le rattrapage sera à rejouer à ce moment-là.
+
+Sans cette étape, le rattrapage de masse est à refaire à chaque lot.
 
 **③ Si vous voulez aussi supprimer le clic utilisateur** — pour que l'update de
 masse s'applique immédiatement, sans que personne n'ait à cliquer : c'est la §3
@@ -83,24 +112,26 @@ fonctionne.
 
 ---
 
-## 2. Vérifier l'origine du `.invalid` avant d'agir
+## 2. Le cas du refresh de sandbox (H3) en détail
 
-Deux origines possibles :
+Le seul ajout de `.invalid` documenté par Salesforce se produit à la **création,
+au refresh ou au clonage** d'une sandbox : les emails des utilisateurs *copiés*
+sont suffixés pour que les users de production ne reçoivent pas les mails de la
+sandbox. `atester@uc.com` devient `atester@uc.com.invalid`.
 
-**a) Les données source de Talend contiennent déjà le suffixe.** C'est le cas
-décrit en §0, et le plus courant quand les utilisateurs sont créés par intégration.
-La correction durable est dans le mapping Talend.
+Deux détails qui aident à reconnaître ce cas :
 
-**b) Rafraîchissement / clonage de sandbox.** Salesforce suffixe automatiquement
-les emails **et** les usernames des utilisateurs existants pour que les users de
-production ne reçoivent pas les mails de la sandbox. Ce cas ne concerne que les
-utilisateurs présents lors du refresh, jamais ceux créés après.
+- le **username** est lui aussi modifié (suffixe du nom de la sandbox), alors que
+  H1 et H2 ne touchent en général que l'email ;
+- l'utilisateur **qui a lancé le refresh** est exempté : son adresse reste intacte.
 
-Le `CreatedDate` tranche : des utilisateurs créés **après** le dernier refresh et
-porteurs d'un `.invalid` relèvent forcément du cas (a).
+Et le point qui tranche : ce mécanisme ne s'applique **qu'aux utilisateurs
+présents au moment du refresh**. Des utilisateurs dont le `CreatedDate` est
+postérieur à celui de l'org et qui portent malgré tout un `.invalid` écartent
+définitivement H3.
 
 ```bash
-sf apex run --file scripts/apex/user-email/01-audit-users-email.apex
+sf apex run --file scripts/apex/user-email/00-diagnose-invalid-origin.apex
 ```
 
 ---
@@ -186,13 +217,16 @@ fois.** Pour supprimer complètement le clic, c'est §3 et uniquement §3.
 ## 6. Procédure recommandée, dans l'ordre
 
 ```
+0. Diagnostic            scripts/apex/user-email/00-diagnose-invalid-origin.apex
+                         + créer 1 user à la main et relire l'email stocké  (§0)
+                         -> détermine H1 / H2 / H3
 1. Audit                 scripts/apex/user-email/01-audit-users-email.apex
 2. Délivrabilité         Setup > Deliverability > Access to Send Email = "All email"
                          (en sandbox la valeur par défaut "System email only"
                           bloque AUSSI les mails de confirmation : rien ne part)
-3. Corriger le flux      Talend insère la vraie adresse dès la création   (§0②)
-                         -> supprime le problème pour tous les lots suivants
-4. (optionnel) Domaine   Setup > Authorized Email Domains                 (§3)
+3. Corriger la source    selon le diagnostic de l'étape 0                   (§0②)
+                         -> évite d'avoir à rejouer le rattrapage au prochain lot
+4. (optionnel) Domaine   Setup > Authorized Email Domains                   (§3)
                          -> uniquement si le clic utilisateur doit disparaître
 5. Rattrapage du stock   Data Loader : scripts/soql/users-invalid-email.soql
                          ou Apex     : scripts/apex/user-email/02-strip-invalid-emails.apex
@@ -202,13 +236,13 @@ fois.** Pour supprimer complètement le clic, c'est §3 et uniquement §3.
 7. Contrôle              rejouer l'audit de l'étape 1
 ```
 
-Les étapes 5 (Data Loader) et 5 (Apex) sont **strictement équivalentes** du point
-de vue de Salesforce : mêmes mails de confirmation envoyés, mêmes règles. Choisir
-selon l'outillage de l'équipe — Data Loader si vous êtes déjà dans cet écosystème,
-Apex si vous voulez un dry-run et un log détaillé.
+L'étape 5 est la réponse directe au besoin « ne plus le faire user par user », et
+elle ne dépend **pas** du résultat de l'étape 0. Les deux variantes (Data Loader et
+Apex) sont **strictement équivalentes** du point de vue de Salesforce : mêmes mails
+de confirmation envoyés, mêmes règles. Choisir selon l'outillage de l'équipe.
 
 L'étape 6 ne concerne que la vérification « expéditeur » (cas B du §1) : elle est
-inutile si votre besoin s'arrête à faire disparaître le `.invalid`.
+inutile si le besoin s'arrête à faire disparaître le `.invalid`.
 
 ---
 
