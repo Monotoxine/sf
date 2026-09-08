@@ -1,10 +1,11 @@
 /**
- * VERIFICATION D'EMAIL EN MASSE - equivalent du bouton "Verify" de Setup > Users.
+ * VERIFICATION D'EMAIL EN MASSE (+ reset de mot de passe optionnel).
  *
  * Execution : sf apex run --file scripts/apex/user-email/02-send-bulk-email-verification.apex
  *
- * Chaque utilisateur cible recoit le mail de verification standard de Salesforce
- * et clique une fois. Aucune adresse email n'est modifiee.
+ * Equivalent en masse de deux gestes de Setup > Users :
+ *   - le bouton "Verify" a cote de l'adresse email
+ *   - la case "Generate new password and notify user immediately"
  *
  * Prerequis : Setup > Deliverability > Access to Send Email = "All email".
  * En sandbox le defaut "System email only" bloque tout envoi.
@@ -14,6 +15,10 @@
  *   2. userIds = { un Id }    -> un seul utilisateur, verifier qu'il recoit bien
  *   3. createdSince           -> le lot charge par l'integration
  *   4. sans filtre            -> rattrapage de tout le parc
+ *
+ * ATTENTION TAILLE DE LOT : avec sendPasswordReset = true, le second argument de
+ * Database.executeBatch DOIT valoir 10 (plafond Salesforce de 10 appels a
+ * System.resetPassword par transaction). Sans reset, 50 convient.
  */
 
 MassUserEmailVerificationBatch batch = new MassUserEmailVerificationBatch();
@@ -34,12 +39,26 @@ batch.onlyUnverified = true;
 // Restriction a un domaine d'adresses.
 // batch.emailDomainFilter = 'mondomaine.com';
 
+// --- Actions a declencher -------------------------------------------------
+// Lien de verification d'adresse.
+batch.sendVerification = true;
+
+// Reinitialisation du mot de passe + envoi des identifiants.
+// INVALIDE le mot de passe existant. Impose une taille de lot de 10.
+batch.sendPasswordReset = false;
+batch.notifyUserOnReset = true;
+
+// Pour un reset SEUL, mettre sendVerification = false ET onlyUnverified = false,
+// sinon les utilisateurs deja verifies seraient ecartes de la selection.
+
 // --- Options d'envoi ------------------------------------------------------
 batch.emailTemplateId = null;  // null = mail de verification standard
 batch.networkId = null;        // null = utilisateurs internes
 batch.startUrl = null;         // null = accueil de l'org apres le clic
 
-Id jobId = Database.executeBatch(batch, 50);
+// 10 des que sendPasswordReset est actif, 50 sinon.
+Integer scopeSize = batch.sendPasswordReset == true ? 10 : 50;
+Id jobId = Database.executeBatch(batch, scopeSize);
 System.debug('Batch lance : ' + jobId);
 System.debug('Suivi : Setup > Apex Jobs, ou');
 System.debug('  SELECT Status, JobItemsProcessed, TotalJobItems, NumberOfErrors '

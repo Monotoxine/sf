@@ -155,7 +155,49 @@ restant, sans avoir à fouiller les logs.
 | `emailTemplateId` | `null` | template personnalisé, sinon mail standard |
 | `networkId` | `null` | site Experience Cloud, sinon utilisateurs internes |
 | `startUrl` | `null` | page d'atterrissage après le clic |
+| `sendVerification` | `true` | envoie le lien de vérification d'adresse |
+| `sendPasswordReset` | `false` | réinitialise le mot de passe et envoie les identifiants |
+| `notifyUserOnReset` | `true` | notifier l'utilisateur du reset (`false` = reset silencieux) |
 | `includeInvalidAddresses` | `true` | garde les adresses en `.invalid` (voir annexe) |
+
+---
+
+## Envoyer aussi les identifiants
+
+La vérification d'email et l'envoi des identifiants sont **deux mécanismes
+distincts**, et la création par API ne déclenche ni l'un ni l'autre. Dans
+l'interface, la case *Generate new password and notify user immediately* couvre le
+second. En masse :
+
+```apex
+MassUserEmailVerificationBatch b = new MassUserEmailVerificationBatch();
+b.sendVerification  = true;
+b.sendPasswordReset = true;
+b.createdSince = System.now().addDays(-1);
+Database.executeBatch(b, 10);          // ← 10, impérativement
+```
+
+> **⚠️ Taille de lot : 10.** `System.resetPassword` est plafonné à **10 appels par
+> transaction**. Avec `sendPasswordReset` actif, la taille de lot doit valoir 10 au
+> maximum. Au-delà, les utilisateurs excédentaires de chaque lot sont comptés en
+> échec avec un message explicite plutôt que traités silencieusement : rien n'est
+> perdu, mais il faut relancer avec la bonne taille de lot.
+
+> **⚠️ Le mot de passe existant est invalidé.** L'opération est irréversible pour
+> les utilisateurs concernés. Vérifier le périmètre en `dryRun` avant, et préférer
+> `userIds` ou `createdSince` à un run sans filtre.
+
+Pour un **reset seul**, mettre `sendVerification = false` **et**
+`onlyUnverified = false` — sinon les utilisateurs déjà vérifiés seraient écartés
+de la sélection.
+
+Le batch compte séparément `sentCount` / `resetCount` et
+`failedCount` / `resetFailedCount`, pour distinguer les deux actions dans le
+bilan. `03-check-results.apex` les remonte.
+
+**Deux mails partent** (vérification + identifiants), là où le geste UI n'en
+envoie qu'un. Si c'est gênant pour vos utilisateurs, lancer les deux passes à
+quelques jours d'intervalle, ou n'activer que celle qui manque réellement.
 
 ---
 

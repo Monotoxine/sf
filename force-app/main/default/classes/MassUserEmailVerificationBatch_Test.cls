@@ -130,6 +130,49 @@ private class MassUserEmailVerificationBatch_Test {
     }
 
     @IsTest
+    static void passwordResetIsOffByDefault() {
+        MassUserEmailVerificationBatch batch = new MassUserEmailVerificationBatch();
+
+        System.assertEquals(
+            false,
+            batch.sendPasswordReset,
+            'Le reset de mot de passe invalide les mots de passe existants : '
+                + 'il doit rester une activation explicite.'
+        );
+        System.assertEquals(
+            true,
+            batch.sendVerification,
+            'L envoi du lien de verification est l action par defaut.'
+        );
+    }
+
+    @IsTest
+    static void dryRunCountsPasswordResetsWithoutApplyingThem() {
+        User u = buildUser('mvt8');
+        insert u;
+
+        MassUserEmailVerificationBatch batch = new MassUserEmailVerificationBatch();
+        batch.dryRun = true;
+        batch.onlyUnverified = false;
+        batch.sendPasswordReset = true;
+        batch.emailDomainFilter = TEST_DOMAIN;
+
+        Test.startTest();
+        Database.executeBatch(batch, 10);
+        Test.stopTest();
+
+        System.assert(
+            batch.resetCount >= 1,
+            'La simulation doit compter les resets prevus.'
+        );
+        System.assertEquals(
+            0,
+            batch.resetFailedCount,
+            'La simulation ne doit produire aucun echec de reset.'
+        );
+    }
+
+    @IsTest
     static void unverifiedFilterDoesNotBreakExecution() {
         User u = buildUser('mvt6');
         insert u;

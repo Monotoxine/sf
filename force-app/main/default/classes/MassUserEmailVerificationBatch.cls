@@ -18,6 +18,25 @@
  * Chaque utilisateur cible recoit le lien de verification standard et clique une
  * fois. Aucune adresse email n'est modifiee par ce batch.
  *
+ * REINITIALISATION DU MOT DE PASSE
+ * --------------------------------
+ * Creer un utilisateur par API ne declenche pas non plus l'envoi des
+ * identifiants. Dans l'interface, cocher "Generate new password and notify user
+ * immediately" couvre ce second besoin ; en masse, activer sendPasswordReset :
+ *
+ *   MassUserEmailVerificationBatch b = new MassUserEmailVerificationBatch();
+ *   b.sendPasswordReset = true;
+ *   Database.executeBatch(b, 10);   // <-- 10 IMPERATIVEMENT, voir ci-dessous
+ *
+ * System.resetPassword est plafonne a 10 appels par transaction. Avec
+ * sendPasswordReset actif, la taille de lot DOIT donc valoir 10 au maximum.
+ * Au-dela, les utilisateurs excedentaires de chaque lot sont comptes en echec
+ * avec un message explicite plutot que traites silencieusement : rien n'est
+ * perdu, mais il faut relancer avec la bonne taille de lot.
+ *
+ * Le mot de passe existant est invalide par l'operation. A n'activer qu'en
+ * connaissance de cause, et jamais sur un perimetre plus large que voulu.
+ *
  * EXEMPLES
  * --------
  * Tous les utilisateurs actifs non verifies :
@@ -63,6 +82,20 @@ public with sharing class MassUserEmailVerificationBatch
     /** Page d'atterrissage apres le clic de verification. Null = accueil de l'org. */
     public String startUrl;
 
+    /** Envoie le lien de verification d'adresse. */
+    public Boolean sendVerification = true;
+
+    /**
+     * Reinitialise le mot de passe et envoie les identifiants.
+     * Equivalent de "Generate new password and notify user immediately".
+     * INVALIDE le mot de passe existant : activation explicite uniquement,
+     * et taille de lot limitee a 10 (cf. en-tete).
+     */
+    public Boolean sendPasswordReset = false;
+
+    /** Notifier l'utilisateur lors du reset. False = reset silencieux. */
+    public Boolean notifyUserOnReset = true;
+
     /** Compte les cibles sans rien envoyer. A utiliser pour le premier run. */
     public Boolean dryRun = false;
 
@@ -73,9 +106,14 @@ public with sharing class MassUserEmailVerificationBatch
      */
     public Boolean includeInvalidAddresses = true;
 
+    /** Plafond Salesforce : 10 appels a System.resetPassword par transaction. */
+    private static final Integer MAX_PASSWORD_RESETS_PER_CHUNK = 10;
+
     public Integer sentCount = 0;
+    public Integer resetCount = 0;
     public Integer skippedCount = 0;
     public Integer failedCount = 0;
+    public Integer resetFailedCount = 0;
     private List<String> errors = new List<String>();
 
     private static Boolean hasVerifiedEmailFieldCache;
@@ -138,6 +176,8 @@ public with sharing class MassUserEmailVerificationBatch
             targets = filterUnverified(targets);
         }
 
+        Integer resetsThisChunk = 0;
+
         for (User u : scope) {
             if (!targets.contains(u.Id)) {
                 skippedCount++;
@@ -145,27 +185,61 @@ public with sharing class MassUserEmailVerificationBatch
             }
             if (dryRun == true) {
                 sentCount++;
+                if (sendPasswordReset == true) {
+                    resetCount++;
+                }
                 continue;
             }
-            try {
-                System.UserManagement.sendAsyncEmailConfirmation(
-                    u.Id, emailTemplateId, networkId, startUrl
-                );
-                sentCount++;
-            } catch (Exception e) {
-                failedCount++;
-                if (errors.size() < 50) {
-                    errors.add(u.Username + ' : ' + e.getMessage());
+
+            if (sendVerification == true) {
+                try {
+                    System.UserManagement.sendAsyncEmailConfirmation(
+                        u.Id, emailTemplateId, networkId, startUrl
+                    );
+                    sentCount++;
+                } catch (Exception e) {
+                    failedCount++;
+                    logError(u.Username + ' (verification) : ' + e.getMessage());
+                }
+            }
+
+            if (sendPasswordReset == true) {
+                if (resetsThisChunk >= MAX_PASSWORD_RESETS_PER_CHUNK) {
+                    // Compte en echec plutot que traite silencieusement : rien
+                    // n'est perdu, mais il faut relancer avec une taille de lot
+                    // de 10 pour couvrir ces utilisateurs.
+                    resetFailedCount++;
+                    logError(u.Username + ' (reset) : limite de '
+                        + MAX_PASSWORD_RESETS_PER_CHUNK
+                        + ' resets par transaction atteinte. Relancer avec '
+                        + 'Database.executeBatch(batch, 10).');
+                    continue;
+                }
+                try {
+                    System.resetPassword(u.Id, notifyUserOnReset);
+                    resetsThisChunk++;
+                    resetCount++;
+                } catch (Exception e) {
+                    resetFailedCount++;
+                    logError(u.Username + ' (reset) : ' + e.getMessage());
                 }
             }
         }
     }
 
+    private void logError(String message) {
+        if (errors.size() < 50) {
+            errors.add(message);
+        }
+    }
+
     public void finish(Database.BatchableContext ctx) {
         System.debug('MassUserEmailVerificationBatch termine.');
-        System.debug('  Liens envoyes           : ' + sentCount);
-        System.debug('  Ignores (deja verifies) : ' + skippedCount);
-        System.debug('  Echecs                  : ' + failedCount);
+        System.debug('  Liens de verification envoyes : ' + sentCount);
+        System.debug('  Mots de passe reinitialises   : ' + resetCount);
+        System.debug('  Ignores (deja verifies)       : ' + skippedCount);
+        System.debug('  Echecs verification           : ' + failedCount);
+        System.debug('  Echecs reset                  : ' + resetFailedCount);
         for (String err : errors) {
             System.debug('  !! ' + err);
         }
