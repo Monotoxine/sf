@@ -158,6 +158,7 @@ restant, sans avoir à fouiller les logs.
 | `sendVerification` | `true` | envoie le lien de vérification d'adresse |
 | `sendPasswordReset` | `false` | réinitialise le mot de passe et envoie les identifiants |
 | `notifyUserOnReset` | `true` | notifier l'utilisateur du reset (`false` = reset silencieux) |
+| `allowPasswordResetInProduction` | `false` | lève le refus du reset hors sandbox |
 | `includeInvalidAddresses` | `true` | garde les adresses en `.invalid` (voir annexe) |
 
 ---
@@ -198,6 +199,60 @@ bilan. `03-check-results.apex` les remonte.
 **Deux mails partent** (vérification + identifiants), là où le geste UI n'en
 envoie qu'un. Si c'est gênant pour vos utilisateurs, lancer les deux passes à
 quelques jours d'intervalle, ou n'activer que celle qui manque réellement.
+
+---
+
+## Production sous SSO
+
+Les deux volets ne se comportent pas de la même façon quand l'authentification
+passe par un fournisseur d'identité externe.
+
+### La vérification d'email : inchangée
+
+Elle est **indépendante de l'authentification**. `HasUserVerifiedEmail` ne
+conditionne pas la connexion — un utilisateur non vérifié se connecte
+normalement en SSO. Ce qu'elle conditionne, c'est la capacité de Salesforce à
+**envoyer des mails au nom de cet utilisateur** : alertes de workflow, éléments
+Send Email des Flows, Email-to-Case. C'est là que ça casse, pas au login.
+
+Le batch fonctionne donc à l'identique en production.
+
+### Le reset de mot de passe : à ne pas faire
+
+Sous SSO, les utilisateurs n'ont pas de mot de passe Salesforce à saisir. Un
+reset de masse leur enverrait des mails « définissez votre mot de passe »
+inutilisables — bruit inutile et tickets de support garantis.
+
+Le batch **refuse** donc `sendPasswordReset` hors sandbox :
+
+```
+sendPasswordReset est refuse hors sandbox. Sous SSO les utilisateurs n ont pas
+de mot de passe Salesforce a saisir [...]. Si le reset est reellement voulu ici,
+poser allowPasswordResetInProduction = true.
+```
+
+Le garde-fou se lève explicitement (`allowPasswordResetInProduction = true`) pour
+les cas légitimes — une population non-SSO, des comptes d'intégration.
+
+### La bonne approche en production
+
+Plutôt que d'envoyer des liens à des milliers de personnes, supprimer l'exigence
+au niveau du domaine : **Setup → Authorized Email Domains** (section suivante).
+La logique est cohérente avec le SSO — l'identité est déjà maîtrisée en amont, et
+le domaine est corporate. Les utilisateurs créés par Talend deviennent vérifiés
+par appartenance au domaine : aucun mail, aucun clic, aucun batch à rejouer.
+
+C'est de loin le meilleur rapport effort/résultat sur une org de production.
+
+### Si vous passez quand même par le batch
+
+- **Prévenir les utilisateurs.** Ce sont de vraies personnes qui vont recevoir un
+  mail inattendu de Salesforce. Un run de masse sans communication préalable
+  génère des signalements de phishing.
+- **Y aller par lots** (`createdSince`, `emailDomainFilter`) plutôt qu'en une
+  passe sur tout le parc.
+- Les envois vers les utilisateurs **internes** ne sont pas plafonnés ; le
+  plafond de 5 000/jour ne vise que les adresses externes.
 
 ---
 

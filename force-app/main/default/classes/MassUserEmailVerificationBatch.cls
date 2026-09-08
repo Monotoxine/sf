@@ -96,6 +96,18 @@ public with sharing class MassUserEmailVerificationBatch
     /** Notifier l'utilisateur lors du reset. False = reset silencieux. */
     public Boolean notifyUserOnReset = true;
 
+    /**
+     * Garde-fou : hors sandbox, sendPasswordReset est refuse tant que ce flag
+     * n'est pas explicitement leve.
+     *
+     * Motif : dans une org de production authentifiee par SSO, les utilisateurs
+     * n'ont pas de mot de passe Salesforce a saisir. Un reset de masse y genere
+     * des mails "definissez votre mot de passe" que personne ne peut ni ne doit
+     * utiliser. La verification d'email, elle, reste pertinente : elle est
+     * independante de l'authentification.
+     */
+    public Boolean allowPasswordResetInProduction = false;
+
     /** Compte les cibles sans rien envoyer. A utiliser pour le premier run. */
     public Boolean dryRun = false;
 
@@ -133,6 +145,19 @@ public with sharing class MassUserEmailVerificationBatch
     }
 
     public Database.QueryLocator start(Database.BatchableContext ctx) {
+        if (sendPasswordReset == true && allowPasswordResetInProduction != true) {
+            Boolean isSandbox = [SELECT IsSandbox FROM Organization LIMIT 1].IsSandbox;
+            if (!isSandbox) {
+                throw new MassUserEmailVerificationException(
+                    'sendPasswordReset est refuse hors sandbox. Sous SSO les '
+                    + 'utilisateurs n ont pas de mot de passe Salesforce a saisir, '
+                    + 'et un reset de masse leur enverrait des identifiants '
+                    + 'inutilisables. Si le reset est reellement voulu ici, poser '
+                    + 'allowPasswordResetInProduction = true.'
+                );
+            }
+        }
+
         // Binds declares hors des blocs conditionnels : ils doivent rester dans
         // la portee au moment ou Database.getQueryLocator les resout.
         Set<Id> ids = userIds;
@@ -269,4 +294,6 @@ public with sharing class MassUserEmailVerificationBatch
         }
         return unverified;
     }
+
+    public class MassUserEmailVerificationException extends Exception {}
 }

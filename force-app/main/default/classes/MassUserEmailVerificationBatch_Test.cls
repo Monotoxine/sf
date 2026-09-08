@@ -173,6 +173,23 @@ private class MassUserEmailVerificationBatch_Test {
     }
 
     @IsTest
+    static void passwordResetInProductionIsGuarded() {
+        MassUserEmailVerificationBatch batch = new MassUserEmailVerificationBatch();
+
+        System.assertEquals(
+            false,
+            batch.allowPasswordResetInProduction,
+            'Le garde-fou production doit etre actif par defaut : sous SSO un '
+                + 'reset de masse envoie des identifiants inutilisables.'
+        );
+
+        // Le refus lui-meme depend de Organization.IsSandbox, non simulable en
+        // test ; seul le defaut du garde-fou est verifiable ici.
+        Boolean isSandbox = [SELECT IsSandbox FROM Organization LIMIT 1].IsSandbox;
+        System.debug('Org sandbox : ' + isSandbox);
+    }
+
+    @IsTest
     static void unverifiedFilterDoesNotBreakExecution() {
         User u = buildUser('mvt6');
         insert u;
