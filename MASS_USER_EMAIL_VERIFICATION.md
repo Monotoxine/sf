@@ -152,7 +152,7 @@ restant, sans avoir à fouiller les logs.
 | `userIds` | `null` | sélection explicite, **prime sur tous les autres filtres** |
 | `createdSince` | `null` | ne cible que les utilisateurs créés depuis cette date |
 | `emailDomainFilter` | `null` | restreint à un domaine d'adresses |
-| `emailTemplateId` | `null` | template personnalisé, sinon mail standard |
+| `emailTemplateId` | `null` | template personnalisé — **sans effet pour les utilisateurs internes** |
 | `networkId` | `null` | site Experience Cloud, sinon utilisateurs internes |
 | `startUrl` | `null` | page d'atterrissage après le clic |
 | `sendVerification` | `true` | envoie le lien de vérification d'adresse |
@@ -233,6 +233,72 @@ poser allowPasswordResetInProduction = true.
 
 Le garde-fou se lève explicitement (`allowPasswordResetInProduction = true`) pour
 les cas légitimes — une population non-SSO, des comptes d'intégration.
+
+### Garder la vérification par email en production : comment ça se passe
+
+C'est faisable, et le SSO ne bloque rien. Voici le déroulé réel et les contraintes.
+
+**Ce que vit l'utilisateur.** Il reçoit le mail standard Salesforce, clique le
+lien, Salesforce lui demande de s'authentifier, le SSO le redirige vers l'IdP,
+et la vérification s'achève au retour. `HasUserVerifiedEmail` bascule.
+
+**Conseil qui évite l'essentiel des frictions : demandez-leur d'être déjà
+connectés à Salesforce avant de cliquer.** La bascule vers l'IdP en plein milieu
+du flux de vérification est le moment où les gens décrochent — et c'est aussi là
+que se manifeste l'[anomalie Summer '26](https://help.salesforce.com/s/issue?language=en_US&id=a02Ka00000mGGGyIAO)
+qui renvoie vers la page de login.
+
+Renseigner `startUrl` pour que le clic aboutisse sur une page qui a du sens
+plutôt que sur une confirmation nue.
+
+#### La contrainte qui structure tout : le mail n'est pas personnalisable
+
+Pour un utilisateur **interne**, Salesforce envoie **son** mail de vérification,
+point. Passer un `emailTemplateId` à `sendAsyncEmailConfirmation` reste sans
+effet : le mail standard part quand même. La personnalisation ne fonctionne que
+pour les utilisateurs Experience Cloud, avec `networkId` renseigné.
+
+Conséquence directe : vos utilisateurs recevront un mail générique, non brandé,
+leur demandant de cliquer un lien. En production, sur un parc d'employés, **c'est
+exactement le profil d'un phishing**. La seule parade est la communication en
+amont, hors de ce canal :
+
+- annoncer par un autre média (mail interne IT, Teams, Slack) **avant** l'envoi ;
+- donner l'**adresse d'expéditeur exacte** et l'**objet** du mail attendu ;
+- joindre une **capture** du mail ;
+- nommer un contact pour les doutes.
+
+#### Fenêtre de validité
+
+Le lien de vérification d'adresse expire — comptez **72 heures** (certains liens
+d'identité Salesforce expirent en 24 h ; vérifiez sur votre premier envoi réel).
+Au-delà, il faut renvoyer.
+
+Ce n'est pas un problème : avec `onlyUnverified = true`, **relancer le batch ne
+recible que ceux qui n'ont pas cliqué**. Le batch est son propre mécanisme de
+relance, sans avoir à tracer qui a reçu quoi.
+
+#### Rythme de déploiement
+
+```
+1. Annoncer          hors canal Salesforce, avec expéditeur + objet + capture
+2. Vague pilote      une équipe (userIds ou emailDomainFilter)
+3. Mesurer           03-check-results.apex -> combien ont cliqué, en combien de temps
+4. Vagues suivantes  par createdSince, département ou domaine
+5. Relancer          tous les 3-4 jours, recible automatiquement les non-cliqueurs
+6. Résiduel          traiter à la main, ou basculer sur Authorized Email Domains
+```
+
+#### À vérifier avant la première vague
+
+- **My Domain** : les liens pointent vers votre My Domain. Si la politique de
+  connexion bloque `login.salesforce.com`, c'est cohérent — mais testez le clic
+  depuis un poste utilisateur, pas depuis un compte admin.
+- **Restrictions IP et plages horaires de connexion** sur les profils : elles
+  s'appliquent au clic, et peuvent le faire échouer hors site ou hors horaires.
+- **Délivrabilité** : `Access to Send Email` sur *All email*.
+
+---
 
 ### La bonne approche en production
 

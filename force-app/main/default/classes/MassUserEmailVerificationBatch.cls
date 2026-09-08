@@ -73,7 +73,16 @@ public with sharing class MassUserEmailVerificationBatch
     /** Ne cible que les emails de ce domaine (ex. 'mondomaine.com'). Null = tous. */
     public String emailDomainFilter;
 
-    /** Template d'email personnalise. Null = mail de verification standard. */
+    /**
+     * Template d'email personnalise.
+     *
+     * SANS EFFET POUR LES UTILISATEURS INTERNES : Salesforce envoie son mail de
+     * verification standard quel que soit le template passe. Le parametre n'est
+     * suivi d'effet que pour les utilisateurs Experience Cloud, avec networkId
+     * renseigne. Le contenu du mail recu par un utilisateur interne n'est donc
+     * pas personnalisable — en tenir compte pour la communication en amont d'un
+     * envoi de masse.
+     */
     public Id emailTemplateId;
 
     /** Site Experience Cloud. Null pour les utilisateurs internes. */
