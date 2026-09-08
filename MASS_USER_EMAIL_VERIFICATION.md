@@ -36,6 +36,44 @@ utilisateurs cliquent une fois, et passent en `Email Verified`.
 
 ---
 
+## Déploiement
+
+⚠️ **`Invalid type: MassUserEmailVerificationBatch` ?** La classe n'est pas encore
+dans l'org. Un script anonyme ne peut référencer qu'une classe déjà déployée.
+
+```bash
+sf project deploy start \
+  --source-dir force-app/main/default/classes/MassUserEmailVerificationBatch.cls \
+  --source-dir force-app/main/default/classes/MassUserEmailVerificationBatch.cls-meta.xml \
+  --source-dir force-app/main/default/classes/MassUserEmailVerificationBatch_Test.cls \
+  --source-dir force-app/main/default/classes/MassUserEmailVerificationBatch_Test.cls-meta.xml \
+  --target-org <alias>
+```
+
+En **production**, le déploiement exige l'exécution des tests :
+
+```bash
+sf project deploy start --source-dir force-app/main/default/classes \
+  --test-level RunSpecifiedTests --tests MassUserEmailVerificationBatch_Test \
+  --target-org <alias>
+```
+
+### Sans rien déployer
+
+Pour un essai immédiat ou un volume modeste, un script autonome fait le même
+travail sans aucune classe à déployer :
+
+```bash
+sf apex run --file scripts/apex/user-email/00-standalone-send-verification.apex
+```
+
+Il traite `MAX_PER_RUN` utilisateurs par exécution et affiche combien il en reste —
+à relancer jusqu'à zéro. Il affiche aussi le nombre d'invocations email
+consommées, ce qui permet de mesurer le coût réel d'un appel avant d'augmenter le
+lot. Le batch reste préférable au-delà de quelques centaines d'utilisateurs.
+
+---
+
 ## Utilisation
 
 ### 1. Auditer
@@ -85,6 +123,7 @@ Database.executeBatch(new MassUserEmailVerificationBatch(), 50);
 
 Script prêt à l'emploi et commenté :
 `scripts/apex/user-email/02-send-bulk-email-verification.apex`
+(ou `00-standalone-send-verification.apex` si vous ne déployez pas la classe)
 
 ---
 
