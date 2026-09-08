@@ -1,7 +1,7 @@
 /**
  * 02 - CORRECTION EN MASSE : retire le suffixe ".invalid" des emails utilisateurs.
  *
- * Execution : sf apex run --file scripts/apex/user-email/02-strip-invalid-emails.apex
+ * Execution : sf apex run --file scripts/apex/user-email/annexe-suffixe-invalid/strip-invalid-emails.apex
  *
  * C'EST LE REMPLACEMENT 1:1 DU TRAVAIL MANUEL DANS L'INTERFACE.
  *

@@ -1,339 +1,196 @@
-# Vérification en masse des emails utilisateurs (users créés via Talend)
+# Vérification d'email en masse pour les utilisateurs créés par API
 
-Guide opérationnel pour débloquer des utilisateurs Salesforce créés par API dont
-l'adresse email est en `.invalid` et/ou non vérifiée, **sans passer par l'interface
-Salesforce user par user**.
+## Le problème
 
----
+Créer un utilisateur par API (Talend, Data Loader, Bulk API) n'envoie **aucun**
+mail de vérification d'adresse. Résultat :
 
-## 0. Le cas concret : users créés par Talend, `.invalid` qui ne part jamais
+- l'utilisateur reste **non vérifié** ;
+- l'action **Verify** subsiste à côté de son email dans Setup → Users ;
+- Salesforce refuse d'envoyer des mails en son nom
+  (`The current user's email address isn't verified`) ;
+- sans outil, il faut cliquer ce lien **fiche par fiche**.
 
-**Symptôme.** Talend crée l'utilisateur. L'adresse porte `.invalid`. Aucun mail
-de confirmation ne part. Seule solution trouvée jusqu'ici : rouvrir chaque
-utilisateur dans **Setup → Users**, éditer l'email à la main, un par un.
+La création ne déclenche pas la vérification, et Salesforce n'expose pas de bouton
+« tout vérifier » dans l'interface. D'où le travail manuel.
 
-**Pourquoi rien ne part.** Email Change Verification se déclenche sur un
-**changement** d'adresse, pas sur une création. À l'insert, Salesforce pose
-l'adresse telle quelle et n'a **rien à confirmer** — d'où le silence. Quand vous
-éditez ensuite l'utilisateur dans l'interface, vous produisez ce changement, et le
-mail part. C'est la seule différence entre les deux chemins.
+## La solution
 
-### D'où vient le suffixe ? Trois hypothèses, un test décisif
-
-C'est le point à trancher, et il ne se tranche que dans votre org :
-
-| | Hypothèse | Correction |
-|---|---|---|
-| **H1** | le suffixe est déjà dans la charge utile envoyée par Talend | mapping Talend |
-| **H2** | un trigger / flow maison sur `User` l'ajoute à l'insert | désactiver ou conditionner ce code |
-| **H3** | comportement plateforme au refresh/clone de sandbox | ne concerne que les users **présents lors du refresh** |
-
-**H3 est le seul comportement documenté par Salesforce**, et il s'applique aux
-utilisateurs *copiés* au moment de la création, du refresh ou du clonage de la
-sandbox — pas aux utilisateurs créés après. La documentation ne décrit aucun ajout
-de `.invalid` à l'insert d'un nouvel utilisateur.
-
-Cela dit, H2 est fréquent en entreprise : un `before insert` maison sur `User` qui
-suffixe les emails est un garde-fou « sécurité sandbox » très classique, et de
-l'extérieur il est indiscernable d'un comportement standard.
-
-**Test décisif, deux minutes.** Créez **un** utilisateur à la main dans
-Setup → Users avec une adresse propre, puis relisez la valeur réellement stockée :
-
-```sql
-SELECT Id, Username, Email, CreatedDate FROM User ORDER BY CreatedDate DESC LIMIT 1
-```
-
-- adresse **propre** en base → le suffixe vient de Talend (**H1**)
-- adresse **suffixée** en base → il est ajouté côté org (**H2** ou **H3**)
-
-Le script `scripts/apex/user-email/00-diagnose-invalid-origin.apex` automatise le
-reste : type d'org, date du dernier refresh, comparaison avec le `CreatedDate` des
-users concernés, et inventaire des triggers et flows actifs sur `User`.
-
-> **Ce diagnostic ne bloque rien.** Quelle que soit l'hypothèse retenue, la méthode
-> de rattrapage de masse ci-dessous est **identique**. Le diagnostic sert
-> uniquement à savoir s'il faudra refaire ce rattrapage au prochain lot.
-
-### La réponse directe : le bouton « Verify », en masse
-
-L'action manuelle que vous répétez utilisateur par utilisateur — **Verify** à côté
-de l'adresse dans Setup → Users — a un équivalent en masse documenté par
-Salesforce : l'**async email verification**.
-
-```apex
-System.UserManagement.sendAsyncEmailConfirmation(userId, templateId, networkId, returnUrl);
-```
-
-C'est exactement la même action, déclenchée par lot au lieu d'un clic par fiche.
-`MassUserEmailVerificationBatch` en est un wrapper bulkifié :
-
-```apex
-MassUserEmailVerificationBatch b = new MassUserEmailVerificationBatch();
-b.dryRun = true;                        // simulation d'abord
-b.onlyUnverified = true;
-b.includeInvalidAddresses = true;       // defaut : on garde les .invalid
-Database.executeBatch(b, 50);
-```
-
-> **Point non tranché — à valider chez vous en une passe.** Plusieurs orgs
-> rapportent que ce clic retire *aussi* le suffixe `.invalid` une fois le lien
-> cliqué. Ce comportement n'est **pas documenté publiquement**, et une
-> [idée IdeaExchange](https://ideas.salesforce.com/s/idea/a0B8W00000H3rbFUAR/sandbox-login-verification-emails-should-bypass-the-invalid-suffix-and-pass)
-> demande justement que les mails de vérification contournent le `.invalid`,
-> ce qui suggère l'inverse pour au moins une catégorie de messages.
->
-> Le batch inclut donc les `.invalid` **par défaut** : si l'org ne décape pas le
-> suffixe, le message bounce sans effet de bord ; si elle le décape, les exclure
-> écarterait précisément les utilisateurs à traiter.
->
-> **Test décisif** : lancer le batch avec `dryRun = false` sur **un seul**
-> utilisateur en `.invalid` (via `emailDomainFilter`), et regarder si le mail
-> arrive et si le suffixe disparaît après le clic. C'est votre geste manuel,
-> à l'identique. Le résultat vaut mieux que toute déduction.
-
-**Si le suffixe disparaît** → c'est terminé, le batch seul remplace votre travail
-manuel. Le reste de ce document ne concerne que les autres cas de figure.
-
-**Si le suffixe reste** → il faut corriger l'adresse avant : voir ci-dessous.
-
-### Repli : corriger l'adresse en masse
-
-Modifier `User.Email` par API déclenche le même mail de confirmation qu'une
-édition manuelle dans l'interface. L'API ne contourne rien, mais ne saute rien
-non plus : 500 utilisateurs en une passe au lieu de 500 éditions.
-
-- Data Loader : `scripts/soql/users-invalid-email.soql` (export → nettoyage du CSV → Update)
-- ou Apex : `scripts/apex/user-email/02-strip-invalid-emails.apex`
-
-⚠️ **Anomalie connue Salesforce, active depuis Summer '26** : le mail de
-confirmation part bien, mais le clic sur *Verify Email Address* renvoie vers la
-page de login **sans appliquer le changement**. Contournement documenté : éditer
-la fiche utilisateur, retirer le `.invalid`, et cocher *Generate new password and
-notify user immediately*. À vérifier avant de lancer un rattrapage de masse par
-update, sous peine de 500 mails sans effet.
-Voir [Issue a02Ka00000mGGGyIAO](https://help.salesforce.com/s/issue?language=en_US&id=a02Ka00000mGGGyIAO).
-
-### Et pour les lots suivants
-
-Selon le diagnostic H1/H2/H3 ci-dessus :
-
-- **H1** → corriger le mapping Talend pour insérer la vraie adresse. À l'insert,
-  aucune vérification de changement : l'adresse est posée directement.
-- **H2** → conditionner ou désactiver le trigger/flow qui suffixe.
-- **H3** → rien à corriger : le suffixe ne reviendra qu'au prochain refresh.
-
-Sans cette étape, le rattrapage est à rejouer à chaque lot.
-
-Enfin, pour supprimer **le clic utilisateur lui-même** — application immédiate,
-sans que personne n'ait à cliquer : c'est la §3 (Authorized Email Domains), et
-uniquement elle.
-
----
-
-## 1. Le point clé : il y a DEUX vérifications différentes
-
-C'est la source de 90 % de la confusion sur ce sujet. Salesforce appelle les deux
-« email verification », mais ce sont deux mécanismes distincts, avec deux solutions
-distinctes.
-
-| | **A. Email Change Verification** | **B. User-level Email Verification** |
-|---|---|---|
-| **Se déclenche quand** | on **modifie** `User.Email` (UI **et** API / Data Loader / Talend) | l'utilisateur **existe** avec une adresse jamais confirmée |
-| **Symptôme** | l'update part sans erreur mais l'adresse reste l'ancienne ; mail « Verify your new Salesforce email address » envoyé à la **nouvelle** adresse, valable 72 h | `The current user's email address isn't verified` au moment d'envoyer un email |
-| **Bloque** | le retrait du `.invalid` | l'envoi d'email *au nom de* l'utilisateur |
-| **Indicateur** | — | `TwoFactorMethodsInfo.HasUserVerifiedEmailAddress` |
-| **Solution de masse** | **Authorized Email Domains** (§3) | **`sendAsyncEmailConfirmation`** en batch (§5) |
-
-Le blocage décrit dans la demande initiale est **circulaire** et relève du cas A :
-l'adresse est en `.invalid` → le mail de confirmation part vers une adresse
-inexistante → personne ne peut cliquer → le `.invalid` ne part jamais.
-
-**On ne casse pas cette boucle avec un script.** Il faut d'abord désactiver
-l'exigence de vérification au niveau du domaine (§3), *ensuite* le script de masse
-fonctionne.
-
----
-
-## 2. Le cas du refresh de sandbox (H3) en détail
-
-Le seul ajout de `.invalid` documenté par Salesforce se produit à la **création,
-au refresh ou au clonage** d'une sandbox : les emails des utilisateurs *copiés*
-sont suffixés pour que les users de production ne reçoivent pas les mails de la
-sandbox. `atester@uc.com` devient `atester@uc.com.invalid`.
-
-Deux détails qui aident à reconnaître ce cas :
-
-- le **username** est lui aussi modifié (suffixe du nom de la sandbox), alors que
-  H1 et H2 ne touchent en général que l'email ;
-- l'utilisateur **qui a lancé le refresh** est exempté : son adresse reste intacte.
-
-Et le point qui tranche : ce mécanisme ne s'applique **qu'aux utilisateurs
-présents au moment du refresh**. Des utilisateurs dont le `CreatedDate` est
-postérieur à celui de l'org et qui portent malgré tout un `.invalid` écartent
-définitivement H3.
-
-```bash
-sf apex run --file scripts/apex/user-email/00-diagnose-invalid-origin.apex
-```
-
----
-
-## 3. La solution de fond : Authorized Email Domains
-
-C'est la méthode **officielle, self-service et scalable** pour ne plus dépendre
-d'un clic utilisateur. Elle traite les cas A **et** B d'un coup, pour tout un
-domaine.
-
-**Setup → Authorized Email Domains**
-
-1. Ajouter le domaine (ex. `mondomaine.com`).
-2. Publier l'enregistrement **DNS TXT** fourni pour prouver la propriété du domaine.
-3. Une fois le domaine vérifié : **Edit** sur le domaine → désactiver
-   **« Require email verification »**.
-
-Variante équivalente : une **clé DKIM active** sur le domaine, plus l'option de
-bypass correspondante dans les réglages de délivrabilité — le bypass s'applique
-alors à *tous* les domaines ayant une clé DKIM active.
-
-Résultat : les utilisateurs dont l'adresse est sur ce domaine ne passent plus par
-la vérification individuelle. Les mises à jour de masse par API deviennent
-immédiates.
-
-> **⚠️ Impact sécurité, à assumer explicitement.** Le bypass s'applique à *toutes*
-> les adresses du domaine. Salesforce pourra envoyer des emails au nom de
-> n'importe quelle adresse `@mondomaine.com`, et toute personne pouvant créer des
-> utilisateurs pourra usurper une adresse de ce domaine. À réserver aux domaines
-> dont vous contrôlez strictement la création de comptes.
-
----
-
-## 4. ⚠️ L'ancienne méthode (case Support) est en fin de vie
-
-Historiquement, on demandait au Support Salesforce de **désactiver « Email Change
-Verification »** au niveau de l'org (case avec General Application Area =
-*Feature Activation*).
-
-**Cette exemption est en cours de retrait.** Elle est remplacée par les Authorized
-Email Domains décrits en §3, avec une échéance d'application annoncée au
-**1er décembre 2026**. Ne construisez pas votre processus dessus : si votre org
-bénéficie encore de l'exemption, migrez vers §3.
-
----
-
-## 5. Vérification en masse des emails (cas B)
-
-Une fois les adresses correctes, il reste à faire passer les utilisateurs en
-« email vérifié » pour qu'ils puissent envoyer des emails depuis Salesforce.
-
-L'API Apex dédiée est :
+Salesforce documente une API dédiée, l'**async email verification** :
 
 ```apex
 System.UserManagement.sendAsyncEmailConfirmation(
     userId,          // Id de l'utilisateur
-    emailTemplateId, // template personnalisé, ou null
+    emailTemplateId, // template personnalisé, ou null pour le mail standard
     networkId,       // site Experience Cloud, ou null pour les users internes
     startUrl         // page d'atterrissage après le clic, ou null
 );
 ```
 
-Elle est encapsulée ici dans un batch gouverneur-safe :
-`force-app/main/default/classes/MassUserEmailVerificationBatch.cls`.
+C'est **exactement l'action du bouton Verify**, appelable par code. Reste à
+l'appeler pour N utilisateurs sans exploser les limites : c'est le rôle de
+`MassUserEmailVerificationBatch`.
+
+Le batch **ne modifie aucune adresse email**. Il envoie les liens, les
+utilisateurs cliquent une fois, et passent en `Email Verified`.
+
+---
+
+## Utilisation
+
+### 1. Auditer
+
+```bash
+sf apex run --file scripts/apex/user-email/01-audit-users-email.apex
+```
+
+Liste les utilisateurs actifs non vérifiés et rappelle le réglage de
+délivrabilité à contrôler.
+
+### 2. Simuler
 
 ```apex
 MassUserEmailVerificationBatch b = new MassUserEmailVerificationBatch();
-b.dryRun = true;                              // simulation d'abord
-b.onlyUnverified = true;                      // ignore les déjà vérifiés
-b.emailDomainFilter = 'mondomaine.com';       // null = tous les domaines
+b.dryRun = true;              // compte les cibles, n'envoie rien
+b.onlyUnverified = true;
 Database.executeBatch(b, 50);
 ```
 
-Le batch **inclut** les adresses en `.invalid` par défaut (`includeInvalidAddresses`),
-pour la raison exposée en §0 : le comportement du décapage n'est pas tranché
-publiquement, et le coût d'une inclusion inutile (un bounce) est très inférieur au
-coût d'une exclusion à tort (les utilisateurs à traiter sont écartés). Passer le
-flag à `false` pour ne cibler que les adresses déjà propres.
+### 3. Run pilote sur un seul utilisateur
 
-### Suivre l'avancement sans code
+```apex
+MassUserEmailVerificationBatch b = new MassUserEmailVerificationBatch();
+b.userIds = new Set<Id>{ '005XXXXXXXXXXXXXXX' };   // prime sur les autres filtres
+Database.executeBatch(b, 50);
+```
 
-La documentation Salesforce recommande une list view dédiée, ce qui évite de
-relancer un script pour connaître l'état du parc :
+Vérifier que le mail arrive bien, puis que la fiche passe en `Email Verified`
+après le clic.
 
-**Setup → Users → Create New View**, puis ajouter les colonnes de vérification
-(dont *Email Verified*). Le champ standard sous-jacent est
-`User.HasUserVerifiedEmail` — c'est aussi celui qu'utilisent en priorité le batch
-et le script d'audit, avec repli sur `TwoFactorMethodsInfo` si l'org ne l'expose
-pas.
+### 4. Le lot chargé par l'intégration
 
-**Cette méthode envoie les liens en masse ; l'utilisateur clique quand même une
-fois.** Pour supprimer complètement le clic, c'est §3 et uniquement §3.
+```apex
+MassUserEmailVerificationBatch b = new MassUserEmailVerificationBatch();
+b.createdSince = System.now().addDays(-1);
+Database.executeBatch(b, 50);
+```
+
+C'est le mode à câbler en routine après chaque chargement Talend.
+
+### 5. Rattrapage de tout le parc
+
+```apex
+Database.executeBatch(new MassUserEmailVerificationBatch(), 50);
+```
+
+Script prêt à l'emploi et commenté :
+`scripts/apex/user-email/02-send-bulk-email-verification.apex`
 
 ---
 
-## 6. Procédure recommandée, dans l'ordre
+## Paramètres
 
-```
-0. Diagnostic            scripts/apex/user-email/00-diagnose-invalid-origin.apex
-                         + créer 1 user à la main et relire l'email stocké   (§0)
-1. TEST DÉCISIF          batch async sur UN SEUL user en .invalid            (§0)
-                         (dryRun = false + emailDomainFilter sur un domaine test)
-                         -> le suffixe disparaît après le clic ?
-                            OUI  -> aller directement en 5, c'est terminé
-                            NON  -> dérouler 2 à 6
-2. Délivrabilité         Setup > Deliverability > Access to Send Email = "All email"
-                         (en sandbox le défaut "System email only" bloque tout)
-3. Corriger la source    selon le diagnostic de l'étape 0                    (§0)
-4. (optionnel) Domaine   Setup > Authorized Email Domains                    (§3)
-                         -> uniquement si le clic utilisateur doit disparaître
-5. Vérification en masse scripts/apex/user-email/03-send-bulk-email-verification.apex
-6. Repli si nécessaire   correction des adresses en masse                    (§0)
-                         Data Loader : scripts/soql/users-invalid-email.soql
-                         ou Apex     : scripts/apex/user-email/02-strip-invalid-emails.apex
-                         ⚠️ vérifier d'abord l'anomalie Summer '26            (§0)
-7. Contrôle              rejouer scripts/apex/user-email/01-audit-users-email.apex
-```
-
-L'étape 1 coûte deux minutes et peut rendre les étapes 2, 3, 4 et 6 inutiles.
-Elle passe avant tout le reste.
-
-Les deux variantes de l'étape 6 (Data Loader et Apex) sont **strictement
-équivalentes** du point de vue de Salesforce : mêmes mails envoyés, mêmes règles.
-Choisir selon l'outillage de l'équipe.
+| Paramètre | Défaut | Rôle |
+|---|---|---|
+| `dryRun` | `false` | compte les cibles sans rien envoyer |
+| `onlyUnverified` | `true` | ignore les utilisateurs déjà vérifiés |
+| `userIds` | `null` | sélection explicite, **prime sur tous les autres filtres** |
+| `createdSince` | `null` | ne cible que les utilisateurs créés depuis cette date |
+| `emailDomainFilter` | `null` | restreint à un domaine d'adresses |
+| `emailTemplateId` | `null` | template personnalisé, sinon mail standard |
+| `networkId` | `null` | site Experience Cloud, sinon utilisateurs internes |
+| `startUrl` | `null` | page d'atterrissage après le clic |
+| `includeInvalidAddresses` | `true` | garde les adresses en `.invalid` (voir annexe) |
 
 ---
 
-## 7. Points de vigilance
+## Points de vigilance
 
-- **`Username` ≠ `Email`.** Le `Username` est un simple identifiant de connexion :
-  il ne demande **aucune** vérification et peut être mis à jour librement en masse.
-  Seul l'`Email` est soumis à vérification. En sandbox les deux sont suffixés.
-- **Délivrabilité sandbox.** Tant que l'accès est sur `System email only`, aucun
-  mail de vérification ne part — y compris ceux du script §5.
-- **`.invalid` ne reçoit jamais rien.** TLD réservé par la RFC 2606 : la méthode
-  async de la doc Salesforce (§5) tourne à vide tant que le suffixe est là. Elle
-  vérifie une adresse existante, elle ne la change pas.
-- **Permission requise** pour lire `TwoFactorMethodsInfo` :
-  *Manage Multi-Factor Authentication in API*. Le batch et l'audit privilégient
-  `User.HasUserVerifiedEmail`, qui n'exige aucune permission particulière, et ne
-  retombent sur `TwoFactorMethodsInfo` que si ce champ n'existe pas dans l'org.
-- **Ne jamais** retirer le `.invalid` dans une sandbox contenant des adresses de
-  production réelles sans avoir mesuré le volume d'emails automatiques qui va
-  partir vers de vraies boîtes.
-- **Pilote d'abord.** Toujours dérouler la procédure sur un lot restreint
-  (`emailDomainFilter`, ou une poignée d'utilisateurs) avant l'ensemble du parc.
+**Délivrabilité.** `Setup → Deliverability → Access to Send Email` doit être sur
+**All email**. En sandbox le défaut est `System email only`, et dans ce cas aucun
+mail ne part — ni en manuel, ni en masse. C'est la cause n°1 d'un batch qui
+signale des envois sans que personne ne reçoive rien.
+
+**Limites d'envoi.** Les envois vers les utilisateurs **internes** de l'org ne
+sont pas plafonnés. Le plafond de 5 000 mails/jour ne concerne que les adresses
+externes : à prendre en compte pour un parc Experience Cloud.
+
+**Détection des non vérifiés.** Le batch et l'audit utilisent en priorité le champ
+standard `User.HasUserVerifiedEmail`, qui n'exige aucune permission particulière.
+Ils ne retombent sur `TwoFactorMethodsInfo` que si l'org n'expose pas ce champ —
+et cet objet exige alors la permission *Manage Multi-Factor Authentication in API*.
+
+**Suivi sans code.** Setup → Users → Create New View, en ajoutant les colonnes de
+vérification (dont *Email Verified*). Permet de suivre l'avancement sans relancer
+de script.
+
+**Anomalie connue Summer '26.** Sur le flux de *changement* d'adresse, le clic sur
+*Verify Email Address* peut renvoyer vers la page de login sans appliquer le
+changement — [Issue a02Ka00000mGGGyIAO](https://help.salesforce.com/s/issue?language=en_US&id=a02Ka00000mGGGyIAO).
+Ne concerne pas la vérification d'une adresse inchangée, mais à connaître si un
+utilisateur signale un lien qui ne fait rien.
+
+---
+
+## Supprimer complètement le clic utilisateur
+
+Le batch envoie les liens ; l'utilisateur clique quand même une fois. Pour que la
+vérification ne soit plus requise du tout sur un domaine que vous possédez :
+
+**Setup → Authorized Email Domains**
+
+1. Ajouter le domaine, publier l'enregistrement **DNS TXT** de preuve de propriété.
+2. Éditer le domaine → désactiver **« Require email verification »**.
+
+Variante équivalente : une **clé DKIM active** sur le domaine plus l'option de
+bypass correspondante dans les réglages de délivrabilité.
+
+> **⚠️ Impact sécurité.** Le bypass s'applique à *toutes* les adresses du domaine.
+> Salesforce pourra envoyer au nom de n'importe quelle adresse de ce domaine, et
+> toute personne pouvant créer des utilisateurs pourra en usurper une. À réserver
+> aux domaines dont vous contrôlez strictement la création de comptes.
+
+À noter également : l'ancienne exemption obtenue par case Support (désactivation
+d'« Email Change Verification ») **est en cours de retrait**, échéance annoncée au
+1er décembre 2026, au profit de ce mécanisme. Ne pas construire dessus.
+
+---
+
+## Annexe — le suffixe `.invalid`
+
+Sans rapport avec le problème ci-dessus, mais fréquemment confondu avec lui.
+
+À la **création, au refresh ou au clonage** d'une sandbox, Salesforce suffixe les
+emails des utilisateurs *copiés* en `.invalid`, pour que les users de production
+ne reçoivent pas les mails de la sandbox. Ces adresses ne peuvent rien recevoir
+(`.invalid` est un TLD réservé par la [RFC 2606](https://datatracker.ietf.org/doc/html/rfc2606)),
+donc y envoyer un lien de vérification est vain.
+
+Deux repères : le **username** est lui aussi modifié, et l'utilisateur qui a lancé
+le refresh est exempté. Le mécanisme ne touche que les utilisateurs présents au
+moment du refresh — jamais ceux créés après.
+
+Outils dans `scripts/apex/user-email/annexe-suffixe-invalid/` :
+
+- `diagnose-invalid-origin.apex` — d'où vient le suffixe : données source de
+  l'intégration, trigger/flow maison sur `User`, ou refresh de sandbox
+- `strip-invalid-emails.apex` — retrait en masse du suffixe (dry-run par défaut)
+- `users-invalid-email.soql` — même opération via Data Loader
+
+⚠️ Retirer le suffixe est un **changement** d'adresse : cela déclenche Email
+Change Verification, et l'adresse ne bascule qu'après le clic de l'utilisateur.
+C'est un flux différent de la vérification traitée plus haut.
 
 ---
 
 ## Sources
 
-- [Sandbox: User Email Addresses Appended With '.invalid' After Sandbox Refresh or Clone](https://help.salesforce.com/s/articleView?id=Sandbox-email-addresses-appended-with-invalid-on-User-records-post-refresh&language=en_US&type=1)
-- [How to Change the Email Address of a Salesforce User – Individual, Bulk, and Sandbox Scenarios](https://help.salesforce.com/s/articleView?language=en_US&id=000340139&mode=1&type=1)
-- [How to Mass Update User Email Addresses and Usernames](https://help.salesforce.com/s/articleView?id=000387708&language=en_US&type=1)
-- [Bypass User Email Verification for Domains That You Own (Winter '26)](https://help.salesforce.com/s/articleView?id=release-notes.rn_bypass_user_email_verification.htm&language=en_US&release=256&type=5)
-- [Use a Verified Domain for User-Level Email Verification](https://help.salesforce.com/s/articleView?id=xcloud.security_email_verification_user_bypass.htm&language=en_US&type=5)
 - [Verify Email Addresses with Async Email](https://help.salesforce.com/s/articleView?id=xcloud.emailadmin_async_email_verification.htm&language=en_US&type=5)
 - [Send Asynchronous Email Verifications](https://help.salesforce.com/s/articleView?language=en_US&id=release-notes.rn_identity_async_email.htm&release=218&type=5)
-- [Disable 'Email Change Verification'](https://help.salesforce.com/s/articleView?id=000385107&language=en_US&type=1)
-- [Salesforce Is Retiring the Email Change Verification Exemption](https://www.softwareinsights.dev/posts/salesforce-email-change-verification-retirement-authorized-email-domains/)
-- [Salesforce's New Email Domain Verification Explained – Salesforce Ben](https://www.salesforceben.com/salesforces-new-email-domain-verification-explained/)
+- [User Email Verification](https://help.salesforce.com/s/articleView?id=sf.security_user_email_verification.htm&language=en_US&type=5)
+- [Verify User Email Addresses](https://help.salesforce.com/s/articleView?id=release-notes.rn_security_verify_user_email_addresses.htm&language=en_US&release=244&type=5)
+- [Bypass User Email Verification for Domains That You Own](https://help.salesforce.com/s/articleView?id=release-notes.rn_bypass_user_email_verification.htm&language=en_US&release=256&type=5)
+- [Use a Verified Domain for User-Level Email Verification](https://help.salesforce.com/s/articleView?id=xcloud.security_email_verification_user_bypass.htm&language=en_US&type=5)
+- [Single Email Daily Limits for Emails Sent Using Apex](https://help.salesforce.com/s/articleView?id=000384947&language=en_US&type=1)
 - [TwoFactorMethodsInfo – Object Reference](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_twofactormethodsinfo.htm)
+- [Sandbox: User Email Addresses Appended With '.invalid'](https://help.salesforce.com/s/articleView?id=Sandbox-email-addresses-appended-with-invalid-on-User-records-post-refresh&language=en_US&type=1)

@@ -1,65 +1,75 @@
 /**
- * Envoi en masse des liens de verification d'adresse email utilisateur.
+ * Declenche en masse la verification d'adresse email des utilisateurs.
  *
- * Contexte : un utilisateur cree par API (Talend, Data Loader, ...) possede une
- * adresse email NON verifiee au sens "expediteur". Tant qu'elle n'est pas
- * verifiee, Salesforce refuse d'envoyer des emails au nom de cet utilisateur
- * ("The current user's email address isn't verified").
+ * PROBLEME RESOLU
+ * ---------------
+ * Creer un utilisateur par API (Talend, Data Loader, ...) n'envoie AUCUN mail de
+ * verification d'adresse. L'utilisateur reste "non verifie", l'action "Verify"
+ * subsiste a cote de son email dans Setup > Users, et Salesforce refuse d'envoyer
+ * des mails en son nom ("The current user's email address isn't verified").
+ * Sans outil, il faut cliquer ce lien fiche par fiche.
  *
- * Ce batch appelle System.UserManagement.sendAsyncEmailConfirmation() pour
- * chaque utilisateur cible : Salesforce envoie un lien de verification que
- * l'utilisateur clique une seule fois.
+ * Ce batch est l'equivalent en masse de ce clic. Il enveloppe la methode
+ * officielle d'async email verification :
  *
- * Ce batch NE modifie AUCUNE adresse email : il ne fait qu'envoyer les liens,
- * exactement comme le bouton "Verify" de Setup > Users, mais en masse. C'est
- * donc le remplacement direct du clic manuel utilisateur par utilisateur.
+ *   System.UserManagement.sendAsyncEmailConfirmation(
+ *       userId, emailTemplateId, networkId, startUrl);
  *
- * Si, dans votre org, ce clic retire aussi le suffixe ".invalid", ce batch
- * suffit a lui seul : laisser includeInvalidAddresses = true (defaut).
- * Sinon, corriger d'abord les adresses via scripts/apex/user-email/.
+ * Chaque utilisateur cible recoit le lien de verification standard et clique une
+ * fois. Aucune adresse email n'est modifiee par ce batch.
  *
- * Exemple d'appel :
+ * EXEMPLES
+ * --------
+ * Tous les utilisateurs actifs non verifies :
  *   Database.executeBatch(new MassUserEmailVerificationBatch(), 50);
  *
- * Exemple cible (uniquement un domaine, uniquement les non verifies) :
+ * Seulement le lot charge aujourd'hui par l'integration :
  *   MassUserEmailVerificationBatch b = new MassUserEmailVerificationBatch();
- *   b.emailDomainFilter = 'mondomaine.com';
- *   b.onlyUnverified = true;
+ *   b.createdSince = System.now().addDays(-1);
  *   Database.executeBatch(b, 50);
+ *
+ * Une liste d'Id precise (run pilote) :
+ *   MassUserEmailVerificationBatch b = new MassUserEmailVerificationBatch();
+ *   b.userIds = new Set<Id>{ '005...' };
+ *   Database.executeBatch(b, 50);
+ *
+ * LIMITES
+ * -------
+ * Les envois vers les utilisateurs INTERNES de l'org ne sont pas plafonnes.
+ * Le plafond de 5 000 mails/jour ne vise que les adresses externes : le prendre
+ * en compte pour un parc d'utilisateurs Experience Cloud.
  */
 public with sharing class MassUserEmailVerificationBatch
     implements Database.Batchable<sObject>, Database.Stateful {
 
-    /** Ne cible que les utilisateurs dont l'email se termine par ce domaine. Null = tous. */
-    public String emailDomainFilter;
-
     /** Restreint aux utilisateurs dont l'email n'est pas encore verifie. */
     public Boolean onlyUnverified = true;
 
-    /** Template d'email personnalise (facultatif). Null = template standard. */
+    /** Ne cible que les utilisateurs crees depuis cette date. Null = pas de filtre. */
+    public Datetime createdSince;
+
+    /** Liste d'Id explicite. Non vide = ignore les autres filtres de selection. */
+    public Set<Id> userIds;
+
+    /** Ne cible que les emails de ce domaine (ex. 'mondomaine.com'). Null = tous. */
+    public String emailDomainFilter;
+
+    /** Template d'email personnalise. Null = mail de verification standard. */
     public Id emailTemplateId;
 
-    /** Network Experience Cloud (facultatif). Null = utilisateurs internes. */
+    /** Site Experience Cloud. Null pour les utilisateurs internes. */
     public Id networkId;
 
-    /** Page d'atterrissage apres le clic de verification (facultatif). */
+    /** Page d'atterrissage apres le clic de verification. Null = accueil de l'org. */
     public String startUrl;
 
-    /** Mode simulation : compte les cibles sans envoyer d'email. */
+    /** Compte les cibles sans rien envoyer. A utiliser pour le premier run. */
     public Boolean dryRun = false;
 
     /**
-     * Inclure les adresses se terminant par ".invalid" dans le scope.
-     *
-     * Defaut : true. Plusieurs orgs rapportent que l'action "Verify" retire le
-     * suffixe une fois le lien clique par l'utilisateur ; ce comportement n'est
-     * pas documente publiquement, mais le pari asymetrique penche clairement du
-     * cote de l'inclusion : si l'org ne decape pas le suffixe, le message part
-     * vers un TLD reserve (RFC 2606) et bounce, sans effet de bord ; si elle le
-     * decape, exclure ces adresses ecarterait precisement les utilisateurs a
-     * traiter.
-     *
-     * Passer a false pour ne cibler que les adresses deja propres.
+     * Inclure les adresses se terminant par ".invalid" (artefact de refresh de
+     * sandbox). Ces adresses ne peuvent rien recevoir : les exclure evite des
+     * envois vains. Sans effet hors sandbox.
      */
     public Boolean includeInvalidAddresses = true;
 
@@ -72,8 +82,8 @@ public with sharing class MassUserEmailVerificationBatch
 
     /**
      * True si le champ standard User.HasUserVerifiedEmail est disponible.
-     * Detecte a l'execution : le champ n'existe pas dans toutes les orgs, et son
-     * absence ne doit pas faire echouer le batch (repli sur TwoFactorMethodsInfo).
+     * Detecte a l'execution : son absence ne doit pas faire echouer le batch,
+     * un repli sur TwoFactorMethodsInfo prend alors le relais.
      */
     @TestVisible
     private static Boolean hasVerifiedEmailField() {
@@ -85,27 +95,34 @@ public with sharing class MassUserEmailVerificationBatch
     }
 
     public Database.QueryLocator start(Database.BatchableContext ctx) {
-        String soql =
-            'SELECT Id, Username, Email FROM User ' +
-            'WHERE IsActive = true ' +
-            'AND Email != null';
-
-        if (includeInvalidAddresses == false) {
-            soql += ' AND (NOT Email LIKE \'%.invalid\')';
-        }
-
-        // Filtrage a la source quand le champ standard est disponible : plus
-        // efficace que le repli TwoFactorMethodsInfo, et sans permission
-        // "Manage Multi-Factor Authentication in API".
-        if (onlyUnverified == true && hasVerifiedEmailField()) {
-            soql += ' AND HasUserVerifiedEmail = false';
-        }
-
-        // Declaree hors du bloc : la variable doit rester dans la portee au
-        // moment ou Database.getQueryLocator resout le bind :domainLike.
+        // Binds declares hors des blocs conditionnels : ils doivent rester dans
+        // la portee au moment ou Database.getQueryLocator les resout.
+        Set<Id> ids = userIds;
+        Datetime since = createdSince;
         String domainLike = '%@' + emailDomainFilter;
-        if (String.isNotBlank(emailDomainFilter)) {
-            soql += ' AND Email LIKE :domainLike';
+
+        String soql = 'SELECT Id, Username, Email FROM User WHERE Email != null';
+
+        if (ids != null && !ids.isEmpty()) {
+            // Selection explicite : elle prime sur tous les autres filtres.
+            soql += ' AND Id IN :ids';
+        } else {
+            soql += ' AND IsActive = true';
+
+            if (onlyUnverified == true && hasVerifiedEmailField()) {
+                // Filtrage a la source : plus efficace que le repli par lot, et
+                // sans permission "Manage Multi-Factor Authentication in API".
+                soql += ' AND HasUserVerifiedEmail = false';
+            }
+            if (since != null) {
+                soql += ' AND CreatedDate >= :since';
+            }
+            if (String.isNotBlank(emailDomainFilter)) {
+                soql += ' AND Email LIKE :domainLike';
+            }
+            if (includeInvalidAddresses == false) {
+                soql += ' AND (NOT Email LIKE \'%.invalid\')';
+            }
         }
         return Database.getQueryLocator(soql);
     }
@@ -146,21 +163,20 @@ public with sharing class MassUserEmailVerificationBatch
 
     public void finish(Database.BatchableContext ctx) {
         System.debug('MassUserEmailVerificationBatch termine.');
-        System.debug('  Liens envoyes : ' + sentCount);
+        System.debug('  Liens envoyes           : ' + sentCount);
         System.debug('  Ignores (deja verifies) : ' + skippedCount);
-        System.debug('  Echecs : ' + failedCount);
+        System.debug('  Echecs                  : ' + failedCount);
         for (String err : errors) {
             System.debug('  !! ' + err);
         }
     }
 
     /**
-     * Repli pour les orgs ou le champ standard User.HasUserVerifiedEmail n'est
-     * pas disponible : ne conserve que les utilisateurs non verifies.
-     * TwoFactorMethodsInfo requiert la permission
-     * "Manage Multi-Factor Authentication in API" ; si la lecture echoue, on
-     * conserve l'ensemble des cibles (l'envoi a un utilisateur deja verifie
-     * est sans effet de bord).
+     * Repli pour les orgs qui n'exposent pas User.HasUserVerifiedEmail.
+     * TwoFactorMethodsInfo exige la permission "Manage Multi-Factor
+     * Authentication in API" ; si la lecture echoue, toutes les cibles sont
+     * conservees : renvoyer un lien a un utilisateur deja verifie est sans
+     * effet de bord.
      */
     private Set<Id> filterUnverified(Set<Id> candidates) {
         Set<Id> unverified = new Set<Id>();

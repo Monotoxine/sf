@@ -1,7 +1,7 @@
 /**
  * 00 - DIAGNOSTIC : d'ou vient reellement le ".invalid" ?
  *
- * Execution : sf apex run --file scripts/apex/user-email/00-diagnose-invalid-origin.apex
+ * Execution : sf apex run --file scripts/apex/user-email/annexe-suffixe-invalid/diagnose-invalid-origin.apex
  *
  * A lancer AVANT toute correction de masse. Trois hypotheses possibles, ce
  * script les departage :
