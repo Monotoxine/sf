@@ -27,33 +27,52 @@ for (User u : invalidUsers) {
 }
 
 // --- 2. Emails non verifies (verification "expediteur") --------------------
-try {
-    List<TwoFactorMethodsInfo> infos = [
-        SELECT UserId, HasUserVerifiedEmailAddress
-        FROM TwoFactorMethodsInfo
-        WHERE HasUserVerifiedEmailAddress = false
-        LIMIT 10000
-    ];
-    Set<Id> unverifiedIds = new Set<Id>();
-    for (TwoFactorMethodsInfo i : infos) {
-        unverifiedIds.add(i.UserId);
-    }
+// Source privilegiee : le champ standard User.HasUserVerifiedEmail.
+// Repli : TwoFactorMethodsInfo, qui exige la permission
+// "Manage Multi-Factor Authentication in API".
+Boolean hasField = Schema.SObjectType.User.fields.getMap()
+    .containsKey('hasuserverifiedemail');
 
-    List<User> unverified = [
-        SELECT Id, Username, Email
-        FROM User
-        WHERE Id IN :unverifiedIds
-          AND IsActive = true
-        ORDER BY Username
-    ];
+if (hasField) {
+    List<User> unverified = Database.query(
+        'SELECT Id, Username, Email FROM User ' +
+        'WHERE HasUserVerifiedEmail = false AND IsActive = true ' +
+        'ORDER BY Username LIMIT 10000'
+    );
     System.debug('=== Utilisateurs actifs avec email NON verifie : ' + unverified.size());
     for (User u : unverified) {
         System.debug('   ' + u.Username + '  ->  ' + u.Email);
     }
-} catch (Exception e) {
-    System.debug('!! Lecture TwoFactorMethodsInfo impossible : ' + e.getMessage());
-    System.debug('!! Ajouter la permission "Manage Multi-Factor Authentication in API".');
+} else {
+    try {
+        Set<Id> unverifiedIds = new Set<Id>();
+        for (TwoFactorMethodsInfo i : [
+            SELECT UserId
+            FROM TwoFactorMethodsInfo
+            WHERE HasUserVerifiedEmailAddress = false
+            LIMIT 10000
+        ]) {
+            unverifiedIds.add(i.UserId);
+        }
+        List<User> unverified = [
+            SELECT Id, Username, Email
+            FROM User
+            WHERE Id IN :unverifiedIds AND IsActive = true
+            ORDER BY Username
+        ];
+        System.debug('=== Utilisateurs actifs avec email NON verifie : ' + unverified.size());
+        for (User u : unverified) {
+            System.debug('   ' + u.Username + '  ->  ' + u.Email);
+        }
+    } catch (Exception e) {
+        System.debug('!! Lecture TwoFactorMethodsInfo impossible : ' + e.getMessage());
+        System.debug('!! Ajouter la permission "Manage Multi-Factor Authentication in API".');
+    }
 }
+
+// Equivalent sans code, pour un suivi au quotidien :
+//   Setup > Users > Create New View, en ajoutant les colonnes de verification
+//   (dont "Email Verified"). Permet de suivre l'avancement sans relancer ce script.
 
 // --- 3. Rappel deliverabilite ----------------------------------------------
 // Non lisible en Apex : verifier manuellement

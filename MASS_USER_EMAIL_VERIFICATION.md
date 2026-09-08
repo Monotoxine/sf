@@ -205,9 +205,22 @@ b.emailDomainFilter = 'mondomaine.com';       // null = tous les domaines
 Database.executeBatch(b, 50);
 ```
 
-Le batch exclut systématiquement les adresses en `.invalid` de son scope : envoyer
-un lien de vérification à une adresse `.invalid` ne peut, par construction, pas
-aboutir.
+Le batch exclut systématiquement les adresses en `.invalid` de son scope. Ce n'est
+pas une précaution : `.invalid` est un TLD **réservé par la [RFC 2606](https://datatracker.ietf.org/doc/html/rfc2606)**,
+conçu pour ne jamais résoudre. Aucun serveur mail n'existe derrière — un lien de
+vérification envoyé là n'arrive nulle part. D'où l'ordre imposé : corriger
+l'adresse (§0①) **puis** vérifier.
+
+### Suivre l'avancement sans code
+
+La documentation Salesforce recommande une list view dédiée, ce qui évite de
+relancer un script pour connaître l'état du parc :
+
+**Setup → Users → Create New View**, puis ajouter les colonnes de vérification
+(dont *Email Verified*). Le champ standard sous-jacent est
+`User.HasUserVerifiedEmail` — c'est aussi celui qu'utilisent en priorité le batch
+et le script d'audit, avec repli sur `TwoFactorMethodsInfo` si l'org ne l'expose
+pas.
 
 **Cette méthode envoie les liens en masse ; l'utilisateur clique quand même une
 fois.** Pour supprimer complètement le clic, c'est §3 et uniquement §3.
@@ -253,9 +266,13 @@ inutile si le besoin s'arrête à faire disparaître le `.invalid`.
   Seul l'`Email` est soumis à vérification. En sandbox les deux sont suffixés.
 - **Délivrabilité sandbox.** Tant que l'accès est sur `System email only`, aucun
   mail de vérification ne part — y compris ceux du script §5.
+- **`.invalid` ne reçoit jamais rien.** TLD réservé par la RFC 2606 : la méthode
+  async de la doc Salesforce (§5) tourne à vide tant que le suffixe est là. Elle
+  vérifie une adresse existante, elle ne la change pas.
 - **Permission requise** pour lire `TwoFactorMethodsInfo` :
-  *Manage Multi-Factor Authentication in API*. Sans elle, le filtre « non
-  vérifiés » est ignoré et le batch traite toutes les cibles.
+  *Manage Multi-Factor Authentication in API*. Le batch et l'audit privilégient
+  `User.HasUserVerifiedEmail`, qui n'exige aucune permission particulière, et ne
+  retombent sur `TwoFactorMethodsInfo` que si ce champ n'existe pas dans l'org.
 - **Ne jamais** retirer le `.invalid` dans une sandbox contenant des adresses de
   production réelles sans avoir mesuré le volume d'emails automatiques qui va
   partir vers de vraies boîtes.

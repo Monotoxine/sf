@@ -48,14 +48,38 @@ public with sharing class MassUserEmailVerificationBatch
     public Integer failedCount = 0;
     private List<String> errors = new List<String>();
 
+    private static Boolean hasVerifiedEmailFieldCache;
+
+    /**
+     * True si le champ standard User.HasUserVerifiedEmail est disponible.
+     * Detecte a l'execution : le champ n'existe pas dans toutes les orgs, et son
+     * absence ne doit pas faire echouer le batch (repli sur TwoFactorMethodsInfo).
+     */
+    @TestVisible
+    private static Boolean hasVerifiedEmailField() {
+        if (hasVerifiedEmailFieldCache == null) {
+            hasVerifiedEmailFieldCache = Schema.SObjectType.User.fields.getMap()
+                .containsKey('hasuserverifiedemail');
+        }
+        return hasVerifiedEmailFieldCache;
+    }
+
     public Database.QueryLocator start(Database.BatchableContext ctx) {
         // Les adresses en .invalid sont exclues : envoyer un lien de verification
-        // a une adresse .invalid ne peut par definition pas aboutir.
+        // a une adresse .invalid ne peut par definition pas aboutir. ".invalid"
+        // est un TLD reserve (RFC 2606) concu pour ne jamais resoudre.
         String soql =
             'SELECT Id, Username, Email FROM User ' +
             'WHERE IsActive = true ' +
             'AND Email != null ' +
             'AND (NOT Email LIKE \'%.invalid\')';
+
+        // Filtrage a la source quand le champ standard est disponible : plus
+        // efficace que le repli TwoFactorMethodsInfo, et sans permission
+        // "Manage Multi-Factor Authentication in API".
+        if (onlyUnverified == true && hasVerifiedEmailField()) {
+            soql += ' AND HasUserVerifiedEmail = false';
+        }
 
         // Declaree hors du bloc : la variable doit rester dans la portee au
         // moment ou Database.getQueryLocator resout le bind :domainLike.
@@ -72,7 +96,8 @@ public with sharing class MassUserEmailVerificationBatch
             targets.add(u.Id);
         }
 
-        if (onlyUnverified == true) {
+        // Deja filtre par la requete si User.HasUserVerifiedEmail est disponible.
+        if (onlyUnverified == true && !hasVerifiedEmailField()) {
             targets = filterUnverified(targets);
         }
 
@@ -110,7 +135,8 @@ public with sharing class MassUserEmailVerificationBatch
     }
 
     /**
-     * Ne conserve que les utilisateurs dont l'adresse email n'est pas verifiee.
+     * Repli pour les orgs ou le champ standard User.HasUserVerifiedEmail n'est
+     * pas disponible : ne conserve que les utilisateurs non verifies.
      * TwoFactorMethodsInfo requiert la permission
      * "Manage Multi-Factor Authentication in API" ; si la lecture echoue, on
      * conserve l'ensemble des cibles (l'envoi a un utilisateur deja verifie
