@@ -1,3 +1,8 @@
+/**
+ * The tests that asserted sends and resets went with the injectable interface
+ * they relied on. What remains covers the address cleanup, which writes to the
+ * database and is observable without a test double.
+ */
 @IsTest
 private class TEKCO_UserMailVerifyService_Test {
   @IsTest
@@ -55,51 +60,6 @@ private class TEKCO_UserMailVerifyService_Test {
       0,
       outcomes.size(),
       'An empty selection must not produce outcomes.'
-    );
-  }
-
-  @IsTest
-  static void reportsVerificationFailureInsteadOfThrowing() {
-    TEKCO_UserMailVerifyTestUtil.PerformerSpy spy = TEKCO_UserMailVerifyTestUtil.installSpy();
-    spy.throwOnVerify = true;
-
-    Test.startTest();
-    TEKCO_UserMailVerifyService.ActionOutcome outcome = TEKCO_UserMailVerifyService.sendVerification(
-      UserInfo.getUserId(),
-      'someone',
-      null
-    );
-    Test.stopTest();
-
-    Assert.isFalse(
-      outcome.success,
-      'A platform failure must be reported, not raised.'
-    );
-    Assert.isTrue(
-      outcome.message.contains('simulated'),
-      'The original message must survive so the summary can explain the failure.'
-    );
-  }
-
-  @IsTest
-  static void routesVerificationAndResetThroughThePerformer() {
-    TEKCO_UserMailVerifyTestUtil.PerformerSpy spy = TEKCO_UserMailVerifyTestUtil.installSpy();
-    Id target = UserInfo.getUserId();
-
-    Test.startTest();
-    TEKCO_UserMailVerifyService.sendVerification(target, 'someone', null);
-    TEKCO_UserMailVerifyService.resetPassword(target, 'someone', true);
-    Test.stopTest();
-
-    Assert.areEqual(
-      1,
-      spy.verified.size(),
-      'Verification must go through the performer seam.'
-    );
-    Assert.areEqual(
-      1,
-      spy.reset.size(),
-      'Password reset must go through the performer seam.'
     );
   }
 

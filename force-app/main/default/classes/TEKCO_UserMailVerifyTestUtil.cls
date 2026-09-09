@@ -33,40 +33,34 @@ public class TEKCO_UserMailVerifyTestUtil {
     return cachedBrand;
   }
 
-  /** Records every call instead of hitting the platform. */
-  public class PerformerSpy implements TEKCO_UserMailVerifyPerformer {
-    public List<Id> verified = new List<Id>();
-    public List<Id> reset = new List<Id>();
-    public List<String> notificationTitles = new List<String>();
-    public List<String> notificationBodies = new List<String>();
-    public Boolean throwOnVerify = false;
+  private static String cachedBrand;
+  private static Boolean brandResolved = false;
 
-    public void sendVerification(
-      Id userId,
-      Id emailTemplateId,
-      Id networkId,
-      String startUrl
-    ) {
-      if (throwOnVerify) {
-        throw new CalloutException('simulated verification failure');
+  /**
+   * A real value taken from the Brands value set.
+   *
+   * TEKCO_Brand__c is backed by a global value set, which is normally
+   * restricted: an invented value would be rejected at insert. Reading the
+   * describe keeps the tests working whatever the value set contains, and
+   * returns null when the field is absent so a test can skip rather than fail.
+   */
+  public static String testBrand() {
+    if (!brandResolved) {
+      brandResolved = true;
+      Schema.SObjectField field = Schema.SObjectType.User.fields.getMap()
+        .get('TEKCO_Brand__c');
+      if (field != null) {
+        for (
+          Schema.PicklistEntry entry : field.getDescribe().getPicklistValues()
+        ) {
+          if (entry.isActive()) {
+            cachedBrand = entry.getValue();
+            break;
+          }
+        }
       }
-      verified.add(userId);
     }
-
-    public void resetPassword(Id userId, Boolean notifyUser) {
-      reset.add(userId);
-    }
-
-    public void notify(Id recipientId, String title, String body) {
-      notificationTitles.add(title);
-      notificationBodies.add(body);
-    }
-  }
-
-  public static PerformerSpy installSpy() {
-    PerformerSpy spy = new PerformerSpy();
-    TEKCO_UserMailVerifyService.performer = spy;
-    return spy;
+    return cachedBrand;
   }
 
   public static User buildUser(String alias, String email) {

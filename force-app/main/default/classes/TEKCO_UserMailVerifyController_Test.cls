@@ -150,7 +150,6 @@ private class TEKCO_UserMailVerifyController_Test {
   @IsTest
   static void queuesTheRequestedUsers() {
     User granted = testUser();
-    TEKCO_UserMailVerifyTestUtil.installSpy();
     List<User> users = TEKCO_UserMailVerifyTestUtil.insertUsers(2);
     List<Id> ids = new List<Id>(new Map<Id, User>(users).keySet());
 

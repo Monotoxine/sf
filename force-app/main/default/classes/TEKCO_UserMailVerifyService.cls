@@ -2,15 +2,16 @@
  * Unit actions behind the User Mail Verify feature.
  *
  * Holds no orchestration: chunking, chaining and counting live in
- * TEKCO_UserMailVerifyQueueable. Every platform call is routed through
- * TEKCO_UserMailVerifyPerformer so it can be mocked in tests.
+ * TEKCO_UserMailVerifyQueueable.
+ *
+ * The platform calls sit here directly. They were behind an injectable
+ * interface so the orchestration could be asserted against a test double; that
+ * seam was removed for readability, and with it the tests that counted sends,
+ * resets and notifications. Reintroducing the interface is what brings them
+ * back.
  */
 public with sharing class TEKCO_UserMailVerifyService {
   private static final String INVALID_SUFFIX = '.invalid';
-
-  /** Swappable in tests. Defaults to the real platform calls. */
-  @TestVisible
-  private static TEKCO_UserMailVerifyPerformer performer = new TEKCO_UserMailVerifyPerformerImpl();
 
   /** Outcome of one action on one user. */
   public class ActionOutcome {
@@ -103,7 +104,12 @@ public with sharing class TEKCO_UserMailVerifyService {
     String startUrl
   ) {
     try {
-      performer.sendVerification(userId, emailTemplateId, networkId, startUrl);
+      System.UserManagement.sendAsyncEmailConfirmation(
+        userId,
+        emailTemplateId,
+        networkId,
+        startUrl
+      );
       return new ActionOutcome(userId, username, true, null);
     } catch (Exception e) {
       return new ActionOutcome(userId, username, false, e.getMessage());
@@ -116,7 +122,7 @@ public with sharing class TEKCO_UserMailVerifyService {
     Boolean notifyUser
   ) {
     try {
-      performer.resetPassword(userId, notifyUser == true);
+      System.resetPassword(userId, notifyUser == true);
       return new ActionOutcome(userId, username, true, null);
     } catch (Exception e) {
       return new ActionOutcome(userId, username, false, e.getMessage());
@@ -125,15 +131,46 @@ public with sharing class TEKCO_UserMailVerifyService {
 
   /**
    * Sends the completion notification to the administrator who started the run.
-   * Resolving and sending is the performer's business; failures there are
-   * absorbed so they cannot undo completed work.
+   *
+   * A missing or misconfigured notification type must never fail work that has
+   * already been done, so every failure here is logged and swallowed.
    */
   public static void notifyCompletion(
     Id recipientId,
     String title,
     String body
   ) {
-    performer.notify(recipientId, truncate(title, 250), truncate(body, 750));
+    try {
+      String typeName = TEKCO_UserMailVerifyConstants.NOTIFICATION_TYPE;
+      List<CustomNotificationType> types = [
+        SELECT Id
+        FROM CustomNotificationType
+        WHERE DeveloperName = :typeName
+        LIMIT 1
+      ];
+      if (types.isEmpty()) {
+        System.debug(
+          LoggingLevel.WARN,
+          'Custom notification type not found, skipping notification: ' +
+          typeName
+        );
+        return;
+      }
+
+      Messaging.CustomNotification notification = new Messaging.CustomNotification();
+      notification.setNotificationTypeId(types[0].Id);
+      notification.setTitle(truncate(title, 250));
+      notification.setBody(truncate(body, 750));
+      // The notification has to point at a record; the recipient's own user
+      // record is the only one this feature is guaranteed to have.
+      notification.setTargetId(recipientId);
+      notification.send(new Set<String>{ String.valueOf(recipientId) });
+    } catch (Exception e) {
+      System.debug(
+        LoggingLevel.WARN,
+        'Completion notification failed: ' + e.getMessage()
+      );
+    }
   }
 
   public static String truncate(String value, Integer maxLength) {

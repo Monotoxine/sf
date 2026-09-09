@@ -6,8 +6,6 @@
 		<members>TEKCO_UserMailVerifyConstants</members>
 		<members>TEKCO_UserMailVerifyController</members>
 		<members>TEKCO_UserMailVerifyController_Test</members>
-		<members>TEKCO_UserMailVerifyPerformer</members>
-		<members>TEKCO_UserMailVerifyPerformerImpl</members>
 		<members>TEKCO_UserMailVerifyQueueable</members>
 		<members>TEKCO_UserMailVerifyQueueable_Test</members>
 		<members>TEKCO_UserMailVerifySelector</members>

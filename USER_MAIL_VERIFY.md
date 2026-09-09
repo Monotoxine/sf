@@ -179,10 +179,14 @@ passwords, and locking yourself out of an admin tool is not recoverable.
 `WHERE` clause first and falls back to in-memory filtering, then to
 `TwoFactorMethodsInfo`, so the feature degrades instead of failing.
 
-**Platform calls sit behind `TEKCO_UserMailVerifyPerformer`.** Sending verifications,
-resetting passwords and posting notifications cannot be exercised in a test
-context. The seam lets the orchestration be tested against a spy without sending
-mail or breaking credentials.
+**The platform calls sit directly in the service.** They were behind an
+injectable interface so the orchestration could be asserted against a test
+double, which is what made it possible to check that three users produced three
+links, that a completed run notified once rather than once per chunk, and that a
+failure reached the summary. That seam was removed for readability, and those
+assertions went with it: the queueable and service tests now cover the address
+cleanup only, which writes to the database and is observable without it.
+Reintroducing the interface is what brings the rest back.
 
 **`emailTemplateId` has no effect for internal users.** Salesforce sends its own
 standard verification email whatever template is passed; customisation only
