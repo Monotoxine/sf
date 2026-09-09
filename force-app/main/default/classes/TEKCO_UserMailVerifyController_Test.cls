@@ -1,11 +1,27 @@
 @IsTest
 private class TEKCO_UserMailVerifyController_Test {
+  /**
+   * Test_UserHelper stamps brand and country from TestContext. Both are
+   * needed: brand is a dependent picklist controlled by country, so setting
+   * one without the other is rejected at insert.
+   */
+  private static User buildUser(String alias, String email) {
+    User u = Test_UserHelper.createMinimumAccessUser(alias, false);
+    u.Email = email;
+    return u;
+  }
+
+  private static List<User> insertUsers(Integer count) {
+    List<User> users = new List<User>();
+    for (Integer i = 0; i < count; i++) {
+      users.add(buildUser('umvc' + i, 'umvc' + i + '@umv-test.example.com'));
+    }
+    insert users;
+    return users;
+  }
 
   private static User testUser() {
-    User u = TEKCO_UserMailVerifyTestUtil.buildUser(
-      'umvctl',
-      'ctl@umv-test.example.com'
-    );
+    User u = buildUser('umvctl', 'ctl@umv-test.example.com');
     insert u;
     TEKCO_UserMailVerifySelector.sandboxOverride = true;
     return u;
@@ -104,7 +120,7 @@ private class TEKCO_UserMailVerifyController_Test {
   static void refusesPasswordResetOutsideASandbox() {
     User granted = testUser();
     TEKCO_UserMailVerifySelector.sandboxOverride = false;
-    List<User> users = TEKCO_UserMailVerifyTestUtil.insertUsers(1);
+    List<User> users = insertUsers(1);
     List<Id> ids = new List<Id>(new Map<Id, User>(users).keySet());
 
     String message;
@@ -146,7 +162,7 @@ private class TEKCO_UserMailVerifyController_Test {
   @IsTest
   static void queuesTheRequestedUsers() {
     User granted = testUser();
-    List<User> users = TEKCO_UserMailVerifyTestUtil.insertUsers(2);
+    List<User> users = insertUsers(2);
     List<Id> ids = new List<Id>(new Map<Id, User>(users).keySet());
 
     TEKCO_UserMailVerifyController.LaunchResult result;

@@ -1,5 +1,25 @@
 @IsTest
 private class TEKCO_UserMailVerifySelector_Test {
+  /**
+   * Test_UserHelper stamps brand and country from TestContext. Both are
+   * needed: brand is a dependent picklist controlled by country, so setting
+   * one without the other is rejected at insert.
+   */
+  private static User buildUser(String alias, String email) {
+    User u = Test_UserHelper.createMinimumAccessUser(alias, false);
+    u.Email = email;
+    return u;
+  }
+
+  private static List<User> insertUsers(Integer count) {
+    List<User> users = new List<User>();
+    for (Integer i = 0; i < count; i++) {
+      users.add(buildUser('umvs' + i, 'umvs' + i + '@umv-test.example.com'));
+    }
+    insert users;
+    return users;
+  }
+
   @IsTest
   static void returnsNothingWithoutBrands() {
     Test.startTest();
@@ -31,7 +51,7 @@ private class TEKCO_UserMailVerifySelector_Test {
 
   @IsTest
   static void returnsNothingForUnknownBrands() {
-    TEKCO_UserMailVerifyTestUtil.insertUsers(2);
+    insertUsers(2);
 
     Test.startTest();
     TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
@@ -51,11 +71,11 @@ private class TEKCO_UserMailVerifySelector_Test {
 
   @IsTest
   static void neverReturnsTheRunningUser() {
-    TEKCO_UserMailVerifyTestUtil.insertUsers(3);
+    insertUsers(3);
 
     Test.startTest();
     TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
-      new List<String>{ TEKCO_UserMailVerifyTestUtil.testBrand() },
+      new List<String>{ TestContext.BRAND },
       TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
       TEKCO_UserMailVerifySelector.SUFFIX_ALL,
       500
@@ -73,13 +93,13 @@ private class TEKCO_UserMailVerifySelector_Test {
 
   @IsTest
   static void excludesInactiveUsers() {
-    List<User> users = TEKCO_UserMailVerifyTestUtil.insertUsers(2);
+    List<User> users = insertUsers(2);
     users[0].IsActive = false;
     update users[0];
 
     Test.startTest();
     TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
-      new List<String>{ TEKCO_UserMailVerifyTestUtil.testBrand() },
+      new List<String>{ TestContext.BRAND },
       TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
       TEKCO_UserMailVerifySelector.SUFFIX_ALL,
       500
@@ -98,15 +118,12 @@ private class TEKCO_UserMailVerifySelector_Test {
 
   @IsTest
   static void flagsAddressesCarryingTheInvalidSuffix() {
-    User suffixed = TEKCO_UserMailVerifyTestUtil.buildUser(
-      'umvsfx',
-      'sfx@umv-test.example.com.invalid'
-    );
+    User suffixed = buildUser('umvsfx', 'sfx@umv-test.example.com.invalid');
     insert suffixed;
 
     Test.startTest();
     TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
-      new List<String>{ TEKCO_UserMailVerifyTestUtil.testBrand() },
+      new List<String>{ TestContext.BRAND },
       TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
       TEKCO_UserMailVerifySelector.SUFFIX_ALL,
       500
@@ -126,19 +143,13 @@ private class TEKCO_UserMailVerifySelector_Test {
 
   @IsTest
   static void suffixFilterKeepsOnlyInvalidAddresses() {
-    User suffixed = TEKCO_UserMailVerifyTestUtil.buildUser(
-      'umvsx',
-      'sx@umv-test.example.com.invalid'
-    );
-    User clean = TEKCO_UserMailVerifyTestUtil.buildUser(
-      'umvcl',
-      'cl@umv-test.example.com'
-    );
+    User suffixed = buildUser('umvsx', 'sx@umv-test.example.com.invalid');
+    User clean = buildUser('umvcl', 'cl@umv-test.example.com');
     insert new List<User>{ suffixed, clean };
 
     Test.startTest();
     TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
-      new List<String>{ TEKCO_UserMailVerifyTestUtil.testBrand() },
+      new List<String>{ TestContext.BRAND },
       TEKCO_UserMailVerifySelector.FILTER_ALL,
       TEKCO_UserMailVerifySelector.SUFFIX_ONLY,
       500
@@ -155,15 +166,12 @@ private class TEKCO_UserMailVerifySelector_Test {
 
   @IsTest
   static void suffixFilterCanExcludeInvalidAddresses() {
-    User suffixed = TEKCO_UserMailVerifyTestUtil.buildUser(
-      'umvsy',
-      'sy@umv-test.example.com.invalid'
-    );
+    User suffixed = buildUser('umvsy', 'sy@umv-test.example.com.invalid');
     insert suffixed;
 
     Test.startTest();
     TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
-      new List<String>{ TEKCO_UserMailVerifyTestUtil.testBrand() },
+      new List<String>{ TestContext.BRAND },
       TEKCO_UserMailVerifySelector.FILTER_ALL,
       TEKCO_UserMailVerifySelector.SUFFIX_NONE,
       500
@@ -180,11 +188,11 @@ private class TEKCO_UserMailVerifySelector_Test {
 
   @IsTest
   static void reportsTruncationWhenTheCapIsHit() {
-    TEKCO_UserMailVerifyTestUtil.insertUsers(3);
+    insertUsers(3);
 
     Test.startTest();
     TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
-      new List<String>{ TEKCO_UserMailVerifyTestUtil.testBrand() },
+      new List<String>{ TestContext.BRAND },
       TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
       TEKCO_UserMailVerifySelector.SUFFIX_ALL,
       1

@@ -12,12 +12,20 @@
  */
 @IsTest
 private class TEKCO_UserMailVerify_QBL_Test {
+  /**
+   * Test_UserHelper stamps brand and country from TestContext. Both are
+   * needed: brand is a dependent picklist controlled by country, so setting
+   * one without the other is rejected at insert.
+   */
+  private static User buildUser(String alias, String email) {
+    User u = Test_UserHelper.createMinimumAccessUser(alias, false);
+    u.Email = email;
+    return u;
+  }
+
   @IsTest
   static void cleanupPhaseRemovesTheInvalidSuffix() {
-    User suffixed = TEKCO_UserMailVerifyTestUtil.buildUser(
-      'umvq1',
-      'q1@umv-test.example.com.invalid'
-    );
+    User suffixed = buildUser('umvq1', 'q1@umv-test.example.com.invalid');
     insert suffixed;
 
     Test.startTest();
@@ -39,10 +47,7 @@ private class TEKCO_UserMailVerify_QBL_Test {
 
   @IsTest
   static void aVerificationStartsByCleaningTheInvalidSuffix() {
-    User suffixed = TEKCO_UserMailVerifyTestUtil.buildUser(
-      'umvq2',
-      'q2@umv-test.example.com.invalid'
-    );
+    User suffixed = buildUser('umvq2', 'q2@umv-test.example.com.invalid');
     insert suffixed;
 
     Test.startTest();
@@ -59,10 +64,7 @@ private class TEKCO_UserMailVerify_QBL_Test {
 
   @IsTest
   static void aResetStartsByCleaningTheInvalidSuffix() {
-    User suffixed = TEKCO_UserMailVerifyTestUtil.buildUser(
-      'umvq3',
-      'q3@umv-test.example.com.invalid'
-    );
+    User suffixed = buildUser('umvq3', 'q3@umv-test.example.com.invalid');
     insert suffixed;
 
     Test.startTest();
@@ -79,10 +81,7 @@ private class TEKCO_UserMailVerify_QBL_Test {
 
   @IsTest
   static void cleanAddressesAreLeftAlone() {
-    User clean = TEKCO_UserMailVerifyTestUtil.buildUser(
-      'umvq4',
-      'q4@umv-test.example.com'
-    );
+    User clean = buildUser('umvq4', 'q4@umv-test.example.com');
     insert clean;
 
     Test.startTest();

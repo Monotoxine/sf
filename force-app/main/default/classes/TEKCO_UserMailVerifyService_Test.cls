@@ -1,15 +1,20 @@
 @IsTest
 private class TEKCO_UserMailVerifyService_Test {
+  /**
+   * Test_UserHelper stamps brand and country from TestContext. Both are
+   * needed: brand is a dependent picklist controlled by country, so setting
+   * one without the other is rejected at insert.
+   */
+  private static User buildUser(String alias, String email) {
+    User u = Test_UserHelper.createMinimumAccessUser(alias, false);
+    u.Email = email;
+    return u;
+  }
+
   @IsTest
   static void stripsTheInvalidSuffixAndLeavesCleanAddressesAlone() {
-    User suffixed = TEKCO_UserMailVerifyTestUtil.buildUser(
-      'umvinv',
-      'inv@umv-test.example.com.invalid'
-    );
-    User clean = TEKCO_UserMailVerifyTestUtil.buildUser(
-      'umvcln',
-      'cln@umv-test.example.com'
-    );
+    User suffixed = buildUser('umvinv', 'inv@umv-test.example.com.invalid');
+    User clean = buildUser('umvcln', 'cln@umv-test.example.com');
     insert new List<User>{ suffixed, clean };
 
     Test.startTest();
