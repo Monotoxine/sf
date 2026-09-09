@@ -1,12 +1,5 @@
 /**
  * Entry point for the tekcoUserMailVerify Lightning Web Component.
- *
- * Every method starts with the permission check: Apex reached from a component
- * runs in system mode, so hiding the tab is not an access control.
- *
- * The per-run cap is enforced here rather than in the component. A client-side
- * check only shapes the UI; it is trivially bypassed by calling the controller
- * directly.
  */
 public with sharing class TEKCO_UserMailVerifyController {
   public class Settings {
@@ -14,7 +7,6 @@ public with sharing class TEKCO_UserMailVerifyController {
     public Integer maxUsersPerRun;
     @AuraEnabled
     public Integer maxRowsDisplayed;
-    /** Drives whether the screen offers the reset button at all. */
     @AuraEnabled
     public Boolean isSandbox;
   }
@@ -39,12 +31,6 @@ public with sharing class TEKCO_UserMailVerifyController {
     }
   }
 
-  /**
-   * Values of the Brands picklist, for the combobox.
-   *
-   * Served from Apex rather than the UI API: getPicklistValues requires a
-   * record type id and the User object has none.
-   */
   @AuraEnabled(cacheable=true)
   public static List<TEKCO_UserMailVerifySelector.BrandOption> getBrands() {
     try {
@@ -54,10 +40,6 @@ public with sharing class TEKCO_UserMailVerifyController {
     }
   }
 
-  /**
-   * Deliberately not cacheable: the list changes as soon as an action runs,
-   * and a stale cache here would show work that is already done.
-   */
   @AuraEnabled
   public static TEKCO_UserMailVerifySelector.UserListResult getUsers(
     List<String> brands,
@@ -103,11 +85,6 @@ public with sharing class TEKCO_UserMailVerifyController {
     }
   }
 
-  /**
-   * Hiding the button is not a control: the controller is reachable regardless.
-   * In production users authenticate through SSO and have no Salesforce
-   * password, so a reset there mails out credentials nobody can use.
-   */
   private static void assertResetAllowed() {
     if (!TEKCO_UserMailVerifySelector.isSandbox()) {
       throw new IllegalArgumentException(
@@ -145,11 +122,6 @@ public with sharing class TEKCO_UserMailVerifyController {
     return result;
   }
 
-  /**
-   * AuraHandledException hides the original message unless it is set
-   * explicitly, which would leave the component showing "Script-thrown
-   * exception" for every failure.
-   */
   private static AuraHandledException asAuraException(Exception e) {
     AuraHandledException wrapped = new AuraHandledException(e.getMessage());
     wrapped.setMessage(e.getMessage());

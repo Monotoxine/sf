@@ -1,15 +1,5 @@
 /**
  * Runs a User Mail Verify request asynchronously, one chunk per transaction.
- *
- * Chunking exists for two reasons: System.resetPassword is capped at 10 calls
- * per transaction, and a bulk send should not sit inside the user's HTTP
- * request. Each link in the chain hands its counters to the next through the
- * constructor, so a single summary survives the whole run and only the final
- * link notifies the administrator.
- *
- * A verification request runs in two phases. The ".invalid" suffix is stripped
- * first and that transaction is allowed to commit before any verification link
- * is generated, otherwise the link can be built against the pre-update address.
  */
 public with sharing class TEKCO_UserMailVerifyQueueable implements Queueable {
   public enum Phase {
@@ -18,16 +8,9 @@ public with sharing class TEKCO_UserMailVerifyQueueable implements Queueable {
     RESET
   }
 
-  /** Failure messages kept in the summary; beyond this, see the debug logs. */
   private static final Integer MAX_REPORTED_ERRORS = 10;
 
   private final Phase currentPhase;
-
-  /**
-   * Phase to run once the cleanup one is done. Both entry points strip the
-   * ".invalid" suffix first, so this records what the run was actually asked
-   * to do.
-   */
   private final Phase finalPhase;
 
   private final Id requesterId;
@@ -51,11 +34,6 @@ public with sharing class TEKCO_UserMailVerifyQueueable implements Queueable {
     );
   }
 
-  /**
-   * A reset also starts with the cleanup phase. Sending credentials to an
-   * address still carrying ".invalid" delivers nothing, and since the reset is
-   * what verifies the address, both effects would be lost at once.
-   */
   public static Id startPasswordReset(List<Id> userIds) {
     return System.enqueueJob(
       new TEKCO_UserMailVerifyQueueable(
@@ -67,18 +45,12 @@ public with sharing class TEKCO_UserMailVerifyQueueable implements Queueable {
     );
   }
 
-  /** Only the reset phase is bound by the platform's 10-per-transaction cap. */
   private static Integer chunkFor(Phase phaseToRun) {
     return phaseToRun == Phase.RESET
       ? TEKCO_UserMailVerifyConstants.RESET_HARD_LIMIT
       : TEKCO_UserMailVerifyConstants.CHUNK_SIZE_VERIFY;
   }
 
-  /**
-   * Lets a test enqueue one phase directly. Chaining is disabled under test,
-   * so a run started through startVerification would stop after the cleanup
-   * phase and never exercise the sending phase.
-   */
   @TestVisible
   private static TEKCO_UserMailVerifyQueueable forPhase(
     Phase phaseToRun,
@@ -111,7 +83,6 @@ public with sharing class TEKCO_UserMailVerifyQueueable implements Queueable {
     this.errors = new List<String>();
   }
 
-  /** Continuation constructor: carries the running totals into the next link. */
   private TEKCO_UserMailVerifyQueueable(
     TEKCO_UserMailVerifyQueueable previous,
     Phase phaseToRun,
@@ -121,8 +92,6 @@ public with sharing class TEKCO_UserMailVerifyQueueable implements Queueable {
     this.finalPhase = previous.finalPhase;
     this.allUserIds = previous.allUserIds;
     this.pending = pending;
-    // Recomputed rather than carried: moving from cleanup to reset drops the
-    // chunk from 50 to the platform's 10.
     this.chunkSize = chunkFor(phaseToRun);
     this.requesterId = previous.requesterId;
     this.successCount = previous.successCount;
@@ -149,8 +118,6 @@ public with sharing class TEKCO_UserMailVerifyQueueable implements Queueable {
       currentPhase == Phase.STRIP_INVALID &&
       finalPhase != Phase.STRIP_INVALID
     ) {
-      // Suffixes are committed with this transaction; the links are generated
-      // by the next one, against the addresses this one wrote.
       chain(
         new TEKCO_UserMailVerifyQueueable(
           this,
@@ -229,10 +196,6 @@ public with sharing class TEKCO_UserMailVerifyQueueable implements Queueable {
     }
   }
 
-  /**
-   * Chaining is skipped under test: Apex allows only one queued job from a
-   * running test, so the assertions cover a single chunk.
-   */
   private void chain(TEKCO_UserMailVerifyQueueable next) {
     if (Test.isRunningTest()) {
       return;

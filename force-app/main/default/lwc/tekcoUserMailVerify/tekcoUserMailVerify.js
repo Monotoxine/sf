@@ -26,8 +26,6 @@ const COLUMNS = [
     fieldName: "recordUrl",
     type: "url",
     sortable: true,
-    // Opened in a new tab on purpose: the selection lives in memory, and
-    // navigating away in place would discard it.
     typeAttributes: { label: { fieldName: "name" }, target: "_blank" }
   },
   { label: "Username", fieldName: "username", type: "text" },
@@ -59,16 +57,12 @@ function verifiedLabelFor(isVerified) {
   if (isVerified === true) {
     return "Yes";
   }
-  // Null means the org exposes no verification signal, which is not a "no".
   return isVerified === false ? "No" : "?";
 }
 
 export default class TekcoUserMailVerify extends LightningElement {
   columns = COLUMNS;
   verificationOptions = VERIFICATION_OPTIONS;
-
-  // Default: the users this screen exists for. A reset also verifies, so an
-  // already verified user is a legitimate target too, hence the other options.
   verificationFilter = "UNVERIFIED";
 
   suffixOptions = SUFFIX_OPTIONS;
@@ -90,9 +84,6 @@ export default class TekcoUserMailVerify extends LightningElement {
   brandsLoaded = false;
   searchTerm = "";
 
-  // Served from Apex rather than the UI API: getPicklistValues needs a record
-  // type id, and the User object does not support record types, so that wire
-  // would never fire.
   @wire(getBrands)
   handleBrands({ data, error }) {
     if (data) {
@@ -111,17 +102,12 @@ export default class TekcoUserMailVerify extends LightningElement {
   handleSettings({ data, error }) {
     if (data) {
       this.maxUsersPerRun = data.maxUsersPerRun;
-      // Reset is offered in sandboxes only; production signs in through SSO.
       this.isSandbox = data.isSandbox === true;
     } else if (error) {
       this.reportError(error);
     }
   }
 
-  /**
-   * Filtered client-side: the rows for one brand are already loaded, so a
-   * server round-trip per keystroke would buy nothing.
-   */
   get filteredRows() {
     const term = this.searchTerm.trim().toLowerCase();
     if (!term) {
@@ -180,8 +166,6 @@ export default class TekcoUserMailVerify extends LightningElement {
     const cap = this.maxUsersPerRun
       ? ` (max ${this.maxUsersPerRun} per run)`
       : "";
-    // The count spans every loaded row, not just the visible ones: a selection
-    // made before filtering still counts towards the run.
     const shown =
       this.filteredRows.length === this.rows.length
         ? ""
@@ -218,11 +202,6 @@ export default class TekcoUserMailVerify extends LightningElement {
     this.searchTerm = event.target.value || "";
   }
 
-  /**
-   * The datatable only reports the rows it currently shows, so a selection made
-   * before filtering would be dropped. Selections outside the current filter
-   * are preserved and only the visible ones are replaced.
-   */
   handleRowSelection(event) {
     const visibleIds = new Set(this.filteredRows.map((row) => row.id));
     const selectedVisible = event.detail.selectedRows.map((row) => row.id);
@@ -231,8 +210,6 @@ export default class TekcoUserMailVerify extends LightningElement {
       ...selectedVisible
     ];
 
-    // Assigning an equivalent array would re-render, feed selected-rows back
-    // into the datatable and bounce another rowselection event.
     if (
       merged.slice().sort().join() !== this.selectedIds.slice().sort().join()
     ) {
@@ -298,8 +275,6 @@ export default class TekcoUserMailVerify extends LightningElement {
         `${result.queuedCount} user(s) queued. You will be notified when the run completes.`,
         "success"
       );
-      // The run is asynchronous; the list only changes once users act on
-      // the link, so it is reloaded rather than mutated optimistically.
       await this.loadUsers();
     } catch (error) {
       this.reportError(error);

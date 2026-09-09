@@ -1,13 +1,5 @@
 /**
  * Fixed values for the User Mail Verify feature.
- *
- * These were held in a custom metadata type at first. That was over-engineering:
- * none of them is expected to change, the reset chunk size cannot legally differ
- * from the platform cap, and the notification type names a component this
- * feature ships itself. A configuration layer for values nobody will edit only
- * bought an extra SOQL query per transaction and a layer of indirection.
- *
- * Changing any of these is a code change, reviewed and deployed like the rest.
  */
 public with sharing class TEKCO_UserMailVerifyConstants {
   /** DeveloperName of the notification type shipped with the feature. */

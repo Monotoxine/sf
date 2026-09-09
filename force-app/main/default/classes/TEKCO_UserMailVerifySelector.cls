@@ -1,33 +1,19 @@
 /**
  * Builds the list of users eligible for bulk email verification.
- *
- * A user qualifies when all of the following hold:
- *   - active
- *   - not frozen
- *   - email address not yet verified
- *   - belongs to the selected brand
- *   - is not the running user
- *
- * The running user is excluded on purpose: the same screen resets passwords,
- * and locking yourself out of an admin tool is not a recoverable mistake.
  */
 public with sharing class TEKCO_UserMailVerifySelector {
-  /** Ceiling on rows pulled from the database before in-memory filtering. */
   private static final Integer QUERY_CEILING = 2000;
 
-  /** Verification filters accepted by findByBrands. */
   public static final String FILTER_UNVERIFIED = 'UNVERIFIED';
   public static final String FILTER_VERIFIED = 'VERIFIED';
   public static final String FILTER_ALL = 'ALL';
 
-  /** Suffix filters accepted by findByBrands. */
   public static final String SUFFIX_ALL = 'ALL';
   public static final String SUFFIX_ONLY = 'ONLY';
   public static final String SUFFIX_NONE = 'NONE';
 
   private static final String INVALID_SUFFIX_PATTERN = '%.invalid';
 
-  /** Brand field on User, backed by the Brands global value set. */
   private static final String BRAND_FIELD = 'TEKCO_Brand__c';
 
   public class UserRow {
@@ -45,7 +31,6 @@ public with sharing class TEKCO_UserMailVerifySelector {
     public Datetime createdDate;
     @AuraEnabled
     public String brand;
-    /** Null when the org exposes no verification signal at all. */
     @AuraEnabled
     public Boolean isVerified;
     @AuraEnabled
@@ -61,7 +46,6 @@ public with sharing class TEKCO_UserMailVerifySelector {
     public Boolean isTruncated = false;
   }
 
-  /** One entry of the Brands value set, shaped for a lightning-combobox. */
   public class BrandOption {
     @AuraEnabled
     public String label;
@@ -74,16 +58,6 @@ public with sharing class TEKCO_UserMailVerifySelector {
     }
   }
 
-  /**
-   * Active values of the Brands global value set behind User.TEKCO_Brand__c.
-   *
-   * Read through a describe rather than the UI API's getPicklistValues: that
-   * wire needs a record type id, and the User object does not support record
-   * types, so it would never fire.
-   *
-   * Returns an empty list when the field is absent, letting the screen say so
-   * instead of failing to load.
-   */
   public static List<BrandOption> getBrandOptions() {
     List<BrandOption> options = new List<BrandOption>();
     Schema.SObjectField field = Schema.SObjectType.User.fields.getMap()
@@ -101,11 +75,9 @@ public with sharing class TEKCO_UserMailVerifySelector {
 
   private static Boolean sandboxCache;
 
-  /** Forced in tests, where the org type cannot be chosen. */
   @TestVisible
   private static Boolean sandboxOverride;
 
-  /** True when this org is a sandbox. */
   public static Boolean isSandbox() {
     if (sandboxOverride != null) {
       return sandboxOverride;
@@ -118,11 +90,6 @@ public with sharing class TEKCO_UserMailVerifySelector {
 
   private static Boolean verifiedFieldCache;
 
-  /**
-   * True when the standard User.HasUserVerifiedEmail field exists in this org.
-   * Detected at runtime: the field is not present everywhere, and its absence
-   * must degrade to the TwoFactorMethodsInfo lookup rather than fail.
-   */
   @TestVisible
   private static Boolean hasVerifiedField() {
     if (verifiedFieldCache == null) {
@@ -142,7 +109,6 @@ public with sharing class TEKCO_UserMailVerifySelector {
     if (brands == null || brands.isEmpty()) {
       return result;
     }
-    // The brand field itself may be missing; say nothing rather than throw.
     if (Schema.SObjectType.User.fields.getMap().get(BRAND_FIELD) == null) {
       return result;
     }
@@ -204,15 +170,11 @@ public with sharing class TEKCO_UserMailVerifySelector {
       BRAND_FIELD +
       ' IN :brands' +
       suffixPredicate(suffixFilter);
-    // Ordered by brand first: rows from several brands are shown together.
     String tail = ' ORDER BY ' + BRAND_FIELD + ', Name LIMIT ' + QUERY_CEILING;
 
     String predicate = verificationPredicate(verificationFilter);
 
     if (hasVerifiedField() && predicate != null) {
-      // Filtering at source is cheaper, but HasUserVerifiedEmail is not
-      // documented as filterable. If the org rejects the predicate, fall
-      // back to filtering the same rows in memory.
       try {
         return Database.query(base + predicate + tail);
       } catch (Exception e) {
@@ -226,10 +188,6 @@ public with sharing class TEKCO_UserMailVerifySelector {
     return Database.query(base + tail);
   }
 
-  /**
-   * Addresses still carrying the ".invalid" suffix. Plain LIKE on Email, so
-   * unlike the verification predicate it is always safe to push to the query.
-   */
   private static String suffixPredicate(String filter) {
     if (SUFFIX_ONLY.equals(filter)) {
       return ' AND Email LIKE \'' + INVALID_SUFFIX_PATTERN + '\'';
@@ -240,7 +198,6 @@ public with sharing class TEKCO_UserMailVerifySelector {
     return '';
   }
 
-  /** Null for the ALL filter, which needs no predicate at all. */
   private static String verificationPredicate(String filter) {
     if (FILTER_ALL.equals(filter)) {
       return null;
@@ -250,7 +207,6 @@ public with sharing class TEKCO_UserMailVerifySelector {
       : ' AND HasUserVerifiedEmail = false';
   }
 
-  /** True, false, or null when the org exposes no verification signal. */
   private static Boolean verificationState(User u, Set<Id> unverifiedIds) {
     if (unverifiedIds != null) {
       return !unverifiedIds.contains(u.Id);
@@ -261,10 +217,6 @@ public with sharing class TEKCO_UserMailVerifySelector {
     return u.get('HasUserVerifiedEmail') == true;
   }
 
-  /**
-   * An unknown state counts as unverified: hiding work an administrator might
-   * need to do is worse than showing a user who turns out to be fine.
-   */
   private static Boolean matchesFilter(Boolean verified, String filter) {
     if (FILTER_ALL.equals(filter)) {
       return true;
@@ -275,13 +227,6 @@ public with sharing class TEKCO_UserMailVerifySelector {
     return verified != true;
   }
 
-  /**
-   * Frozen users, resolved through UserLogin.
-   *
-   * Filtered on IsFrozen = true rather than selecting the non-frozen ones:
-   * a user with no UserLogin record is not frozen, and querying
-   * IsFrozen = false would wrongly drop them.
-   */
   private static Set<Id> frozenUserIds(List<User> candidates) {
     Set<Id> candidateIds = new Map<Id, User>(candidates).keySet();
     Set<Id> frozen = new Set<Id>();
@@ -295,12 +240,6 @@ public with sharing class TEKCO_UserMailVerifySelector {
     return frozen;
   }
 
-  /**
-   * Fallback verification source. Requires the "Manage Multi-Factor
-   * Authentication in API" permission; without it the lookup fails and every
-   * candidate is treated as unverified, which is the safe direction — sending
-   * a link to an already verified user has no side effect.
-   */
   private static Set<Id> unverifiedViaTwoFactor(List<User> candidates) {
     Set<Id> candidateIds = new Map<Id, User>(candidates).keySet();
     Set<Id> unverified = new Set<Id>();
