@@ -139,9 +139,7 @@ describe("c-tekco-user-mail-verify", () => {
     await selectBrand(element);
 
     const buttons = element.shadowRoot.querySelectorAll("lightning-button");
-    const verify = Array.from(buttons).find(
-      (b) => b.label === "Send verification"
-    );
+    const verify = Array.from(buttons).find((b) => b.label === "Verify");
     expect(verify.disabled).toBe(true);
   });
 
@@ -164,9 +162,7 @@ describe("c-tekco-user-mail-verify", () => {
     await Promise.resolve();
 
     const buttons = element.shadowRoot.querySelectorAll("lightning-button");
-    const verify = Array.from(buttons).find(
-      (b) => b.label === "Send verification"
-    );
+    const verify = Array.from(buttons).find((b) => b.label === "Verify");
     verify.click();
     await Promise.resolve();
 

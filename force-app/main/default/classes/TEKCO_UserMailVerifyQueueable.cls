@@ -207,8 +207,8 @@ public with sharing class TEKCO_UserMailVerifyQueueable implements Queueable {
 
   private String buildTitle() {
     String action = (currentPhase == Phase.RESET)
-      ? 'Password reset'
-      : 'Email verification';
+      ? 'Verify and reset'
+      : 'Verification';
     return failureCount == 0
       ? action + ' finished'
       : action + ' finished with ' + failureCount + ' failure(s)';

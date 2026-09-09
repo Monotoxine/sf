@@ -132,20 +132,20 @@ export default class TekcoUserMailVerify extends LightningElement {
   }
 
   async handleVerify() {
-    await this.run(launchVerification, "Email verification");
+    await this.run(launchVerification, "Verification");
   }
 
   async handleReset() {
     const confirmed = await LightningConfirm.open({
       variant: "header",
       theme: "warning",
-      label: "Reset passwords",
+      label: "Verify and reset passwords",
       message:
         `This will reset the password of ${this.selectedIds.length} user(s) and email them ` +
         "new credentials. Existing passwords stop working immediately and this cannot be undone."
     });
     if (confirmed) {
-      await this.run(launchPasswordReset, "Password reset");
+      await this.run(launchPasswordReset, "Verify and reset");
     }
   }
 
