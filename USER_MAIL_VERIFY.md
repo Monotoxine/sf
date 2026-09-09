@@ -133,6 +133,13 @@ Not in this repository, expected to exist in the org:
 never `IsFrozen = false`: a user with no `UserLogin` record is not frozen, and
 the negative filter would wrongly drop them.
 
+**A verification-status filter** sits next to the brands: _Not verified_
+(default), _Verified_, or _All_. The query no longer hard-codes
+`HasUserVerifiedEmail = false`. Since completing a reset is what verifies an
+address, an already verified user is a legitimate target for a reset, and the
+screen has to be able to show them. A Verified column reports the state per row,
+with `?` when the org exposes no signal.
+
 **Brands are picked several at a time**, through a dual listbox. The rows carry a
 Brand column, since a list can now mix them, and the query orders by brand before
 name.

@@ -12,6 +12,16 @@
         onchange={handleBrandChange}
       ></lightning-dual-listbox>
 
+      <lightning-combobox
+        class="slds-var-m-top_small"
+        data-id="verification"
+        name="verification"
+        label="Verification status"
+        options={verificationOptions}
+        value={verificationFilter}
+        onchange={handleVerificationChange}
+      ></lightning-combobox>
+
       <template if:true={hasNoBrands}>
         <div class="slds-var-m-top_small slds-text-color_weak">
           No brand value is available. Check that User.TEKCO_Brand__c exists and
@@ -36,7 +46,7 @@
 
       <template if:true={showEmptyState}>
         <div class="slds-var-m-top_medium slds-text-color_weak">
-          No active, unverified user found for this brand.
+          No user matches this brand and status.
         </div>
       </template>
 

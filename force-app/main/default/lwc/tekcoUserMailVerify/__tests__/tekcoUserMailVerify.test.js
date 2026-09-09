@@ -1,7 +1,7 @@
 import { createElement } from "@lwc/engine-dom";
 import TekcoUserMailVerify from "c/tekcoUserMailVerify";
 import getBrands from "@salesforce/apex/TEKCO_UserMailVerifyController.getBrands";
-import getUnverifiedUsers from "@salesforce/apex/TEKCO_UserMailVerifyController.getUnverifiedUsers";
+import getUsers from "@salesforce/apex/TEKCO_UserMailVerifyController.getUsers";
 import launchVerification from "@salesforce/apex/TEKCO_UserMailVerifyController.launchVerification";
 
 // Required inside the factory: jest.mock is hoisted and cannot capture an
@@ -20,7 +20,7 @@ jest.mock(
   { virtual: true }
 );
 jest.mock(
-  "@salesforce/apex/TEKCO_UserMailVerifyController.getUnverifiedUsers",
+  "@salesforce/apex/TEKCO_UserMailVerifyController.getUsers",
   () => ({ default: jest.fn() }),
   { virtual: true }
 );
@@ -48,6 +48,7 @@ const USERS = {
       profileName: "Standard User",
       createdDate: "2026-01-01T00:00:00.000Z",
       brand: "ACME",
+      isVerified: false,
       hasInvalidSuffix: false
     },
     {
@@ -58,6 +59,7 @@ const USERS = {
       profileName: "Standard User",
       createdDate: "2026-01-02T00:00:00.000Z",
       brand: "GLOBEX",
+      isVerified: true,
       hasInvalidSuffix: true
     }
   ],
@@ -107,7 +109,7 @@ describe("c-tekco-user-mail-verify", () => {
   });
 
   it("hides the reset button outside a sandbox", async () => {
-    getUnverifiedUsers.mockResolvedValue(USERS);
+    getUsers.mockResolvedValue(USERS);
     const element = createComponent();
 
     await selectBrands(element);
@@ -121,13 +123,34 @@ describe("c-tekco-user-mail-verify", () => {
   });
 
   it("queries every selected brand at once", async () => {
-    getUnverifiedUsers.mockResolvedValue(USERS);
+    getUsers.mockResolvedValue(USERS);
     const element = createComponent();
 
     await selectBrands(element, ["ACME", "GLOBEX"]);
 
-    expect(getUnverifiedUsers).toHaveBeenCalledWith({
-      brands: ["ACME", "GLOBEX"]
+    expect(getUsers).toHaveBeenCalledWith({
+      brands: ["ACME", "GLOBEX"],
+      verificationFilter: "UNVERIFIED"
+    });
+  });
+
+  it("passes the chosen verification status to Apex", async () => {
+    getUsers.mockResolvedValue(USERS);
+    const element = createComponent();
+    await selectBrands(element);
+
+    const filter = element.shadowRoot.querySelector(
+      'lightning-combobox[data-id="verification"]'
+    );
+    filter.dispatchEvent(
+      new CustomEvent("change", { detail: { value: "ALL" } })
+    );
+    await Promise.resolve();
+
+    // A reset also verifies, so already verified users are legitimate targets.
+    expect(getUsers).toHaveBeenLastCalledWith({
+      brands: ["ACME"],
+      verificationFilter: "ALL"
     });
   });
 
@@ -137,19 +160,22 @@ describe("c-tekco-user-mail-verify", () => {
   });
 
   it("loads users for the selected brand", async () => {
-    getUnverifiedUsers.mockResolvedValue(USERS);
+    getUsers.mockResolvedValue(USERS);
     const element = createComponent();
 
     await selectBrands(element);
 
-    expect(getUnverifiedUsers).toHaveBeenCalledWith({ brands: ["ACME"] });
+    expect(getUsers).toHaveBeenCalledWith({
+      brands: ["ACME"],
+      verificationFilter: "UNVERIFIED"
+    });
     const table = element.shadowRoot.querySelector("lightning-datatable");
     expect(table).not.toBeNull();
     expect(table.data).toHaveLength(2);
   });
 
   it("links each row to the user record page", async () => {
-    getUnverifiedUsers.mockResolvedValue(USERS);
+    getUsers.mockResolvedValue(USERS);
     const element = createComponent();
 
     await selectBrands(element);
@@ -165,7 +191,7 @@ describe("c-tekco-user-mail-verify", () => {
   });
 
   it("flags addresses carrying the .invalid suffix", async () => {
-    getUnverifiedUsers.mockResolvedValue(USERS);
+    getUsers.mockResolvedValue(USERS);
     const element = createComponent();
 
     await selectBrands(element);
@@ -176,7 +202,7 @@ describe("c-tekco-user-mail-verify", () => {
   });
 
   it("keeps the action buttons disabled until rows are selected", async () => {
-    getUnverifiedUsers.mockResolvedValue(USERS);
+    getUsers.mockResolvedValue(USERS);
     const element = createComponent();
 
     await selectBrands(element);
@@ -187,7 +213,7 @@ describe("c-tekco-user-mail-verify", () => {
   });
 
   it("sends only the selected user ids to Apex", async () => {
-    getUnverifiedUsers.mockResolvedValue(USERS);
+    getUsers.mockResolvedValue(USERS);
     launchVerification.mockResolvedValue({
       queuedCount: 1,
       jobId: "707000000000001"
@@ -215,7 +241,7 @@ describe("c-tekco-user-mail-verify", () => {
   });
 
   it("filters the table on the search term", async () => {
-    getUnverifiedUsers.mockResolvedValue(USERS);
+    getUsers.mockResolvedValue(USERS);
     const element = createComponent();
     await selectBrands(element);
 
@@ -232,7 +258,7 @@ describe("c-tekco-user-mail-verify", () => {
   });
 
   it("keeps a selection made before filtering", async () => {
-    getUnverifiedUsers.mockResolvedValue(USERS);
+    getUsers.mockResolvedValue(USERS);
     const element = createComponent();
     await selectBrands(element);
 
@@ -270,7 +296,7 @@ describe("c-tekco-user-mail-verify", () => {
   });
 
   it("surfaces an Apex error message", async () => {
-    getUnverifiedUsers.mockRejectedValue({
+    getUsers.mockRejectedValue({
       body: { message: "Access denied" }
     });
     const element = createComponent();

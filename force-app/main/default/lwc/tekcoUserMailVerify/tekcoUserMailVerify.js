@@ -4,9 +4,15 @@ import LightningConfirm from "lightning/confirm";
 
 import getBrands from "@salesforce/apex/TEKCO_UserMailVerifyController.getBrands";
 import getSettings from "@salesforce/apex/TEKCO_UserMailVerifyController.getSettings";
-import getUnverifiedUsers from "@salesforce/apex/TEKCO_UserMailVerifyController.getUnverifiedUsers";
+import getUsers from "@salesforce/apex/TEKCO_UserMailVerifyController.getUsers";
 import launchVerification from "@salesforce/apex/TEKCO_UserMailVerifyController.launchVerification";
 import launchPasswordReset from "@salesforce/apex/TEKCO_UserMailVerifyController.launchPasswordReset";
+
+const VERIFICATION_OPTIONS = [
+  { label: "Not verified", value: "UNVERIFIED" },
+  { label: "Verified", value: "VERIFIED" },
+  { label: "All", value: "ALL" }
+];
 
 const COLUMNS = [
   {
@@ -23,6 +29,12 @@ const COLUMNS = [
   { label: "Profile", fieldName: "profileName", type: "text" },
   { label: "Brand", fieldName: "brand", type: "text" },
   {
+    label: "Verified",
+    fieldName: "verifiedLabel",
+    type: "text",
+    initialWidth: 90
+  },
+  {
     label: "Created",
     fieldName: "createdDate",
     type: "date",
@@ -37,8 +49,21 @@ const COLUMNS = [
   }
 ];
 
+function verifiedLabelFor(isVerified) {
+  if (isVerified === true) {
+    return "Yes";
+  }
+  // Null means the org exposes no verification signal, which is not a "no".
+  return isVerified === false ? "No" : "?";
+}
+
 export default class TekcoUserMailVerify extends LightningElement {
   columns = COLUMNS;
+  verificationOptions = VERIFICATION_OPTIONS;
+
+  // Default: the users this screen exists for. A reset also verifies, so an
+  // already verified user is a legitimate target too, hence the other options.
+  verificationFilter = "UNVERIFIED";
 
   @track rows = [];
   @track brandOptions = [];
@@ -161,6 +186,11 @@ export default class TekcoUserMailVerify extends LightningElement {
       : "";
   }
 
+  handleVerificationChange(event) {
+    this.verificationFilter = event.detail.value;
+    this.loadUsers();
+  }
+
   handleBrandChange(event) {
     this.selectedBrands = event.detail.value || [];
     this.loadUsers();
@@ -223,10 +253,14 @@ export default class TekcoUserMailVerify extends LightningElement {
     this.selectedIds = [];
     this.searchTerm = "";
     try {
-      const result = await getUnverifiedUsers({ brands: this.selectedBrands });
+      const result = await getUsers({
+        brands: this.selectedBrands,
+        verificationFilter: this.verificationFilter
+      });
       this.rows = result.rows.map((row) => ({
         ...row,
         recordUrl: `/lightning/r/User/${row.id}/view`,
+        verifiedLabel: verifiedLabelFor(row.isVerified),
         invalidLabel: row.hasInvalidSuffix ? "Yes" : "",
         invalidClass: row.hasInvalidSuffix ? "slds-text-color_error" : ""
       }));

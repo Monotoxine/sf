@@ -61,13 +61,15 @@ public with sharing class TEKCO_UserMailVerifyController {
    * and a stale cache here would show work that is already done.
    */
   @AuraEnabled
-  public static TEKCO_UserMailVerifySelector.UserListResult getUnverifiedUsers(
-    List<String> brands
+  public static TEKCO_UserMailVerifySelector.UserListResult getUsers(
+    List<String> brands,
+    String verificationFilter
   ) {
     try {
       TEKCO_UserMailVerifyAccess.assertAuthorized();
-      return TEKCO_UserMailVerifySelector.findUnverifiedByBrands(
+      return TEKCO_UserMailVerifySelector.findByBrands(
         brands,
+        verificationFilter,
         TEKCO_UserMailVerifyConstants.MAX_ROWS_DISPLAYED
       );
     } catch (Exception e) {

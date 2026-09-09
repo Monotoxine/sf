@@ -15,6 +15,11 @@ public with sharing class TEKCO_UserMailVerifySelector {
   /** Ceiling on rows pulled from the database before in-memory filtering. */
   private static final Integer QUERY_CEILING = 2000;
 
+  /** Verification filters accepted by findByBrands. */
+  public static final String FILTER_UNVERIFIED = 'UNVERIFIED';
+  public static final String FILTER_VERIFIED = 'VERIFIED';
+  public static final String FILTER_ALL = 'ALL';
+
   /** Brand field on User, backed by the Brands global value set. */
   private static final String BRAND_FIELD = 'TEKCO_Brand__c';
 
@@ -33,6 +38,9 @@ public with sharing class TEKCO_UserMailVerifySelector {
     public Datetime createdDate;
     @AuraEnabled
     public String brand;
+    /** Null when the org exposes no verification signal at all. */
+    @AuraEnabled
+    public Boolean isVerified;
     @AuraEnabled
     public Boolean hasInvalidSuffix;
   }
@@ -117,8 +125,9 @@ public with sharing class TEKCO_UserMailVerifySelector {
     return verifiedFieldCache;
   }
 
-  public static UserListResult findUnverifiedByBrands(
+  public static UserListResult findByBrands(
     List<String> brands,
+    String verificationFilter,
     Integer maxRows
   ) {
     UserListResult result = new UserListResult();
@@ -130,7 +139,7 @@ public with sharing class TEKCO_UserMailVerifySelector {
       return result;
     }
 
-    List<User> candidates = queryCandidates(brands);
+    List<User> candidates = queryCandidates(brands, verificationFilter);
     if (candidates.isEmpty()) {
       return result;
     }
@@ -146,10 +155,11 @@ public with sharing class TEKCO_UserMailVerifySelector {
       if (u.Id == runningUserId || frozenIds.contains(u.Id)) {
         continue;
       }
-      if (!isUnverified(u, unverifiedIds)) {
+      Boolean verified = verificationState(u, unverifiedIds);
+      if (!matchesFilter(verified, verificationFilter)) {
         continue;
       }
-      matches.add(toRow(u));
+      matches.add(toRow(u, verified));
     }
 
     result.totalCount = matches.size();
@@ -165,7 +175,10 @@ public with sharing class TEKCO_UserMailVerifySelector {
     return result;
   }
 
-  private static List<User> queryCandidates(List<String> brands) {
+  private static List<User> queryCandidates(
+    List<String> brands,
+    String verificationFilter
+  ) {
     String fields =
       'Id, Name, Username, Email, Profile.Name, CreatedDate, ' + BRAND_FIELD;
     if (hasVerifiedField()) {
@@ -180,14 +193,14 @@ public with sharing class TEKCO_UserMailVerifySelector {
     // Ordered by brand first: rows from several brands are shown together.
     String tail = ' ORDER BY ' + BRAND_FIELD + ', Name LIMIT ' + QUERY_CEILING;
 
-    if (hasVerifiedField()) {
+    String predicate = verificationPredicate(verificationFilter);
+
+    if (hasVerifiedField() && predicate != null) {
       // Filtering at source is cheaper, but HasUserVerifiedEmail is not
       // documented as filterable. If the org rejects the predicate, fall
       // back to filtering the same rows in memory.
       try {
-        return Database.query(
-          base + ' AND HasUserVerifiedEmail = false' + tail
-        );
+        return Database.query(base + predicate + tail);
       } catch (Exception e) {
         System.debug(
           LoggingLevel.WARN,
@@ -199,16 +212,39 @@ public with sharing class TEKCO_UserMailVerifySelector {
     return Database.query(base + tail);
   }
 
-  private static Boolean isUnverified(User u, Set<Id> unverifiedIds) {
+  /** Null for the ALL filter, which needs no predicate at all. */
+  private static String verificationPredicate(String filter) {
+    if (FILTER_ALL.equals(filter)) {
+      return null;
+    }
+    return FILTER_VERIFIED.equals(filter)
+      ? ' AND HasUserVerifiedEmail = true'
+      : ' AND HasUserVerifiedEmail = false';
+  }
+
+  /** True, false, or null when the org exposes no verification signal. */
+  private static Boolean verificationState(User u, Set<Id> unverifiedIds) {
     if (unverifiedIds != null) {
-      return unverifiedIds.contains(u.Id);
+      return !unverifiedIds.contains(u.Id);
     }
     if (!hasVerifiedField()) {
-      // No signal available at all: keep the user rather than hide work.
+      return null;
+    }
+    return u.get('HasUserVerifiedEmail') == true;
+  }
+
+  /**
+   * An unknown state counts as unverified: hiding work an administrator might
+   * need to do is worse than showing a user who turns out to be fine.
+   */
+  private static Boolean matchesFilter(Boolean verified, String filter) {
+    if (FILTER_ALL.equals(filter)) {
       return true;
     }
-    Object flag = u.get('HasUserVerifiedEmail');
-    return flag != true;
+    if (FILTER_VERIFIED.equals(filter)) {
+      return verified == true;
+    }
+    return verified != true;
   }
 
   /**
@@ -259,7 +295,7 @@ public with sharing class TEKCO_UserMailVerifySelector {
     }
   }
 
-  private static UserRow toRow(User u) {
+  private static UserRow toRow(User u, Boolean verified) {
     UserRow row = new UserRow();
     row.id = u.Id;
     row.name = u.Name;
@@ -268,6 +304,7 @@ public with sharing class TEKCO_UserMailVerifySelector {
     row.profileName = u.Profile == null ? null : u.Profile.Name;
     row.createdDate = u.CreatedDate;
     row.brand = (String) u.get(BRAND_FIELD);
+    row.isVerified = verified;
     row.hasInvalidSuffix =
       u.Email != null && u.Email.endsWithIgnoreCase('.invalid');
     return row;
