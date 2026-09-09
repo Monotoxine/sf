@@ -148,6 +148,22 @@ describe("c-tekco-user-mail-verify", () => {
     expect(table.data).toHaveLength(2);
   });
 
+  it("links each row to the user record page", async () => {
+    getUnverifiedUsers.mockResolvedValue(USERS);
+    const element = createComponent();
+
+    await selectBrands(element);
+
+    const table = element.shadowRoot.querySelector("lightning-datatable");
+    expect(table.data[0].recordUrl).toBe(
+      "/lightning/r/User/005000000000001AAA/view"
+    );
+
+    const nameColumn = table.columns.find((c) => c.label === "Name");
+    expect(nameColumn.type).toBe("url");
+    expect(nameColumn.typeAttributes.target).toBe("_blank");
+  });
+
   it("flags addresses carrying the .invalid suffix", async () => {
     getUnverifiedUsers.mockResolvedValue(USERS);
     const element = createComponent();

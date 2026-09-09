@@ -9,7 +9,15 @@ import launchVerification from "@salesforce/apex/TEKCO_UserMailVerifyController.
 import launchPasswordReset from "@salesforce/apex/TEKCO_UserMailVerifyController.launchPasswordReset";
 
 const COLUMNS = [
-  { label: "Name", fieldName: "name", type: "text", sortable: true },
+  {
+    label: "Name",
+    fieldName: "recordUrl",
+    type: "url",
+    sortable: true,
+    // Opened in a new tab on purpose: the selection lives in memory, and
+    // navigating away in place would discard it.
+    typeAttributes: { label: { fieldName: "name" }, target: "_blank" }
+  },
   { label: "Username", fieldName: "username", type: "text" },
   { label: "Email", fieldName: "email", type: "email" },
   { label: "Profile", fieldName: "profileName", type: "text" },
@@ -218,6 +226,7 @@ export default class TekcoUserMailVerify extends LightningElement {
       const result = await getUnverifiedUsers({ brands: this.selectedBrands });
       this.rows = result.rows.map((row) => ({
         ...row,
+        recordUrl: `/lightning/r/User/${row.id}/view`,
         invalidLabel: row.hasInvalidSuffix ? "Yes" : "",
         invalidClass: row.hasInvalidSuffix ? "slds-text-color_error" : ""
       }));

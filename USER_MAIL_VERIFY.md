@@ -137,6 +137,9 @@ the negative filter would wrongly drop them.
 Brand column, since a list can now mix them, and the query orders by brand before
 name.
 
+**The name column links to the user record**, opened in a new tab. The selection
+lives in memory, so navigating away in place would discard it.
+
 **The search box filters client-side.** The rows for one brand are already
 loaded, so a server round-trip per keystroke would buy nothing. It matches on
 name, username, email and profile.
