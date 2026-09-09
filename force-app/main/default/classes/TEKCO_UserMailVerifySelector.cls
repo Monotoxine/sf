@@ -15,6 +15,9 @@ public with sharing class TEKCO_UserMailVerifySelector {
   /** Ceiling on rows pulled from the database before in-memory filtering. */
   private static final Integer QUERY_CEILING = 2000;
 
+  /** Brand field on User, backed by the Brands global value set. */
+  private static final String BRAND_FIELD = 'TEKCO_Brand__c';
+
   public class UserRow {
     @AuraEnabled
     public Id id;
@@ -39,6 +42,44 @@ public with sharing class TEKCO_UserMailVerifySelector {
     public Integer totalCount = 0;
     @AuraEnabled
     public Boolean isTruncated = false;
+  }
+
+  /** One entry of the Brands value set, shaped for a lightning-combobox. */
+  public class BrandOption {
+    @AuraEnabled
+    public String label;
+    @AuraEnabled
+    public String value;
+
+    public BrandOption(String label, String value) {
+      this.label = label;
+      this.value = value;
+    }
+  }
+
+  /**
+   * Active values of the Brands global value set behind User.TEKCO_Brand__c.
+   *
+   * Read through a describe rather than the UI API's getPicklistValues: that
+   * wire needs a record type id, and the User object does not support record
+   * types, so it would never fire.
+   *
+   * Returns an empty list when the field is absent, letting the screen say so
+   * instead of failing to load.
+   */
+  public static List<BrandOption> getBrandOptions() {
+    List<BrandOption> options = new List<BrandOption>();
+    Schema.SObjectField field = Schema.SObjectType.User.fields.getMap()
+      .get(BRAND_FIELD);
+    if (field == null) {
+      return options;
+    }
+    for (Schema.PicklistEntry entry : field.getDescribe().getPicklistValues()) {
+      if (entry.isActive()) {
+        options.add(new BrandOption(entry.getLabel(), entry.getValue()));
+      }
+    }
+    return options;
   }
 
   private static Boolean verifiedFieldCache;

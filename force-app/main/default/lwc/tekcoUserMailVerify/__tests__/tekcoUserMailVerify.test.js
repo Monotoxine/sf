@@ -1,8 +1,19 @@
 import { createElement } from "@lwc/engine-dom";
 import TekcoUserMailVerify from "c/tekcoUserMailVerify";
+import getBrands from "@salesforce/apex/TEKCO_UserMailVerifyController.getBrands";
 import getUnverifiedUsers from "@salesforce/apex/TEKCO_UserMailVerifyController.getUnverifiedUsers";
 import launchVerification from "@salesforce/apex/TEKCO_UserMailVerifyController.launchVerification";
 
+// Required inside the factory: jest.mock is hoisted and cannot capture an
+// out-of-scope import.
+jest.mock(
+  "@salesforce/apex/TEKCO_UserMailVerifyController.getBrands",
+  () => {
+    const { createApexTestWireAdapter } = require("@salesforce/sfdx-lwc-jest");
+    return { default: createApexTestWireAdapter(jest.fn()) };
+  },
+  { virtual: true }
+);
 jest.mock(
   "@salesforce/apex/TEKCO_UserMailVerifyController.getSettings",
   () => ({ default: jest.fn() }),
@@ -75,6 +86,22 @@ describe("c-tekco-user-mail-verify", () => {
       document.body.removeChild(document.body.firstChild);
     }
     jest.clearAllMocks();
+  });
+
+  it("fills the brand combobox from Apex", async () => {
+    const element = createComponent();
+
+    getBrands.emit([
+      { label: "Acme", value: "ACME" },
+      { label: "Globex", value: "GLOBEX" }
+    ]);
+    await Promise.resolve();
+
+    const combobox = element.shadowRoot.querySelector("lightning-combobox");
+    expect(combobox.options).toEqual([
+      { label: "Acme", value: "ACME" },
+      { label: "Globex", value: "GLOBEX" }
+    ]);
   });
 
   it("shows no table before a brand is chosen", () => {

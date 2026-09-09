@@ -10,6 +10,13 @@
         onchange={handleBrandChange}
       ></lightning-combobox>
 
+      <template if:true={hasNoBrands}>
+        <div class="slds-var-m-top_small slds-text-color_weak">
+          No brand value is available. Check that User.TEKCO_Brand__c exists and
+          that its value set has active entries.
+        </div>
+      </template>
+
       <template if:true={errorMessage}>
         <div class="slds-var-m-top_small slds-text-color_error" role="alert">
           {errorMessage}

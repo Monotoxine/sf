@@ -1,11 +1,8 @@
 import { LightningElement, wire, track } from "lwc";
 import { ShowToastEvent } from "lightning/platformShowToastEvent";
 import LightningConfirm from "lightning/confirm";
-import { getObjectInfo, getPicklistValues } from "lightning/uiObjectInfoApi";
 
-import USER_OBJECT from "@salesforce/schema/User";
-import BRAND_FIELD from "@salesforce/schema/User.TEKCO_Brand__c";
-
+import getBrands from "@salesforce/apex/TEKCO_UserMailVerifyController.getBrands";
 import getSettings from "@salesforce/apex/TEKCO_UserMailVerifyController.getSettings";
 import getUnverifiedUsers from "@salesforce/apex/TEKCO_UserMailVerifyController.getUnverifiedUsers";
 import launchVerification from "@salesforce/apex/TEKCO_UserMailVerifyController.launchVerification";
@@ -46,28 +43,21 @@ export default class TekcoUserMailVerify extends LightningElement {
   isTruncated = false;
   maxUsersPerRun;
 
-  recordTypeId;
+  brandsLoaded = false;
 
-  @wire(getObjectInfo, { objectApiName: USER_OBJECT })
-  handleObjectInfo({ data, error }) {
-    if (data) {
-      this.recordTypeId = data.defaultRecordTypeId;
-    } else if (error) {
-      this.reportError(error);
-    }
-  }
-
-  @wire(getPicklistValues, {
-    recordTypeId: "$recordTypeId",
-    fieldApiName: BRAND_FIELD
-  })
+  // Served from Apex rather than the UI API: getPicklistValues needs a record
+  // type id, and the User object does not support record types, so that wire
+  // would never fire.
+  @wire(getBrands)
   handleBrands({ data, error }) {
     if (data) {
-      this.brandOptions = data.values.map((item) => ({
+      this.brandOptions = data.map((item) => ({
         label: item.label,
         value: item.value
       }));
+      this.brandsLoaded = true;
     } else if (error) {
+      this.brandsLoaded = true;
       this.reportError(error);
     }
   }
@@ -79,6 +69,10 @@ export default class TekcoUserMailVerify extends LightningElement {
     } else if (error) {
       this.reportError(error);
     }
+  }
+
+  get hasNoBrands() {
+    return this.brandsLoaded && this.brandOptions.length === 0;
   }
 
   get hasSelection() {

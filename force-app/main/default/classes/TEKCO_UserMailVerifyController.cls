@@ -37,6 +37,22 @@ public with sharing class TEKCO_UserMailVerifyController {
   }
 
   /**
+   * Values of the Brands picklist, for the combobox.
+   *
+   * Served from Apex rather than the UI API: getPicklistValues requires a
+   * record type id and the User object has none.
+   */
+  @AuraEnabled(cacheable=true)
+  public static List<TEKCO_UserMailVerifySelector.BrandOption> getBrands() {
+    try {
+      TEKCO_UserMailVerifyAccess.assertAuthorized();
+      return TEKCO_UserMailVerifySelector.getBrandOptions();
+    } catch (Exception e) {
+      throw asAuraException(e);
+    }
+  }
+
+  /**
    * Deliberately not cacheable: the list changes as soon as an action runs,
    * and a stale cache here would show work that is already done.
    */
