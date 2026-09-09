@@ -2,7 +2,7 @@
  * Unit actions behind the User Mail Verify feature.
  *
  * Holds no orchestration: chunking, chaining and counting live in
- * TEKCO_UserMailVerifyQueueable.
+ * TEKCO_UserMailVerify_QBL.
  *
  * The platform calls sit here directly. They were behind an injectable
  * interface so the orchestration could be asserted against a test double; that
