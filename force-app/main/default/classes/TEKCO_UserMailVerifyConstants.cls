@@ -10,9 +10,6 @@
  * Changing any of these is a code change, reviewed and deployed like the rest.
  */
 public with sharing class TEKCO_UserMailVerifyConstants {
-  /** Permission set granting access to the tab and its Apex. */
-  public static final String ACCESS_PERMISSION_SET = 'TEKCO_RunTeamTools';
-
   /** DeveloperName of the notification type shipped with the feature. */
   public static final String NOTIFICATION_TYPE = 'TEKCO_UserMailVerify_Run_Complete';
 
@@ -31,17 +28,4 @@ public with sharing class TEKCO_UserMailVerifyConstants {
 
   /** Rows the tab will display for one brand before truncating. */
   public static final Integer MAX_ROWS_DISPLAYED = 500;
-
-  /**
-   * Test seam. The real permission set already exists in the org, so a test
-   * cannot create one under that name to exercise the granted path.
-   */
-  @TestVisible
-  private static String permissionSetOverride;
-
-  public static String accessPermissionSet() {
-    return permissionSetOverride == null
-      ? ACCESS_PERMISSION_SET
-      : permissionSetOverride;
-  }
 }

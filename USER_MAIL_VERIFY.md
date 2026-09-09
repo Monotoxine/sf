@@ -54,14 +54,16 @@ the user clicks.
 
 ## Who can use it
 
-Access is granted by an assignment to the permission set named in
-`TEKCO_UserMailVerifyConstants.ACCESS_PERMISSION_SET` (the one granting the
-**TEKCO_RunTeamTools** app), or by Modify All Data.
+Access rests entirely on Salesforce configuration: **Apex class access** to
+`TEKCO_UserMailVerifyController`, plus tab visibility, both granted through the
+permission set for the Run Team Tools app. There is no check in the code.
 
-The check lives in Apex, not only on the tab. Apex reached from a Lightning Web
-Component runs in **system mode**, so hiding the tab is not an access control:
-without the guard in `TEKCO_UserMailVerifyController`, anyone able to call the
-controller could reset passwords in bulk.
+That places one requirement on whoever maintains the org. `@AuraEnabled` methods
+are callable directly, without going through the component: hiding the tab hides
+the entrance, not the door. So the class must be granted through that permission
+set and nothing else. If a profile or another permission set ever grants access
+to it, the tool opens up with no warning, and re-checking that is part of any
+change to the permission model here.
 
 ## Fixed values
 

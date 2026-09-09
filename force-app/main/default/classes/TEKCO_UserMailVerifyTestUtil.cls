@@ -69,15 +69,6 @@ public class TEKCO_UserMailVerifyTestUtil {
     return spy;
   }
 
-  /**
-   * Points the access check at a permission set a test can actually create.
-   * The real one already exists in the org, so it cannot be inserted again.
-   */
-  public static void useAccessPermissionSet(String permissionSetName) {
-    TEKCO_UserMailVerifyConstants.permissionSetOverride = permissionSetName;
-    TEKCO_UserMailVerifyController.clearAccessCache();
-  }
-
   public static User buildUser(String alias, String email) {
     Profile standard = [
       SELECT Id

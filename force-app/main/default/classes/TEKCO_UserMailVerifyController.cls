@@ -9,54 +9,6 @@
  * directly.
  */
 public with sharing class TEKCO_UserMailVerifyController {
-  public class AccessDeniedException extends Exception {
-  }
-
-  private static Boolean cachedAccess;
-
-  /**
-   * Apex invoked from a Lightning Web Component runs in system mode. Without
-   * this check, any user able to reach the controller could reset passwords in
-   * bulk, whether or not the tab is visible to them. Every @AuraEnabled entry
-   * point calls it as its first statement.
-   *
-   * Access is granted by an assignment to the permission set named in
-   * TEKCO_UserMailVerifyConstants, or by Modify All Data. Profiles surface as
-   * permission sets with IsOwnedByProfile = true and are assigned to their
-   * users, so one PermissionSetAssignment query covers both.
-   */
-  @TestVisible
-  private static Boolean isAuthorized() {
-    if (cachedAccess == null) {
-      String permissionSetName = TEKCO_UserMailVerifyConstants.accessPermissionSet();
-      cachedAccess = ![
-          SELECT Id
-          FROM PermissionSetAssignment
-          WHERE
-            AssigneeId = :UserInfo.getUserId()
-            AND (PermissionSet.Name = :permissionSetName
-            OR PermissionSet.PermissionsModifyAllData = TRUE)
-          LIMIT 1
-        ]
-        .isEmpty();
-    }
-    return cachedAccess;
-  }
-
-  private static void assertAuthorized() {
-    if (!isAuthorized()) {
-      throw new AccessDeniedException(
-        'You are not allowed to use User Mail Verify. This tool requires the ' +
-        'permission set granting access to the Run Team Tools application.'
-      );
-    }
-  }
-
-  @TestVisible
-  private static void clearAccessCache() {
-    cachedAccess = null;
-  }
-
   public class Settings {
     @AuraEnabled
     public Integer maxUsersPerRun;
@@ -77,7 +29,6 @@ public with sharing class TEKCO_UserMailVerifyController {
   @AuraEnabled(cacheable=true)
   public static Settings getSettings() {
     try {
-      assertAuthorized();
       Settings result = new Settings();
       result.maxUsersPerRun = TEKCO_UserMailVerifyConstants.MAX_USERS_PER_RUN;
       result.maxRowsDisplayed = TEKCO_UserMailVerifyConstants.MAX_ROWS_DISPLAYED;
@@ -97,7 +48,6 @@ public with sharing class TEKCO_UserMailVerifyController {
   @AuraEnabled(cacheable=true)
   public static List<TEKCO_UserMailVerifySelector.BrandOption> getBrands() {
     try {
-      assertAuthorized();
       return TEKCO_UserMailVerifySelector.getBrandOptions();
     } catch (Exception e) {
       throw asAuraException(e);
@@ -115,7 +65,6 @@ public with sharing class TEKCO_UserMailVerifyController {
     String suffixFilter
   ) {
     try {
-      assertAuthorized();
       return TEKCO_UserMailVerifySelector.findByBrands(
         brands,
         verificationFilter,
@@ -130,7 +79,6 @@ public with sharing class TEKCO_UserMailVerifyController {
   @AuraEnabled
   public static LaunchResult launchVerification(List<Id> userIds) {
     try {
-      assertAuthorized();
       validateSelection(userIds);
       return toResult(
         TEKCO_UserMailVerifyQueueable.startVerification(userIds),
@@ -144,7 +92,6 @@ public with sharing class TEKCO_UserMailVerifyController {
   @AuraEnabled
   public static LaunchResult launchPasswordReset(List<Id> userIds) {
     try {
-      assertAuthorized();
       assertResetAllowed();
       validateSelection(userIds);
       return toResult(

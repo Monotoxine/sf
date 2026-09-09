@@ -1,66 +1,22 @@
 @IsTest
 private class TEKCO_UserMailVerifyController_Test {
-  private static User grantedUser() {
+  /** Reset is sandbox-only, so the tests that exercise it assume one. */
+  private static User testUser() {
     User u = TEKCO_UserMailVerifyTestUtil.buildUser(
       'umvctl',
       'ctl@umv-test.example.com'
     );
     insert u;
-
-    PermissionSet permSet = new PermissionSet(
-      Name = 'UMV_Ctl_Access',
-      Label = 'UMV Controller Access'
-    );
-    insert permSet;
-    insert new PermissionSetAssignment(
-      AssigneeId = u.Id,
-      PermissionSetId = permSet.Id
-    );
-
-    TEKCO_UserMailVerifyTestUtil.useAccessPermissionSet('UMV_Ctl_Access');
-    // Reset is sandbox-only; the tests that exercise it assume one.
     TEKCO_UserMailVerifySelector.sandboxOverride = true;
     return u;
   }
 
   @IsTest
-  static void refusesAnUnauthorizedCaller() {
-    User plain = TEKCO_UserMailVerifyTestUtil.buildUser(
-      'umvna',
-      'na@umv-test.example.com'
-    );
-    insert plain;
-    TEKCO_UserMailVerifyTestUtil.useAccessPermissionSet(
-      'UMV_NonExistent_PermSet'
-    );
-
-    Boolean refused = false;
-    System.runAs(plain) {
-      TEKCO_UserMailVerifyController.clearAccessCache();
-      try {
-        TEKCO_UserMailVerifyController.getUsers(
-          new List<String>{ TEKCO_UserMailVerifyTestUtil.testBrand() },
-          TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
-          TEKCO_UserMailVerifySelector.SUFFIX_ALL
-        );
-      } catch (Exception e) {
-        refused = true;
-      }
-    }
-
-    Assert.isTrue(
-      refused,
-      'The controller must refuse a caller without the permission set.'
-    );
-  }
-
-  @IsTest
   static void exposesTheConfiguredCaps() {
-    User granted = grantedUser();
+    User granted = testUser();
 
     TEKCO_UserMailVerifyController.Settings settings;
     System.runAs(granted) {
-      TEKCO_UserMailVerifyController.clearAccessCache();
       settings = TEKCO_UserMailVerifyController.getSettings();
     }
 
@@ -73,11 +29,10 @@ private class TEKCO_UserMailVerifyController_Test {
 
   @IsTest
   static void rejectsAnEmptySelection() {
-    User granted = grantedUser();
+    User granted = testUser();
 
     Boolean rejected = false;
     System.runAs(granted) {
-      TEKCO_UserMailVerifyController.clearAccessCache();
       try {
         TEKCO_UserMailVerifyController.launchVerification(new List<Id>());
       } catch (Exception e) {
@@ -93,7 +48,7 @@ private class TEKCO_UserMailVerifyController_Test {
 
   @IsTest
   static void enforcesThePerRunCapServerSide() {
-    User granted = grantedUser();
+    User granted = testUser();
 
     // Synthetic ids: the cap is checked before any query, so no user needs to
     // exist. Inserting MAX_USERS_PER_RUN + 1 real users would be gratuitous.
@@ -108,7 +63,6 @@ private class TEKCO_UserMailVerifyController_Test {
 
     String message;
     System.runAs(granted) {
-      TEKCO_UserMailVerifyController.clearAccessCache();
       try {
         TEKCO_UserMailVerifyController.launchVerification(ids);
       } catch (Exception e) {
@@ -131,11 +85,10 @@ private class TEKCO_UserMailVerifyController_Test {
 
   @IsTest
   static void refusesToActOnTheCallersOwnUser() {
-    User granted = grantedUser();
+    User granted = testUser();
 
     String message;
     System.runAs(granted) {
-      TEKCO_UserMailVerifyController.clearAccessCache();
       try {
         TEKCO_UserMailVerifyController.launchPasswordReset(
           new List<Id>{ granted.Id }
@@ -153,14 +106,13 @@ private class TEKCO_UserMailVerifyController_Test {
 
   @IsTest
   static void refusesPasswordResetOutsideASandbox() {
-    User granted = grantedUser();
+    User granted = testUser();
     TEKCO_UserMailVerifySelector.sandboxOverride = false;
     List<User> users = TEKCO_UserMailVerifyTestUtil.insertUsers(1);
     List<Id> ids = new List<Id>(new Map<Id, User>(users).keySet());
 
     String message;
     System.runAs(granted) {
-      TEKCO_UserMailVerifyController.clearAccessCache();
       try {
         TEKCO_UserMailVerifyController.launchPasswordReset(ids);
       } catch (Exception e) {
@@ -181,12 +133,11 @@ private class TEKCO_UserMailVerifyController_Test {
 
   @IsTest
   static void reportsWhetherTheOrgIsASandbox() {
-    User granted = grantedUser();
+    User granted = testUser();
     TEKCO_UserMailVerifySelector.sandboxOverride = false;
 
     TEKCO_UserMailVerifyController.Settings settings;
     System.runAs(granted) {
-      TEKCO_UserMailVerifyController.clearAccessCache();
       settings = TEKCO_UserMailVerifyController.getSettings();
     }
 
@@ -198,7 +149,7 @@ private class TEKCO_UserMailVerifyController_Test {
 
   @IsTest
   static void queuesTheRequestedUsers() {
-    User granted = grantedUser();
+    User granted = testUser();
     TEKCO_UserMailVerifyTestUtil.installSpy();
     List<User> users = TEKCO_UserMailVerifyTestUtil.insertUsers(2);
     List<Id> ids = new List<Id>(new Map<Id, User>(users).keySet());
@@ -206,7 +157,6 @@ private class TEKCO_UserMailVerifyController_Test {
     TEKCO_UserMailVerifyController.LaunchResult result;
     Test.startTest();
     System.runAs(granted) {
-      TEKCO_UserMailVerifyController.clearAccessCache();
       result = TEKCO_UserMailVerifyController.launchVerification(ids);
     }
     Test.stopTest();
@@ -219,76 +169,6 @@ private class TEKCO_UserMailVerifyController_Test {
     Assert.isNotNull(
       result.jobId,
       'The job id must be returned for traceability.'
-    );
-  }
-
-  @IsTest
-  static void deniesAUserWithoutThePermissionSet() {
-    User plain = TEKCO_UserMailVerifyTestUtil.buildUser(
-      'umvden',
-      'den@umv-test.example.com'
-    );
-    insert plain;
-
-    TEKCO_UserMailVerifyTestUtil.useAccessPermissionSet(
-      'UMV_NonExistent_PermSet'
-    );
-
-    Boolean denied = false;
-    System.runAs(plain) {
-      TEKCO_UserMailVerifyController.clearAccessCache();
-      try {
-        TEKCO_UserMailVerifyController.getSettings();
-      } catch (Exception e) {
-        denied = true;
-      }
-    }
-
-    Assert.isTrue(
-      denied,
-      'A user holding neither the permission set nor Modify All Data must be refused: ' +
-      'Apex called from LWC runs in system mode, so the tab being hidden is not a control.'
-    );
-  }
-
-  @IsTest
-  static void grantsAUserAssignedToTheConfiguredPermissionSet() {
-    User granted = TEKCO_UserMailVerifyTestUtil.buildUser(
-      'umvok',
-      'ok@umv-test.example.com'
-    );
-    insert granted;
-
-    PermissionSet permSet = new PermissionSet(
-      Name = 'UMV_Test_Access',
-      Label = 'UMV Test Access'
-    );
-    insert permSet;
-    insert new PermissionSetAssignment(
-      AssigneeId = granted.Id,
-      PermissionSetId = permSet.Id
-    );
-
-    TEKCO_UserMailVerifyTestUtil.useAccessPermissionSet('UMV_Test_Access');
-
-    Boolean authorized = false;
-    System.runAs(granted) {
-      TEKCO_UserMailVerifyController.clearAccessCache();
-      authorized = TEKCO_UserMailVerifyController.isAuthorized();
-    }
-
-    Assert.isTrue(
-      authorized,
-      'An assignment to the configured permission set must grant access.'
-    );
-  }
-
-  @IsTest
-  static void defaultsToTheShippedPermissionSetName() {
-    Assert.areEqual(
-      TEKCO_UserMailVerifyConstants.ACCESS_PERMISSION_SET,
-      TEKCO_UserMailVerifyConstants.accessPermissionSet(),
-      'Without a test override, the check must use the shipped constant.'
     );
   }
 }

@@ -2,7 +2,6 @@
 private class TEKCO_UserMailVerifyQueueable_Test {
   @IsTest
   static void verificationPhaseSendsOneLinkPerUser() {
-    TEKCO_UserMailVerifyTestUtil.useAccessPermissionSet('UMV_Test_Access');
     TEKCO_UserMailVerifyTestUtil.PerformerSpy spy = TEKCO_UserMailVerifyTestUtil.installSpy();
     List<User> users = TEKCO_UserMailVerifyTestUtil.insertUsers(3);
 
@@ -25,7 +24,6 @@ private class TEKCO_UserMailVerifyQueueable_Test {
 
   @IsTest
   static void cleanupPhaseRemovesTheSuffixBeforeAnythingIsSent() {
-    TEKCO_UserMailVerifyTestUtil.useAccessPermissionSet('UMV_Test_Access');
     TEKCO_UserMailVerifyTestUtil.PerformerSpy spy = TEKCO_UserMailVerifyTestUtil.installSpy();
     User suffixed = TEKCO_UserMailVerifyTestUtil.buildUser(
       'umvq1',
@@ -57,7 +55,6 @@ private class TEKCO_UserMailVerifyQueueable_Test {
 
   @IsTest
   static void aResetStartsByCleaningTheInvalidSuffix() {
-    TEKCO_UserMailVerifyTestUtil.useAccessPermissionSet('UMV_Test_Access');
     TEKCO_UserMailVerifyTestUtil.PerformerSpy spy = TEKCO_UserMailVerifyTestUtil.installSpy();
     User suffixed = TEKCO_UserMailVerifyTestUtil.buildUser(
       'umvq2',
@@ -86,7 +83,6 @@ private class TEKCO_UserMailVerifyQueueable_Test {
 
   @IsTest
   static void resetPhaseNotifiesOnceWhenTheRunCompletes() {
-    TEKCO_UserMailVerifyTestUtil.useAccessPermissionSet('UMV_Test_Access');
     TEKCO_UserMailVerifyTestUtil.PerformerSpy spy = TEKCO_UserMailVerifyTestUtil.installSpy();
     List<User> users = TEKCO_UserMailVerifyTestUtil.insertUsers(2);
 
@@ -114,7 +110,6 @@ private class TEKCO_UserMailVerifyQueueable_Test {
 
   @IsTest
   static void failuresAreCountedAndReportedInTheSummary() {
-    TEKCO_UserMailVerifyTestUtil.useAccessPermissionSet('UMV_Test_Access');
     TEKCO_UserMailVerifyTestUtil.PerformerSpy spy = TEKCO_UserMailVerifyTestUtil.installSpy();
     spy.throwOnVerify = true;
     List<User> users = TEKCO_UserMailVerifyTestUtil.insertUsers(2);
@@ -146,7 +141,6 @@ private class TEKCO_UserMailVerifyQueueable_Test {
 
   @IsTest
   static void processesOnlyOneChunkPerTransaction() {
-    TEKCO_UserMailVerifyTestUtil.useAccessPermissionSet('UMV_Test_Access');
     TEKCO_UserMailVerifyTestUtil.PerformerSpy spy = TEKCO_UserMailVerifyTestUtil.installSpy();
     List<User> users = TEKCO_UserMailVerifyTestUtil.insertUsers(5);
 
