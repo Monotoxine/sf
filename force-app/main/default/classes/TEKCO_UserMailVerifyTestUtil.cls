@@ -41,21 +41,12 @@ public class TEKCO_UserMailVerifyTestUtil {
     return spy;
   }
 
-  public static void applySettings(
-    Integer maxPerRun,
-    Integer chunkVerify,
-    Integer chunkReset,
-    String permissionSetName
-  ) {
-    TEKCO_UserMailVerifySettings.testOverride = new TEKCO_User_Mail_Verify_Setting__mdt(
-      TEKCO_Max_Users_Per_Run__c = maxPerRun,
-      TEKCO_Chunk_Size_Verify__c = chunkVerify,
-      TEKCO_Chunk_Size_Reset__c = chunkReset,
-      TEKCO_Max_Rows_Displayed__c = 500,
-      TEKCO_Access_Permission_Set__c = permissionSetName,
-      TEKCO_Notification_Type_Name__c = 'TEKCO_UserMailVerify_Run_Complete'
-    );
-    TEKCO_UserMailVerifySettings.clearCache();
+  /**
+   * Points the access check at a permission set a test can actually create.
+   * The real one already exists in the org, so it cannot be inserted again.
+   */
+  public static void useAccessPermissionSet(String permissionSetName) {
+    TEKCO_UserMailVerifyConstants.permissionSetOverride = permissionSetName;
     TEKCO_UserMailVerifyAccess.clearCache();
   }
 

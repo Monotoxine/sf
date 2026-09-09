@@ -17,7 +17,7 @@ private class TEKCO_UserMailVerifyController_Test {
       PermissionSetId = permSet.Id
     );
 
-    TEKCO_UserMailVerifyTestUtil.applySettings(3, 50, 10, 'UMV_Ctl_Access');
+    TEKCO_UserMailVerifyTestUtil.useAccessPermissionSet('UMV_Ctl_Access');
     return u;
   }
 
@@ -28,10 +28,7 @@ private class TEKCO_UserMailVerifyController_Test {
       'na@umv-test.example.com'
     );
     insert plain;
-    TEKCO_UserMailVerifyTestUtil.applySettings(
-      200,
-      50,
-      10,
+    TEKCO_UserMailVerifyTestUtil.useAccessPermissionSet(
       'UMV_NonExistent_PermSet'
     );
 
@@ -93,8 +90,17 @@ private class TEKCO_UserMailVerifyController_Test {
   @IsTest
   static void enforcesThePerRunCapServerSide() {
     User granted = grantedUser();
-    List<User> users = TEKCO_UserMailVerifyTestUtil.insertUsers(4);
-    List<Id> ids = new List<Id>(new Map<Id, User>(users).keySet());
+
+    // Synthetic ids: the cap is checked before any query, so no user needs to
+    // exist. Inserting MAX_USERS_PER_RUN + 1 real users would be gratuitous.
+    List<Id> ids = new List<Id>();
+    for (
+      Integer i = 0; i <= TEKCO_UserMailVerifyConstants.MAX_USERS_PER_RUN; i++
+    ) {
+      // Padded to 15 characters: an 18-character id would need a valid
+      // checksum suffix, and a 12-digit literal overflows an Apex Integer.
+      ids.add(Id.valueOf('005' + String.valueOf(i + 1).leftPad(12, '0')));
+    }
 
     String message;
     System.runAs(granted) {
@@ -111,7 +117,9 @@ private class TEKCO_UserMailVerifyController_Test {
       'The cap must be enforced server-side, not only in the component.'
     );
     Assert.isTrue(
-      message.contains('limited to 3'),
+      message.contains(
+        'limited to ' + TEKCO_UserMailVerifyConstants.MAX_USERS_PER_RUN
+      ),
       'The error must name the cap so the administrator knows what to do: ' +
       message
     );

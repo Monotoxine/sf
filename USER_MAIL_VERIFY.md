@@ -45,29 +45,33 @@ the user clicks.
 ## Who can use it
 
 Access is granted by an assignment to the permission set named in
-`TEKCO_User_Mail_Verify_Setting__mdt` (the one granting the **TEKCO_RunTeamTools**
-app), or by Modify All Data.
+`TEKCO_UserMailVerifyConstants.ACCESS_PERMISSION_SET` (the one granting the
+**TEKCO_RunTeamTools** app), or by Modify All Data.
 
 The check lives in Apex, not only on the tab. Apex reached from a Lightning Web
 Component runs in **system mode**, so hiding the tab is not an access control:
 without `TEKCO_UserMailVerifyAccess.assertAuthorized()`, anyone able to call the
 controller could reset passwords in bulk.
 
-## Configuration
+## Fixed values
 
-`TEKCO_User_Mail_Verify_Setting__mdt`, record `Default`:
+`TEKCO_UserMailVerifyConstants` holds everything the feature tunes:
 
-| Field                             | Default                             | Purpose                                                    |
-| --------------------------------- | ----------------------------------- | ---------------------------------------------------------- |
-| `TEKCO_Max_Users_Per_Run__c`      | 200                                 | blocking per-run cap, enforced server-side                 |
-| `TEKCO_Chunk_Size_Verify__c`      | 50                                  | verification chunk size                                    |
-| `TEKCO_Chunk_Size_Reset__c`       | 10                                  | reset chunk size, **clamped** to 10 in code                |
-| `TEKCO_Max_Rows_Displayed__c`     | 500                                 | list guardrail                                             |
-| `TEKCO_Access_Permission_Set__c`  | `TEKCO_RunTeamTools`                | permission set API name — **confirm this against the org** |
-| `TEKCO_Notification_Type_Name__c` | `TEKCO_UserMailVerify_Run_Complete` | notification type DeveloperName                            |
+| Constant                | Value                               | Purpose                                                       |
+| ----------------------- | ----------------------------------- | ------------------------------------------------------------- |
+| `ACCESS_PERMISSION_SET` | `TEKCO_RunTeamTools`                | permission set granting the tab — **confirm against the org** |
+| `NOTIFICATION_TYPE`     | `TEKCO_UserMailVerify_Run_Complete` | notification type shipped with the feature                    |
+| `MAX_USERS_PER_RUN`     | 200                                 | blocking per-run cap, enforced server-side                    |
+| `CHUNK_SIZE_VERIFY`     | 50                                  | users per transaction when sending links                      |
+| `RESET_HARD_LIMIT`      | 10                                  | platform cap on `System.resetPassword` per transaction        |
+| `MAX_ROWS_DISPLAYED`    | 500                                 | rows shown for one brand before truncating                    |
 
-Every value falls back to a safe built-in default, so a missing or partially
-filled record cannot break the feature.
+These were held in a custom metadata type at first. That was over-engineering:
+none of them is expected to change, the reset chunk size cannot legally differ
+from the platform cap, and the notification type names a component this feature
+ships itself. Configuration for values nobody will edit only bought an extra
+SOQL query per transaction and a layer of indirection. Changing one is now a
+code change, reviewed and deployed like the rest.
 
 ## Email volume
 
@@ -100,7 +104,8 @@ Then, in Setup:
 
 1. Add the **User Mail Verify** tab to the TEKCO_RunTeamTools app.
 2. Add the tab and the `TEKCO_UserMailVerify*` Apex classes to the permission set.
-3. Fill `TEKCO_Access_Permission_Set__c` with the real permission set API name.
+3. Check `ACCESS_PERMISSION_SET` in `TEKCO_UserMailVerifyConstants` matches the
+   real permission set API name.
 4. Check `Setup → Deliverability → Access to Send Email` is **All email**. In a
    sandbox the default is `System email only`, which silently blocks every send
    while the run still reports success.

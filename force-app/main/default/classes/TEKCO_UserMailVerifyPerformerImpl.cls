@@ -31,8 +31,7 @@ public with sharing class TEKCO_UserMailVerifyPerformerImpl implements TEKCO_Use
    */
   public void notify(Id recipientId, String title, String body) {
     try {
-      String typeName = TEKCO_UserMailVerifySettings.getInstance()
-        .notificationTypeName;
+      String typeName = TEKCO_UserMailVerifyConstants.NOTIFICATION_TYPE;
       List<CustomNotificationType> types = [
         SELECT Id
         FROM CustomNotificationType

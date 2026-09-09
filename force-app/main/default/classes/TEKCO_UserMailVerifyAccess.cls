@@ -7,7 +7,7 @@
  * @AuraEnabled entry point calls assertAuthorized() as its first statement.
  *
  * Authorisation is granted by an assignment to the permission set named in
- * TEKCO_User_Mail_Verify_Setting__mdt, or by the Modify All Data permission.
+ * TEKCO_UserMailVerifyConstants, or by the Modify All Data permission.
  * Profiles surface as permission sets with IsOwnedByProfile = true and are
  * assigned to their users, so a single PermissionSetAssignment query covers
  * both profile-granted and permission-set-granted access.
@@ -40,21 +40,14 @@ public with sharing class TEKCO_UserMailVerifyAccess {
   }
 
   private static Boolean evaluate() {
-    String permissionSetName = TEKCO_UserMailVerifySettings.getInstance()
-      .accessPermissionSet;
-
-    // A blank configuration must not silently open the tool up: fall back to
-    // Modify All Data only.
-    String nameFilter = String.isBlank(permissionSetName)
-      ? '@@none@@'
-      : permissionSetName;
+    String permissionSetName = TEKCO_UserMailVerifyConstants.accessPermissionSet();
 
     return ![
         SELECT Id
         FROM PermissionSetAssignment
         WHERE
           AssigneeId = :UserInfo.getUserId()
-          AND (PermissionSet.Name = :nameFilter
+          AND (PermissionSet.Name = :permissionSetName
           OR PermissionSet.PermissionsModifyAllData = TRUE)
         LIMIT 1
       ]

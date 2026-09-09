@@ -8,10 +8,7 @@ private class TEKCO_UserMailVerifyAccess_Test {
     );
     insert plain;
 
-    TEKCO_UserMailVerifyTestUtil.applySettings(
-      200,
-      50,
-      10,
+    TEKCO_UserMailVerifyTestUtil.useAccessPermissionSet(
       'UMV_NonExistent_PermSet'
     );
 
@@ -50,7 +47,7 @@ private class TEKCO_UserMailVerifyAccess_Test {
       PermissionSetId = permSet.Id
     );
 
-    TEKCO_UserMailVerifyTestUtil.applySettings(200, 50, 10, 'UMV_Test_Access');
+    TEKCO_UserMailVerifyTestUtil.useAccessPermissionSet('UMV_Test_Access');
 
     Boolean authorized = false;
     System.runAs(granted) {
@@ -65,25 +62,11 @@ private class TEKCO_UserMailVerifyAccess_Test {
   }
 
   @IsTest
-  static void blankConfigurationDoesNotOpenAccessUp() {
-    User plain = TEKCO_UserMailVerifyTestUtil.buildUser(
-      'umvblk',
-      'blk@umv-test.example.com'
-    );
-    insert plain;
-
-    TEKCO_UserMailVerifyTestUtil.applySettings(200, 50, 10, null);
-
-    Boolean authorized = true;
-    System.runAs(plain) {
-      TEKCO_UserMailVerifyAccess.clearCache();
-      authorized = TEKCO_UserMailVerifyAccess.isAuthorized();
-    }
-
-    Assert.isFalse(
-      authorized,
-      'An unconfigured permission set name must fall back to Modify All Data only, ' +
-      'never to open access.'
+  static void defaultsToTheShippedPermissionSetName() {
+    Assert.areEqual(
+      TEKCO_UserMailVerifyConstants.ACCESS_PERMISSION_SET,
+      TEKCO_UserMailVerifyConstants.accessPermissionSet(),
+      'Without a test override, the check must use the shipped constant.'
     );
   }
 }

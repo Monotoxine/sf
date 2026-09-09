@@ -136,7 +136,7 @@ public with sharing class TEKCO_MassUserEmailVerificationBatch implements Databa
    * Salesforce cap: 10 System.resetPassword calls per transaction.
    * Single source shared with the User Mail Verify tab.
    */
-  private static final Integer MAX_PASSWORD_RESETS_PER_CHUNK = TEKCO_UserMailVerifySettings.RESET_HARD_LIMIT;
+  private static final Integer MAX_PASSWORD_RESETS_PER_CHUNK = TEKCO_UserMailVerifyConstants.RESET_HARD_LIMIT;
 
   public Integer sentCount = 0;
   public Integer resetCount = 0;

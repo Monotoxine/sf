@@ -33,23 +33,21 @@ public with sharing class TEKCO_UserMailVerifyQueueable implements Queueable {
   private List<String> errors;
 
   public static Id startVerification(List<Id> userIds) {
-    TEKCO_UserMailVerifySettings settings = TEKCO_UserMailVerifySettings.getInstance();
     return System.enqueueJob(
       new TEKCO_UserMailVerifyQueueable(
         Phase.STRIP_INVALID,
         userIds,
-        settings.chunkSizeVerify
+        TEKCO_UserMailVerifyConstants.CHUNK_SIZE_VERIFY
       )
     );
   }
 
   public static Id startPasswordReset(List<Id> userIds) {
-    TEKCO_UserMailVerifySettings settings = TEKCO_UserMailVerifySettings.getInstance();
     return System.enqueueJob(
       new TEKCO_UserMailVerifyQueueable(
         Phase.RESET,
         userIds,
-        settings.chunkSizeReset
+        TEKCO_UserMailVerifyConstants.RESET_HARD_LIMIT
       )
     );
   }

@@ -27,10 +27,9 @@ public with sharing class TEKCO_UserMailVerifyController {
   public static Settings getSettings() {
     try {
       TEKCO_UserMailVerifyAccess.assertAuthorized();
-      TEKCO_UserMailVerifySettings config = TEKCO_UserMailVerifySettings.getInstance();
       Settings result = new Settings();
-      result.maxUsersPerRun = config.maxUsersPerRun;
-      result.maxRowsDisplayed = config.maxRowsDisplayed;
+      result.maxUsersPerRun = TEKCO_UserMailVerifyConstants.MAX_USERS_PER_RUN;
+      result.maxRowsDisplayed = TEKCO_UserMailVerifyConstants.MAX_ROWS_DISPLAYED;
       return result;
     } catch (Exception e) {
       throw asAuraException(e);
@@ -49,7 +48,7 @@ public with sharing class TEKCO_UserMailVerifyController {
       TEKCO_UserMailVerifyAccess.assertAuthorized();
       return TEKCO_UserMailVerifySelector.findUnverifiedByBrand(
         brand,
-        TEKCO_UserMailVerifySettings.getInstance().maxRowsDisplayed
+        TEKCO_UserMailVerifyConstants.MAX_ROWS_DISPLAYED
       );
     } catch (Exception e) {
       throw asAuraException(e);
@@ -88,7 +87,7 @@ public with sharing class TEKCO_UserMailVerifyController {
     if (userIds == null || userIds.isEmpty()) {
       throw new IllegalArgumentException('Select at least one user.');
     }
-    Integer cap = TEKCO_UserMailVerifySettings.getInstance().maxUsersPerRun;
+    Integer cap = TEKCO_UserMailVerifyConstants.MAX_USERS_PER_RUN;
     if (userIds.size() > cap) {
       throw new IllegalArgumentException(
         'You selected ' +

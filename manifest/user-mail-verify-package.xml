@@ -5,6 +5,7 @@
 		<members>TEKCO_MassUserEmailVerificationBatch_Test</members>
 		<members>TEKCO_UserMailVerifyAccess</members>
 		<members>TEKCO_UserMailVerifyAccess_Test</members>
+		<members>TEKCO_UserMailVerifyConstants</members>
 		<members>TEKCO_UserMailVerifyController</members>
 		<members>TEKCO_UserMailVerifyController_Test</members>
 		<members>TEKCO_UserMailVerifyPerformer</members>
@@ -15,36 +16,12 @@
 		<members>TEKCO_UserMailVerifySelector_Test</members>
 		<members>TEKCO_UserMailVerifyService</members>
 		<members>TEKCO_UserMailVerifyService_Test</members>
-		<members>TEKCO_UserMailVerifySettings</members>
-		<members>TEKCO_UserMailVerifySettings_Test</members>
 		<members>TEKCO_UserMailVerifyTestUtil</members>
 		<name>ApexClass</name>
 	</types>
 	<types>
-		<members
-    >TEKCO_User_Mail_Verify_Setting__mdt.TEKCO_Access_Permission_Set__c</members>
-		<members>TEKCO_User_Mail_Verify_Setting__mdt.TEKCO_Chunk_Size_Reset__c</members>
-		<members
-    >TEKCO_User_Mail_Verify_Setting__mdt.TEKCO_Chunk_Size_Verify__c</members>
-		<members
-    >TEKCO_User_Mail_Verify_Setting__mdt.TEKCO_Max_Rows_Displayed__c</members>
-		<members
-    >TEKCO_User_Mail_Verify_Setting__mdt.TEKCO_Max_Users_Per_Run__c</members>
-		<members
-    >TEKCO_User_Mail_Verify_Setting__mdt.TEKCO_Notification_Type_Name__c</members>
-		<name>CustomField</name>
-	</types>
-	<types>
-		<members>TEKCO_User_Mail_Verify_Setting.Default</members>
-		<name>CustomMetadata</name>
-	</types>
-	<types>
 		<members>TEKCO_UserMailVerify_Run_Complete</members>
 		<name>CustomNotificationType</name>
-	</types>
-	<types>
-		<members>TEKCO_User_Mail_Verify_Setting__mdt</members>
-		<name>CustomObject</name>
 	</types>
 	<types>
 		<members>TEKCO_User_Mail_Verify</members>
