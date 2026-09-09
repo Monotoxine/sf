@@ -130,7 +130,8 @@ describe("c-tekco-user-mail-verify", () => {
 
     expect(getUsers).toHaveBeenCalledWith({
       brands: ["ACME", "GLOBEX"],
-      verificationFilter: "UNVERIFIED"
+      verificationFilter: "UNVERIFIED",
+      suffixFilter: "ALL"
     });
   });
 
@@ -150,7 +151,28 @@ describe("c-tekco-user-mail-verify", () => {
     // A reset also verifies, so already verified users are legitimate targets.
     expect(getUsers).toHaveBeenLastCalledWith({
       brands: ["ACME"],
-      verificationFilter: "ALL"
+      verificationFilter: "ALL",
+      suffixFilter: "ALL"
+    });
+  });
+
+  it("passes the address filter to Apex", async () => {
+    getUsers.mockResolvedValue(USERS);
+    const element = createComponent();
+    await selectBrands(element);
+
+    const filter = element.shadowRoot.querySelector(
+      'lightning-combobox[data-id="suffix"]'
+    );
+    filter.dispatchEvent(
+      new CustomEvent("change", { detail: { value: "ONLY" } })
+    );
+    await Promise.resolve();
+
+    expect(getUsers).toHaveBeenLastCalledWith({
+      brands: ["ACME"],
+      verificationFilter: "UNVERIFIED",
+      suffixFilter: "ONLY"
     });
   });
 
@@ -167,7 +189,8 @@ describe("c-tekco-user-mail-verify", () => {
 
     expect(getUsers).toHaveBeenCalledWith({
       brands: ["ACME"],
-      verificationFilter: "UNVERIFIED"
+      verificationFilter: "UNVERIFIED",
+      suffixFilter: "ALL"
     });
     const table = element.shadowRoot.querySelector("lightning-datatable");
     expect(table).not.toBeNull();

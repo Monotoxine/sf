@@ -63,13 +63,15 @@ public with sharing class TEKCO_UserMailVerifyController {
   @AuraEnabled
   public static TEKCO_UserMailVerifySelector.UserListResult getUsers(
     List<String> brands,
-    String verificationFilter
+    String verificationFilter,
+    String suffixFilter
   ) {
     try {
       TEKCO_UserMailVerifyAccess.assertAuthorized();
       return TEKCO_UserMailVerifySelector.findByBrands(
         brands,
         verificationFilter,
+        suffixFilter,
         TEKCO_UserMailVerifyConstants.MAX_ROWS_DISPLAYED
       );
     } catch (Exception e) {

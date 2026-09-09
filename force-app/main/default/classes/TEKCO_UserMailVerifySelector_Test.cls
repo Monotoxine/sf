@@ -6,11 +6,13 @@ private class TEKCO_UserMailVerifySelector_Test {
     TEKCO_UserMailVerifySelector.UserListResult blank = TEKCO_UserMailVerifySelector.findByBrands(
       null,
       TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
+      TEKCO_UserMailVerifySelector.SUFFIX_ALL,
       500
     );
     TEKCO_UserMailVerifySelector.UserListResult empty = TEKCO_UserMailVerifySelector.findByBrands(
       new List<String>(),
       TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
+      TEKCO_UserMailVerifySelector.SUFFIX_ALL,
       500
     );
     Test.stopTest();
@@ -35,6 +37,7 @@ private class TEKCO_UserMailVerifySelector_Test {
     TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
       new List<String>{ 'UMV_BRAND_THAT_DOES_NOT_EXIST' },
       TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
+      TEKCO_UserMailVerifySelector.SUFFIX_ALL,
       500
     );
     Test.stopTest();
@@ -54,6 +57,7 @@ private class TEKCO_UserMailVerifySelector_Test {
     TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
       new List<String>{ TEKCO_UserMailVerifyTestUtil.testBrand() },
       TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
+      TEKCO_UserMailVerifySelector.SUFFIX_ALL,
       500
     );
     Test.stopTest();
@@ -77,6 +81,7 @@ private class TEKCO_UserMailVerifySelector_Test {
     TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
       new List<String>{ TEKCO_UserMailVerifyTestUtil.testBrand() },
       TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
+      TEKCO_UserMailVerifySelector.SUFFIX_ALL,
       500
     );
     Test.stopTest();
@@ -103,6 +108,7 @@ private class TEKCO_UserMailVerifySelector_Test {
     TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
       new List<String>{ TEKCO_UserMailVerifyTestUtil.testBrand() },
       TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
+      TEKCO_UserMailVerifySelector.SUFFIX_ALL,
       500
     );
     Test.stopTest();
@@ -121,6 +127,60 @@ private class TEKCO_UserMailVerifySelector_Test {
   }
 
   @IsTest
+  static void suffixFilterKeepsOnlyInvalidAddresses() {
+    User suffixed = TEKCO_UserMailVerifyTestUtil.buildUser(
+      'umvsx',
+      'sx@umv-test.example.com.invalid'
+    );
+    User clean = TEKCO_UserMailVerifyTestUtil.buildUser(
+      'umvcl',
+      'cl@umv-test.example.com'
+    );
+    insert new List<User>{ suffixed, clean };
+
+    Test.startTest();
+    TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
+      new List<String>{ TEKCO_UserMailVerifyTestUtil.testBrand() },
+      TEKCO_UserMailVerifySelector.FILTER_ALL,
+      TEKCO_UserMailVerifySelector.SUFFIX_ONLY,
+      500
+    );
+    Test.stopTest();
+
+    for (TEKCO_UserMailVerifySelector.UserRow row : result.rows) {
+      Assert.isTrue(
+        row.hasInvalidSuffix,
+        'SUFFIX_ONLY must exclude clean addresses, found: ' + row.email
+      );
+    }
+  }
+
+  @IsTest
+  static void suffixFilterCanExcludeInvalidAddresses() {
+    User suffixed = TEKCO_UserMailVerifyTestUtil.buildUser(
+      'umvsy',
+      'sy@umv-test.example.com.invalid'
+    );
+    insert suffixed;
+
+    Test.startTest();
+    TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
+      new List<String>{ TEKCO_UserMailVerifyTestUtil.testBrand() },
+      TEKCO_UserMailVerifySelector.FILTER_ALL,
+      TEKCO_UserMailVerifySelector.SUFFIX_NONE,
+      500
+    );
+    Test.stopTest();
+
+    for (TEKCO_UserMailVerifySelector.UserRow row : result.rows) {
+      Assert.isFalse(
+        row.hasInvalidSuffix,
+        'SUFFIX_NONE must exclude suffixed addresses, found: ' + row.email
+      );
+    }
+  }
+
+  @IsTest
   static void reportsTruncationWhenTheCapIsHit() {
     TEKCO_UserMailVerifyTestUtil.insertUsers(3);
 
@@ -128,6 +188,7 @@ private class TEKCO_UserMailVerifySelector_Test {
     TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
       new List<String>{ TEKCO_UserMailVerifyTestUtil.testBrand() },
       TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
+      TEKCO_UserMailVerifySelector.SUFFIX_ALL,
       1
     );
     Test.stopTest();

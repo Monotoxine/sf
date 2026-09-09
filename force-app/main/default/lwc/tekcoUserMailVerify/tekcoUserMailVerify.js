@@ -14,6 +14,12 @@ const VERIFICATION_OPTIONS = [
   { label: "All", value: "ALL" }
 ];
 
+const SUFFIX_OPTIONS = [
+  { label: "All addresses", value: "ALL" },
+  { label: "With .invalid", value: "ONLY" },
+  { label: "Without .invalid", value: "NONE" }
+];
+
 const COLUMNS = [
   {
     label: "Name",
@@ -64,6 +70,9 @@ export default class TekcoUserMailVerify extends LightningElement {
   // Default: the users this screen exists for. A reset also verifies, so an
   // already verified user is a legitimate target too, hence the other options.
   verificationFilter = "UNVERIFIED";
+
+  suffixOptions = SUFFIX_OPTIONS;
+  suffixFilter = "ALL";
 
   @track rows = [];
   @track brandOptions = [];
@@ -191,6 +200,11 @@ export default class TekcoUserMailVerify extends LightningElement {
     this.loadUsers();
   }
 
+  handleSuffixChange(event) {
+    this.suffixFilter = event.detail.value;
+    this.loadUsers();
+  }
+
   handleBrandChange(event) {
     this.selectedBrands = event.detail.value || [];
     this.loadUsers();
@@ -255,7 +269,8 @@ export default class TekcoUserMailVerify extends LightningElement {
     try {
       const result = await getUsers({
         brands: this.selectedBrands,
-        verificationFilter: this.verificationFilter
+        verificationFilter: this.verificationFilter,
+        suffixFilter: this.suffixFilter
       });
       this.rows = result.rows.map((row) => ({
         ...row,

@@ -20,6 +20,13 @@ public with sharing class TEKCO_UserMailVerifySelector {
   public static final String FILTER_VERIFIED = 'VERIFIED';
   public static final String FILTER_ALL = 'ALL';
 
+  /** Suffix filters accepted by findByBrands. */
+  public static final String SUFFIX_ALL = 'ALL';
+  public static final String SUFFIX_ONLY = 'ONLY';
+  public static final String SUFFIX_NONE = 'NONE';
+
+  private static final String INVALID_SUFFIX_PATTERN = '%.invalid';
+
   /** Brand field on User, backed by the Brands global value set. */
   private static final String BRAND_FIELD = 'TEKCO_Brand__c';
 
@@ -128,6 +135,7 @@ public with sharing class TEKCO_UserMailVerifySelector {
   public static UserListResult findByBrands(
     List<String> brands,
     String verificationFilter,
+    String suffixFilter,
     Integer maxRows
   ) {
     UserListResult result = new UserListResult();
@@ -139,7 +147,11 @@ public with sharing class TEKCO_UserMailVerifySelector {
       return result;
     }
 
-    List<User> candidates = queryCandidates(brands, verificationFilter);
+    List<User> candidates = queryCandidates(
+      brands,
+      verificationFilter,
+      suffixFilter
+    );
     if (candidates.isEmpty()) {
       return result;
     }
@@ -177,7 +189,8 @@ public with sharing class TEKCO_UserMailVerifySelector {
 
   private static List<User> queryCandidates(
     List<String> brands,
-    String verificationFilter
+    String verificationFilter,
+    String suffixFilter
   ) {
     String fields =
       'Id, Name, Username, Email, Profile.Name, CreatedDate, ' + BRAND_FIELD;
@@ -189,7 +202,8 @@ public with sharing class TEKCO_UserMailVerifySelector {
       fields +
       ' FROM User WHERE IsActive = true AND Email != null AND ' +
       BRAND_FIELD +
-      ' IN :brands';
+      ' IN :brands' +
+      suffixPredicate(suffixFilter);
     // Ordered by brand first: rows from several brands are shown together.
     String tail = ' ORDER BY ' + BRAND_FIELD + ', Name LIMIT ' + QUERY_CEILING;
 
@@ -210,6 +224,20 @@ public with sharing class TEKCO_UserMailVerifySelector {
       }
     }
     return Database.query(base + tail);
+  }
+
+  /**
+   * Addresses still carrying the ".invalid" suffix. Plain LIKE on Email, so
+   * unlike the verification predicate it is always safe to push to the query.
+   */
+  private static String suffixPredicate(String filter) {
+    if (SUFFIX_ONLY.equals(filter)) {
+      return ' AND Email LIKE \'' + INVALID_SUFFIX_PATTERN + '\'';
+    }
+    if (SUFFIX_NONE.equals(filter)) {
+      return ' AND (NOT Email LIKE \'' + INVALID_SUFFIX_PATTERN + '\')';
+    }
+    return '';
   }
 
   /** Null for the ALL filter, which needs no predicate at all. */

@@ -40,7 +40,8 @@ private class TEKCO_UserMailVerifyController_Test {
       try {
         TEKCO_UserMailVerifyController.getUsers(
           new List<String>{ TEKCO_UserMailVerifyTestUtil.testBrand() },
-          TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED
+          TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
+          TEKCO_UserMailVerifySelector.SUFFIX_ALL
         );
       } catch (Exception e) {
         refused = true;

@@ -24,6 +24,16 @@
             value={verificationFilter}
             onchange={handleVerificationChange}
           ></lightning-combobox>
+
+          <lightning-combobox
+            class="slds-var-m-top_x-small"
+            data-id="suffix"
+            name="suffix"
+            label="Address"
+            options={suffixOptions}
+            value={suffixFilter}
+            onchange={handleSuffixChange}
+          ></lightning-combobox>
         </div>
       </div>
 

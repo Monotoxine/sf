@@ -133,6 +133,10 @@ Not in this repository, expected to exist in the org:
 never `IsFrozen = false`: a user with no `UserLogin` record is not frozen, and
 the negative filter would wrongly drop them.
 
+**An address filter** sits with them: _All addresses_, _With .invalid_ or
+_Without .invalid_. Unlike the verification predicate, this one is a plain LIKE
+on Email and is always safe to push into the query.
+
 **A verification-status filter** sits next to the brands: _Not verified_
 (default), _Verified_, or _All_. The query no longer hard-codes
 `HasUserVerifiedEmail = false`. Since completing a reset is what verifies an
