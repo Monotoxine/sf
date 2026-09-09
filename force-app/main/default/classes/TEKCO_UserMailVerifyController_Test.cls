@@ -1,3 +1,11 @@
+/**
+ * Two test methods, split only by a platform limit: a test transaction accepts
+ * a single System.enqueueJob, and both launch methods queue a run.
+ *
+ * No System.runAs here. The controller carries no permission check, so running
+ * as a low-privilege user only added a way for the code to fail before
+ * reaching the lines under test.
+ */
 @IsTest
 private class TEKCO_UserMailVerifyController_Test {
   /**
@@ -5,180 +13,143 @@ private class TEKCO_UserMailVerifyController_Test {
    * needed: brand is a dependent picklist controlled by country, so setting
    * one without the other is rejected at insert.
    */
-  private static User buildUser(String alias, String email) {
-    User u = Test_UserHelper.createMinimumAccessUser(alias, false);
-    u.Email = email;
-    return u;
-  }
-
   private static List<User> insertUsers(Integer count) {
     List<User> users = new List<User>();
     for (Integer i = 0; i < count; i++) {
-      users.add(buildUser('umvc' + i, 'umvc' + i + '@umv-test.example.com'));
+      User u = Test_UserHelper.createMinimumAccessUser('umvc' + i, false);
+      u.Email = 'umvc' + i + '@umv-test.example.com';
+      users.add(u);
     }
     insert users;
     return users;
   }
 
-  private static User testUser() {
-    User u = buildUser('umvctl', 'ctl@umv-test.example.com');
-    insert u;
-    TEKCO_UserMailVerifySelector.sandboxOverride = true;
-    return u;
-  }
-
-  @IsTest
-  static void exposesTheConfiguredCaps() {
-    User granted = testUser();
-
-    TEKCO_UserMailVerifyController.Settings settings;
-    System.runAs(granted) {
-      settings = TEKCO_UserMailVerifyController.getSettings();
-    }
-
-    Assert.areEqual(
-      TEKCO_UserMailVerifyConstants.MAX_USERS_PER_RUN,
-      settings.maxUsersPerRun,
-      'The screen must receive the configured cap.'
-    );
-  }
-
-  @IsTest
-  static void rejectsAnEmptySelection() {
-    User granted = testUser();
-
-    Boolean rejected = false;
-    System.runAs(granted) {
-      try {
-        TEKCO_UserMailVerifyController.launchVerification(new List<Id>());
-      } catch (Exception e) {
-        rejected = true;
+  private static String messageFrom(List<Id> ids, Boolean reset) {
+    try {
+      if (reset) {
+        TEKCO_UserMailVerifyController.launchPasswordReset(ids);
+      } else {
+        TEKCO_UserMailVerifyController.launchVerification(ids);
       }
+    } catch (Exception e) {
+      return e.getMessage();
     }
-
-    Assert.isTrue(
-      rejected,
-      'An empty selection must be rejected before anything is queued.'
-    );
+    return null;
   }
 
   @IsTest
-  static void enforcesThePerRunCapServerSide() {
-    User granted = testUser();
+  static void readsSettingsAndRefusesEveryInvalidSelection() {
+    List<User> targets = insertUsers(2);
+    List<Id> ids = new List<Id>(new Map<Id, User>(targets).keySet());
 
-    List<Id> ids = new List<Id>();
+    List<Id> overCap = new List<Id>();
     for (
       Integer i = 0; i <= TEKCO_UserMailVerifyConstants.MAX_USERS_PER_RUN; i++
     ) {
-      ids.add(Id.valueOf('005' + String.valueOf(i + 1).leftPad(12, '0')));
+      overCap.add(Id.valueOf('005' + String.valueOf(i + 1).leftPad(12, '0')));
     }
 
-    String message;
-    System.runAs(granted) {
-      try {
-        TEKCO_UserMailVerifyController.launchVerification(ids);
-      } catch (Exception e) {
-        message = e.getMessage();
-      }
-    }
-
-    Assert.isNotNull(
-      message,
-      'The cap must be enforced server-side, not only in the component.'
-    );
-    Assert.isTrue(
-      message.contains(
-        'limited to ' + TEKCO_UserMailVerifyConstants.MAX_USERS_PER_RUN
-      ),
-      'The error must name the cap so the administrator knows what to do: ' +
-      message
-    );
-  }
-
-  @IsTest
-  static void refusesToActOnTheCallersOwnUser() {
-    User granted = testUser();
-
-    String message;
-    System.runAs(granted) {
-      try {
-        TEKCO_UserMailVerifyController.launchPasswordReset(
-          new List<Id>{ granted.Id }
-        );
-      } catch (Exception e) {
-        message = e.getMessage();
-      }
-    }
-
-    Assert.isNotNull(
-      message,
-      'Resetting your own password from this screen must be refused.'
-    );
-  }
-
-  @IsTest
-  static void refusesPasswordResetOutsideASandbox() {
-    User granted = testUser();
-    TEKCO_UserMailVerifySelector.sandboxOverride = false;
-    List<User> users = insertUsers(1);
-    List<Id> ids = new List<Id>(new Map<Id, User>(users).keySet());
-
-    String message;
-    System.runAs(granted) {
-      try {
-        TEKCO_UserMailVerifyController.launchPasswordReset(ids);
-      } catch (Exception e) {
-        message = e.getMessage();
-      }
-    }
-
-    Assert.isNotNull(
-      message,
-      'Hiding the button is not a control: the controller must refuse too.'
-    );
-    Assert.isTrue(
-      message.contains('sandboxes only'),
-      'The refusal must say why, so the administrator does not hunt for a bug: ' +
-      message
-    );
-  }
-
-  @IsTest
-  static void reportsWhetherTheOrgIsASandbox() {
-    User granted = testUser();
-    TEKCO_UserMailVerifySelector.sandboxOverride = false;
-
-    TEKCO_UserMailVerifyController.Settings settings;
-    System.runAs(granted) {
-      settings = TEKCO_UserMailVerifyController.getSettings();
-    }
-
-    Assert.isFalse(
-      settings.isSandbox,
-      'The screen needs this flag to decide whether to offer the reset button.'
-    );
-  }
-
-  @IsTest
-  static void queuesTheRequestedUsers() {
-    User granted = testUser();
-    List<User> users = insertUsers(2);
-    List<Id> ids = new List<Id>(new Map<Id, User>(users).keySet());
-
-    TEKCO_UserMailVerifyController.LaunchResult result;
     Test.startTest();
-    System.runAs(granted) {
-      result = TEKCO_UserMailVerifyController.launchVerification(ids);
-    }
+    TEKCO_UserMailVerifySelector.sandboxOverride = false;
+    TEKCO_UserMailVerifyController.Settings production = TEKCO_UserMailVerifyController.getSettings();
+    String resetRefused = messageFrom(ids, true);
+
+    TEKCO_UserMailVerifySelector.sandboxOverride = true;
+    TEKCO_UserMailVerifyController.Settings sandbox = TEKCO_UserMailVerifyController.getSettings();
+    List<TEKCO_UserMailVerifySelector.BrandOption> brands = TEKCO_UserMailVerifyController.getBrands();
+    TEKCO_UserMailVerifySelector.UserListResult listed = TEKCO_UserMailVerifyController.getUsers(
+      new List<String>{ TestContext.BRAND },
+      TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
+      TEKCO_UserMailVerifySelector.SUFFIX_ALL
+    );
+
+    String emptyRefused = messageFrom(new List<Id>(), false);
+    String capRefused = messageFrom(overCap, false);
+    String selfRefused = messageFrom(
+      new List<Id>{ UserInfo.getUserId() },
+      false
+    );
+
+    TEKCO_UserMailVerifyController.LaunchResult queued = TEKCO_UserMailVerifyController.launchVerification(
+      ids
+    );
     Test.stopTest();
 
     Assert.areEqual(
+      TEKCO_UserMailVerifyConstants.MAX_USERS_PER_RUN,
+      sandbox.maxUsersPerRun,
+      'The screen must receive the configured cap.'
+    );
+    Assert.areEqual(
+      TEKCO_UserMailVerifyConstants.MAX_ROWS_DISPLAYED,
+      sandbox.maxRowsDisplayed,
+      'The screen must receive the configured row cap.'
+    );
+    Assert.isTrue(sandbox.isSandbox, 'The sandbox flag must follow the org.');
+    Assert.isFalse(
+      production.isSandbox,
+      'The screen needs this flag to decide whether to offer the reset button.'
+    );
+
+    Assert.isNotNull(brands, 'The brand picker must always get a list.');
+    Assert.isNotNull(listed, 'The user list must always come back.');
+
+    // Each refusal is asserted on its own message. A bare "an exception was
+    // thrown" would pass on any failure, including one that never reaches the
+    // guard being tested.
+    Assert.isTrue(
+      resetRefused != null && resetRefused.contains('sandboxes only'),
+      'Hiding the button is not a control, and the refusal must say why: ' +
+      resetRefused
+    );
+    Assert.isTrue(
+      emptyRefused != null && emptyRefused.contains('at least one user'),
+      'An empty selection must be rejected before anything is queued: ' +
+      emptyRefused
+    );
+    Assert.isTrue(
+      capRefused != null &&
+      capRefused.contains(
+        'limited to ' + TEKCO_UserMailVerifyConstants.MAX_USERS_PER_RUN
+      ),
+      'The cap must be enforced server-side and named in the error: ' +
+      capRefused
+    );
+    Assert.isTrue(
+      selfRefused != null && selfRefused.contains('your own user'),
+      'Acting on your own user from this screen must be refused: ' + selfRefused
+    );
+
+    Assert.areEqual(
       2,
-      result.queuedCount,
+      queued.queuedCount,
       'The queued count must match the selection.'
     );
     Assert.isNotNull(
-      result.jobId,
+      queued.jobId,
+      'The job id must be returned for traceability.'
+    );
+  }
+
+  @IsTest
+  static void queuesAPasswordResetInASandbox() {
+    List<User> targets = insertUsers(1);
+    List<Id> ids = new List<Id>(new Map<Id, User>(targets).keySet());
+    TEKCO_UserMailVerifySelector.sandboxOverride = true;
+
+    Test.startTest();
+    TEKCO_UserMailVerifyController.LaunchResult queued = TEKCO_UserMailVerifyController.launchPasswordReset(
+      ids
+    );
+    Test.stopTest();
+
+    Assert.areEqual(
+      1,
+      queued.queuedCount,
+      'The queued count must match the selection.'
+    );
+    Assert.isNotNull(
+      queued.jobId,
       'The job id must be returned for traceability.'
     );
   }

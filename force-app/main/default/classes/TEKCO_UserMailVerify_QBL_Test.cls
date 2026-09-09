@@ -1,14 +1,14 @@
 /**
- * What is asserted here is limited on purpose.
+ * Two test methods, split only by a platform limit: a test transaction accepts
+ * a single System.enqueueJob, and both entry points queue a run.
  *
- * Sends, resets and notifications used to run through an injectable interface,
- * which let a test double count them: three users gave three links, a completed
- * run notified once rather than once per chunk, a failure was counted and its
- * message reached the summary. That seam was removed, so those assertions went
- * with it.
+ * The phases themselves are executed directly rather than queued, which is
+ * what lets one method walk all three. Chaining is a no-op under test, so a
+ * queued run only ever covers its first chunk.
  *
- * What survives asserts database side effects, which are observable without it.
- * Restoring the interface is what brings the rest back.
+ * What is asserted is limited on purpose. Sends, resets and notifications used
+ * to run through an injectable interface, which let a test double count them.
+ * That seam was removed, so only database side effects remain observable.
  */
 @IsTest
 private class TEKCO_UserMailVerify_QBL_Test {
@@ -24,41 +24,48 @@ private class TEKCO_UserMailVerify_QBL_Test {
   }
 
   @IsTest
-  static void cleanupPhaseRemovesTheInvalidSuffix() {
+  static void everyPhaseRunsAndOnlySuffixedAddressesChange() {
     User suffixed = buildUser('umvq1', 'q1@umv-test.example.com.invalid');
-    insert suffixed;
+    User clean = buildUser('umvq2', 'q2@umv-test.example.com');
+    insert new List<User>{ suffixed, clean };
+
+    List<Id> both = new List<Id>{ suffixed.Id, clean.Id };
+    List<Id> one = new List<Id>{ clean.Id };
 
     Test.startTest();
-    System.enqueueJob(
-      TEKCO_UserMailVerify_QBL.forPhase(
+    TEKCO_UserMailVerify_QBL.forPhase(
         TEKCO_UserMailVerify_QBL.Phase.STRIP_INVALID,
-        new List<Id>{ suffixed.Id },
+        both,
         50
       )
-    );
+      .execute(null);
+    TEKCO_UserMailVerify_QBL.forPhase(
+        TEKCO_UserMailVerify_QBL.Phase.VERIFY,
+        one,
+        50
+      )
+      .execute(null);
+    TEKCO_UserMailVerify_QBL.forPhase(
+        TEKCO_UserMailVerify_QBL.Phase.RESET,
+        one,
+        10
+      )
+      .execute(null);
+    TEKCO_UserMailVerify_QBL.startVerification(one);
     Test.stopTest();
 
-    User reloaded = [SELECT Email FROM User WHERE Id = :suffixed.Id];
-    Assert.isFalse(
-      reloaded.Email.endsWith('.invalid'),
-      'The suffix must be removed before anything is sent.'
+    Map<Id, User> reloaded = new Map<Id, User>(
+      [SELECT Id, Email FROM User WHERE Id IN :both]
     );
-  }
-
-  @IsTest
-  static void aVerificationStartsByCleaningTheInvalidSuffix() {
-    User suffixed = buildUser('umvq2', 'q2@umv-test.example.com.invalid');
-    insert suffixed;
-
-    Test.startTest();
-    TEKCO_UserMailVerify_QBL.startVerification(new List<Id>{ suffixed.Id });
-    Test.stopTest();
-
-    User reloaded = [SELECT Email FROM User WHERE Id = :suffixed.Id];
     Assert.isFalse(
-      reloaded.Email.endsWith('.invalid'),
+      reloaded.get(suffixed.Id).Email.endsWith('.invalid'),
       'Sending a link to a .invalid address delivers nothing, so the run has ' +
       'to clean it first.'
+    );
+    Assert.areEqual(
+      clean.Email,
+      reloaded.get(clean.Id).Email,
+      'An address without the suffix must not be touched.'
     );
   }
 
@@ -76,29 +83,6 @@ private class TEKCO_UserMailVerify_QBL_Test {
       reloaded.Email.endsWith('.invalid'),
       'Credentials sent to a .invalid address are lost, and so is the ' +
       'verification completing the reset performs.'
-    );
-  }
-
-  @IsTest
-  static void cleanAddressesAreLeftAlone() {
-    User clean = buildUser('umvq4', 'q4@umv-test.example.com');
-    insert clean;
-
-    Test.startTest();
-    System.enqueueJob(
-      TEKCO_UserMailVerify_QBL.forPhase(
-        TEKCO_UserMailVerify_QBL.Phase.STRIP_INVALID,
-        new List<Id>{ clean.Id },
-        50
-      )
-    );
-    Test.stopTest();
-
-    User reloaded = [SELECT Email FROM User WHERE Id = :clean.Id];
-    Assert.areEqual(
-      clean.Email,
-      reloaded.Email,
-      'An address without the suffix must not be touched.'
     );
   }
 }

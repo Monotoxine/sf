@@ -1,3 +1,7 @@
+/**
+ * One test method on purpose: the selector performs no asynchronous work, so
+ * every branch can be walked in a single pass.
+ */
 @IsTest
 private class TEKCO_UserMailVerifySelector_Test {
   /**
@@ -11,30 +15,93 @@ private class TEKCO_UserMailVerifySelector_Test {
     return u;
   }
 
-  private static List<User> insertUsers(Integer count) {
-    List<User> users = new List<User>();
-    for (Integer i = 0; i < count; i++) {
-      users.add(buildUser('umvs' + i, 'umvs' + i + '@umv-test.example.com'));
-    }
-    insert users;
-    return users;
+  private static TEKCO_UserMailVerifySelector.UserListResult find(
+    List<String> brands,
+    String verificationFilter,
+    String suffixFilter,
+    Integer maxRows
+  ) {
+    return TEKCO_UserMailVerifySelector.findByBrands(
+      brands,
+      verificationFilter,
+      suffixFilter,
+      maxRows
+    );
   }
 
   @IsTest
-  static void returnsNothingWithoutBrands() {
+  static void coversEveryFilterCombination() {
+    List<String> brand = new List<String>{ TestContext.BRAND };
+    List<String> unknown = new List<String>{ 'UMV_BRAND_THAT_DOES_NOT_EXIST' };
+
+    User suffixed = buildUser('umvsfx', 'sfx@umv-test.example.com.invalid');
+    User clean = buildUser('umvcln', 'cln@umv-test.example.com');
+    User inactive = buildUser('umvina', 'ina@umv-test.example.com');
+    insert new List<User>{ suffixed, clean, inactive };
+    inactive.IsActive = false;
+    update inactive;
+
     Test.startTest();
-    TEKCO_UserMailVerifySelector.UserListResult blank = TEKCO_UserMailVerifySelector.findByBrands(
+    TEKCO_UserMailVerifySelector.UserListResult blank = find(
       null,
       TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
       TEKCO_UserMailVerifySelector.SUFFIX_ALL,
       500
     );
-    TEKCO_UserMailVerifySelector.UserListResult empty = TEKCO_UserMailVerifySelector.findByBrands(
+    TEKCO_UserMailVerifySelector.UserListResult empty = find(
       new List<String>(),
       TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
       TEKCO_UserMailVerifySelector.SUFFIX_ALL,
       500
     );
+    TEKCO_UserMailVerifySelector.UserListResult noMatch = find(
+      unknown,
+      TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
+      TEKCO_UserMailVerifySelector.SUFFIX_ALL,
+      500
+    );
+    TEKCO_UserMailVerifySelector.UserListResult unverified = find(
+      brand,
+      TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
+      TEKCO_UserMailVerifySelector.SUFFIX_ALL,
+      500
+    );
+    TEKCO_UserMailVerifySelector.UserListResult verified = find(
+      brand,
+      TEKCO_UserMailVerifySelector.FILTER_VERIFIED,
+      TEKCO_UserMailVerifySelector.SUFFIX_ALL,
+      500
+    );
+    TEKCO_UserMailVerifySelector.UserListResult suffixOnly = find(
+      brand,
+      TEKCO_UserMailVerifySelector.FILTER_ALL,
+      TEKCO_UserMailVerifySelector.SUFFIX_ONLY,
+      500
+    );
+    TEKCO_UserMailVerifySelector.UserListResult suffixNone = find(
+      brand,
+      TEKCO_UserMailVerifySelector.FILTER_ALL,
+      TEKCO_UserMailVerifySelector.SUFFIX_NONE,
+      500
+    );
+    // maxRows null means "no cap", which is a different branch from a number.
+    TEKCO_UserMailVerifySelector.UserListResult uncapped = find(
+      brand,
+      TEKCO_UserMailVerifySelector.FILTER_ALL,
+      TEKCO_UserMailVerifySelector.SUFFIX_ALL,
+      null
+    );
+    TEKCO_UserMailVerifySelector.UserListResult capped = find(
+      brand,
+      TEKCO_UserMailVerifySelector.FILTER_ALL,
+      TEKCO_UserMailVerifySelector.SUFFIX_ALL,
+      1
+    );
+
+    List<TEKCO_UserMailVerifySelector.BrandOption> options = TEKCO_UserMailVerifySelector.getBrandOptions();
+    Boolean realOrgFlag = TEKCO_UserMailVerifySelector.isSandbox();
+    TEKCO_UserMailVerifySelector.sandboxOverride = true;
+    Boolean overridden = TEKCO_UserMailVerifySelector.isSandbox();
     Test.stopTest();
 
     Assert.areEqual(
@@ -47,168 +114,73 @@ private class TEKCO_UserMailVerifySelector_Test {
       empty.rows.size(),
       'An empty brand list must not scan every user.'
     );
-  }
-
-  @IsTest
-  static void returnsNothingForUnknownBrands() {
-    insertUsers(2);
-
-    Test.startTest();
-    TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
-      new List<String>{ 'UMV_BRAND_THAT_DOES_NOT_EXIST' },
-      TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
-      TEKCO_UserMailVerifySelector.SUFFIX_ALL,
-      500
-    );
-    Test.stopTest();
-
     Assert.areEqual(
       0,
-      result.rows.size(),
+      noMatch.rows.size(),
       'Unmatched brands must return nothing.'
     );
-  }
 
-  @IsTest
-  static void neverReturnsTheRunningUser() {
-    insertUsers(3);
-
-    Test.startTest();
-    TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
-      new List<String>{ TestContext.BRAND },
-      TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
-      TEKCO_UserMailVerifySelector.SUFFIX_ALL,
-      500
-    );
-    Test.stopTest();
-
-    for (TEKCO_UserMailVerifySelector.UserRow row : result.rows) {
-      Assert.areNotEqual(
-        UserInfo.getUserId(),
-        row.id,
-        'The running user must never appear: the same screen resets passwords.'
-      );
-    }
-  }
-
-  @IsTest
-  static void excludesInactiveUsers() {
-    List<User> users = insertUsers(2);
-    users[0].IsActive = false;
-    update users[0];
-
-    Test.startTest();
-    TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
-      new List<String>{ TestContext.BRAND },
-      TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
-      TEKCO_UserMailVerifySelector.SUFFIX_ALL,
-      500
-    );
-    Test.stopTest();
-
-    Set<Id> returned = new Set<Id>();
-    for (TEKCO_UserMailVerifySelector.UserRow row : result.rows) {
-      returned.add(row.id);
-    }
+    Set<Id> unverifiedIds = idsOf(unverified);
     Assert.isFalse(
-      returned.contains(users[0].Id),
+      unverifiedIds.contains(inactive.Id),
       'A deactivated user must be filtered out.'
     );
-  }
-
-  @IsTest
-  static void flagsAddressesCarryingTheInvalidSuffix() {
-    User suffixed = buildUser('umvsfx', 'sfx@umv-test.example.com.invalid');
-    insert suffixed;
-
-    Test.startTest();
-    TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
-      new List<String>{ TestContext.BRAND },
-      TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
-      TEKCO_UserMailVerifySelector.SUFFIX_ALL,
-      500
+    Assert.isFalse(
+      unverifiedIds.contains(UserInfo.getUserId()),
+      'The running user must never appear: the same screen resets passwords.'
     );
-    Test.stopTest();
 
-    for (TEKCO_UserMailVerifySelector.UserRow row : result.rows) {
-      if (row.id == suffixed.Id) {
-        Assert.isTrue(
-          row.hasInvalidSuffix,
-          'A .invalid address must be flagged for the screen.'
-        );
-        return;
-      }
+    for (TEKCO_UserMailVerifySelector.UserRow row : verified.rows) {
+      Assert.isTrue(
+        row.isVerified == true,
+        'FILTER_VERIFIED must keep verified addresses only: ' + row.email
+      );
     }
-  }
-
-  @IsTest
-  static void suffixFilterKeepsOnlyInvalidAddresses() {
-    User suffixed = buildUser('umvsx', 'sx@umv-test.example.com.invalid');
-    User clean = buildUser('umvcl', 'cl@umv-test.example.com');
-    insert new List<User>{ suffixed, clean };
-
-    Test.startTest();
-    TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
-      new List<String>{ TestContext.BRAND },
-      TEKCO_UserMailVerifySelector.FILTER_ALL,
-      TEKCO_UserMailVerifySelector.SUFFIX_ONLY,
-      500
-    );
-    Test.stopTest();
-
-    for (TEKCO_UserMailVerifySelector.UserRow row : result.rows) {
+    for (TEKCO_UserMailVerifySelector.UserRow row : suffixOnly.rows) {
       Assert.isTrue(
         row.hasInvalidSuffix,
         'SUFFIX_ONLY must exclude clean addresses, found: ' + row.email
       );
     }
-  }
-
-  @IsTest
-  static void suffixFilterCanExcludeInvalidAddresses() {
-    User suffixed = buildUser('umvsy', 'sy@umv-test.example.com.invalid');
-    insert suffixed;
-
-    Test.startTest();
-    TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
-      new List<String>{ TestContext.BRAND },
-      TEKCO_UserMailVerifySelector.FILTER_ALL,
-      TEKCO_UserMailVerifySelector.SUFFIX_NONE,
-      500
-    );
-    Test.stopTest();
-
-    for (TEKCO_UserMailVerifySelector.UserRow row : result.rows) {
+    for (TEKCO_UserMailVerifySelector.UserRow row : suffixNone.rows) {
       Assert.isFalse(
         row.hasInvalidSuffix,
         'SUFFIX_NONE must exclude suffixed addresses, found: ' + row.email
       );
     }
-  }
-
-  @IsTest
-  static void reportsTruncationWhenTheCapIsHit() {
-    insertUsers(3);
-
-    Test.startTest();
-    TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findByBrands(
-      new List<String>{ TestContext.BRAND },
-      TEKCO_UserMailVerifySelector.FILTER_UNVERIFIED,
-      TEKCO_UserMailVerifySelector.SUFFIX_ALL,
-      1
+    Assert.isTrue(
+      idsOf(suffixOnly).contains(suffixed.Id),
+      'A .invalid address must be flagged and kept by SUFFIX_ONLY.'
     );
-    Test.stopTest();
 
-    if (result.totalCount > 1) {
+    Assert.isFalse(
+      uncapped.isTruncated,
+      'Without a cap nothing can be truncated.'
+    );
+    if (capped.totalCount > 1) {
       Assert.isTrue(
-        result.isTruncated,
+        capped.isTruncated,
         'Exceeding the display cap must be signalled.'
       );
       Assert.areEqual(
         1,
-        result.rows.size(),
+        capped.rows.size(),
         'The returned list must honour the cap.'
       );
     }
+
+    Assert.isNotNull(options, 'The brand picker must always get a list.');
+    Assert.isNotNull(realOrgFlag, 'The org flag must resolve to a value.');
+    Assert.isTrue(overridden, 'The test override must win over the org value.');
+  }
+
+  private static Set<Id> idsOf(
+    TEKCO_UserMailVerifySelector.UserListResult result
+  ) {
+    Set<Id> ids = new Set<Id>();
+    for (TEKCO_UserMailVerifySelector.UserRow row : result.rows) {
+      ids.add(row.id);
+    }
+    return ids;
   }
 }
