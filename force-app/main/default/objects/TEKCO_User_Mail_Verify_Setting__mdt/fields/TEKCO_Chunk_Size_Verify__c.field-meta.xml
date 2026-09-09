@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>TEKCO_Chunk_Size_Verify__c</fullName>
+    <label>Chunk Size Verify</label>
+    <required>false</required>
+    <precision>8</precision>
+    <scale>0</scale>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

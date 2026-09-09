@@ -21,7 +21,7 @@
  * System.resetPassword par transaction). Sans reset, 50 convient.
  */
 
-MassUserEmailVerificationBatch batch = new MassUserEmailVerificationBatch();
+TEKCO_MassUserEmailVerificationBatch batch = new TEKCO_MassUserEmailVerificationBatch();
 
 // --- Etape 1 : toujours commencer par une simulation ----------------------
 batch.dryRun = true;

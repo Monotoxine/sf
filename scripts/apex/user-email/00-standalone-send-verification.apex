@@ -5,7 +5,7 @@
  *   sf apex run --file scripts/apex/user-email/00-standalone-send-verification.apex
  *   ou copier/coller dans Developer Console > Debug > Open Execute Anonymous Window
  *
- * A utiliser si vous ne voulez pas deployer MassUserEmailVerificationBatch, ou
+ * A utiliser si vous ne voulez pas deployer TEKCO_MassUserEmailVerificationBatch, ou
  * pour un premier essai immediat. Le batch reste preferable pour un gros volume :
  * ce script travaille en une seule transaction, donc sous les limites synchrones.
  *

@@ -23,7 +23,7 @@ Creating a user through the API triggers **neither** of them.
 ## How a run works
 
 ```
-Selection ──► UserMailVerifyController ──► UserMailVerifyQueueable
+Selection ──► TEKCO_UserMailVerifyController ──► TEKCO_UserMailVerifyQueueable
                   (permission + cap)          chunk 1 ─► chunk 2 ─► ... ─► notification
 ```
 
@@ -45,26 +45,26 @@ the user clicks.
 ## Who can use it
 
 Access is granted by an assignment to the permission set named in
-`User_Mail_Verify_Setting__mdt` (the one granting the **TEKCO_RunTeamTools**
+`TEKCO_User_Mail_Verify_Setting__mdt` (the one granting the **TEKCO_RunTeamTools**
 app), or by Modify All Data.
 
 The check lives in Apex, not only on the tab. Apex reached from a Lightning Web
 Component runs in **system mode**, so hiding the tab is not an access control:
-without `UserMailVerifyAccess.assertAuthorized()`, anyone able to call the
+without `TEKCO_UserMailVerifyAccess.assertAuthorized()`, anyone able to call the
 controller could reset passwords in bulk.
 
 ## Configuration
 
-`User_Mail_Verify_Setting__mdt`, record `Default`:
+`TEKCO_User_Mail_Verify_Setting__mdt`, record `Default`:
 
-| Field                       | Default                       | Purpose                                                    |
-| --------------------------- | ----------------------------- | ---------------------------------------------------------- |
-| `Max_Users_Per_Run__c`      | 200                           | blocking per-run cap, enforced server-side                 |
-| `Chunk_Size_Verify__c`      | 50                            | verification chunk size                                    |
-| `Chunk_Size_Reset__c`       | 10                            | reset chunk size, **clamped** to 10 in code                |
-| `Max_Rows_Displayed__c`     | 500                           | list guardrail                                             |
-| `Access_Permission_Set__c`  | `TEKCO_RunTeamTools`          | permission set API name — **confirm this against the org** |
-| `Notification_Type_Name__c` | `UserMailVerify_Run_Complete` | notification type DeveloperName                            |
+| Field                             | Default                             | Purpose                                                    |
+| --------------------------------- | ----------------------------------- | ---------------------------------------------------------- |
+| `TEKCO_Max_Users_Per_Run__c`      | 200                                 | blocking per-run cap, enforced server-side                 |
+| `TEKCO_Chunk_Size_Verify__c`      | 50                                  | verification chunk size                                    |
+| `TEKCO_Chunk_Size_Reset__c`       | 10                                  | reset chunk size, **clamped** to 10 in code                |
+| `TEKCO_Max_Rows_Displayed__c`     | 500                                 | list guardrail                                             |
+| `TEKCO_Access_Permission_Set__c`  | `TEKCO_RunTeamTools`                | permission set API name — **confirm this against the org** |
+| `TEKCO_Notification_Type_Name__c` | `TEKCO_UserMailVerify_Run_Complete` | notification type DeveloperName                            |
 
 Every value falls back to a safe built-in default, so a missing or partially
 filled record cannot break the feature.
@@ -92,15 +92,15 @@ sf project retrieve start --manifest manifest/user-mail-verify-package.xml --tar
 
 Add `--dry-run` to validate without deploying.
 
-`MassUserEmailVerificationBatch` is listed in that manifest although it predates
-the tab: it now delegates its unit actions to `UserMailVerifyService` and no
+`TEKCO_MassUserEmailVerificationBatch` is listed in that manifest although it predates
+the tab: it now delegates its unit actions to `TEKCO_UserMailVerifyService` and no
 longer compiles without it.
 
 Then, in Setup:
 
 1. Add the **User Mail Verify** tab to the TEKCO_RunTeamTools app.
-2. Add the tab and the `UserMailVerify*` Apex classes to the permission set.
-3. Fill `Access_Permission_Set__c` with the real permission set API name.
+2. Add the tab and the `TEKCO_UserMailVerify*` Apex classes to the permission set.
+3. Fill `TEKCO_Access_Permission_Set__c` with the real permission set API name.
 4. Check `Setup → Deliverability → Access to Send Email` is **All email**. In a
    sandbox the default is `System email only`, which silently blocks every send
    while the run still reports success.
@@ -125,7 +125,7 @@ passwords, and locking yourself out of an admin tool is not recoverable.
 `WHERE` clause first and falls back to in-memory filtering, then to
 `TwoFactorMethodsInfo`, so the feature degrades instead of failing.
 
-**Platform calls sit behind `UserMailVerifyPerformer`.** Sending verifications,
+**Platform calls sit behind `TEKCO_UserMailVerifyPerformer`.** Sending verifications,
 resetting passwords and posting notifications cannot be exercised in a test
 context. The seam lets the orchestration be tested against a spy without sending
 mail or breaking credentials.
@@ -144,7 +144,7 @@ password resets becomes a requirement, that needs a persistence layer.
 
 ```bash
 npm run test:unit                                          # LWC
-sf apex run test --class-names UserMailVerify*_Test        # Apex
+sf apex run test --class-names TEKCO_UserMailVerify*_Test        # Apex
 ```
 
 `scripts/data/users-test-verification.csv` provisions throwaway users, and
