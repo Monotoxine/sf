@@ -1,14 +1,14 @@
 @IsTest
 private class TEKCO_UserMailVerifySelector_Test {
   @IsTest
-  static void returnsNothingWithoutABrand() {
+  static void returnsNothingWithoutBrands() {
     Test.startTest();
-    TEKCO_UserMailVerifySelector.UserListResult blank = TEKCO_UserMailVerifySelector.findUnverifiedByBrand(
+    TEKCO_UserMailVerifySelector.UserListResult blank = TEKCO_UserMailVerifySelector.findUnverifiedByBrands(
       null,
       500
     );
-    TEKCO_UserMailVerifySelector.UserListResult empty = TEKCO_UserMailVerifySelector.findUnverifiedByBrand(
-      '',
+    TEKCO_UserMailVerifySelector.UserListResult empty = TEKCO_UserMailVerifySelector.findUnverifiedByBrands(
+      new List<String>(),
       500
     );
     Test.stopTest();
@@ -16,22 +16,22 @@ private class TEKCO_UserMailVerifySelector_Test {
     Assert.areEqual(
       0,
       blank.rows.size(),
-      'A null brand must not scan every user.'
+      'A null brand list must not scan every user.'
     );
     Assert.areEqual(
       0,
       empty.rows.size(),
-      'A blank brand must not scan every user.'
+      'An empty brand list must not scan every user.'
     );
   }
 
   @IsTest
-  static void returnsNothingForAnUnknownBrand() {
+  static void returnsNothingForUnknownBrands() {
     TEKCO_UserMailVerifyTestUtil.insertUsers(2);
 
     Test.startTest();
-    TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findUnverifiedByBrand(
-      'UMV_BRAND_THAT_DOES_NOT_EXIST',
+    TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findUnverifiedByBrands(
+      new List<String>{ 'UMV_BRAND_THAT_DOES_NOT_EXIST' },
       500
     );
     Test.stopTest();
@@ -39,7 +39,7 @@ private class TEKCO_UserMailVerifySelector_Test {
     Assert.areEqual(
       0,
       result.rows.size(),
-      'An unmatched brand must return nothing.'
+      'Unmatched brands must return nothing.'
     );
   }
 
@@ -48,8 +48,8 @@ private class TEKCO_UserMailVerifySelector_Test {
     TEKCO_UserMailVerifyTestUtil.insertUsers(3);
 
     Test.startTest();
-    TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findUnverifiedByBrand(
-      TEKCO_UserMailVerifyTestUtil.testBrand(),
+    TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findUnverifiedByBrands(
+      new List<String>{ TEKCO_UserMailVerifyTestUtil.testBrand() },
       500
     );
     Test.stopTest();
@@ -70,8 +70,8 @@ private class TEKCO_UserMailVerifySelector_Test {
     update users[0];
 
     Test.startTest();
-    TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findUnverifiedByBrand(
-      TEKCO_UserMailVerifyTestUtil.testBrand(),
+    TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findUnverifiedByBrands(
+      new List<String>{ TEKCO_UserMailVerifyTestUtil.testBrand() },
       500
     );
     Test.stopTest();
@@ -95,8 +95,8 @@ private class TEKCO_UserMailVerifySelector_Test {
     insert suffixed;
 
     Test.startTest();
-    TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findUnverifiedByBrand(
-      TEKCO_UserMailVerifyTestUtil.testBrand(),
+    TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findUnverifiedByBrands(
+      new List<String>{ TEKCO_UserMailVerifyTestUtil.testBrand() },
       500
     );
     Test.stopTest();
@@ -119,8 +119,8 @@ private class TEKCO_UserMailVerifySelector_Test {
     TEKCO_UserMailVerifyTestUtil.insertUsers(3);
 
     Test.startTest();
-    TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findUnverifiedByBrand(
-      TEKCO_UserMailVerifyTestUtil.testBrand(),
+    TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findUnverifiedByBrands(
+      new List<String>{ TEKCO_UserMailVerifyTestUtil.testBrand() },
       1
     );
     Test.stopTest();

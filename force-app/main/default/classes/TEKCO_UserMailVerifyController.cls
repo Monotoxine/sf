@@ -62,12 +62,12 @@ public with sharing class TEKCO_UserMailVerifyController {
    */
   @AuraEnabled
   public static TEKCO_UserMailVerifySelector.UserListResult getUnverifiedUsers(
-    String brand
+    List<String> brands
   ) {
     try {
       TEKCO_UserMailVerifyAccess.assertAuthorized();
-      return TEKCO_UserMailVerifySelector.findUnverifiedByBrand(
-        brand,
+      return TEKCO_UserMailVerifySelector.findUnverifiedByBrands(
+        brands,
         TEKCO_UserMailVerifyConstants.MAX_ROWS_DISPLAYED
       );
     } catch (Exception e) {

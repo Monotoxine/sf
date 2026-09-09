@@ -1,6 +1,7 @@
 # User Mail Verify
 
 An admin tab for bulk email verification and password reset, filtered by brand.
+Several brands can be processed in one pass.
 
 ## Why it exists
 
@@ -131,6 +132,10 @@ Not in this repository, expected to exist in the org:
 **Frozen users** are resolved through `UserLogin` filtered on `IsFrozen = true`,
 never `IsFrozen = false`: a user with no `UserLogin` record is not frozen, and
 the negative filter would wrongly drop them.
+
+**Brands are picked several at a time**, through a dual listbox. The rows carry a
+Brand column, since a list can now mix them, and the query orders by brand before
+name.
 
 **The search box filters client-side.** The rows for one brand are already
 loaded, so a server round-trip per keystroke would buy nothing. It matches on

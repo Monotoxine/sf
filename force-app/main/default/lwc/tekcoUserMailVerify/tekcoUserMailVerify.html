@@ -1,14 +1,16 @@
 <template>
   <lightning-card title="User Mail Verify" icon-name="standard:email">
     <div class="slds-var-p-horizontal_medium slds-var-p-bottom_medium">
-      <lightning-combobox
-        name="brand"
-        label="Brand"
-        placeholder="Select a brand"
+      <lightning-dual-listbox
+        data-id="brands"
+        name="brands"
+        label="Brands"
+        source-label="Available"
+        selected-label="Selected"
         options={brandOptions}
-        value={selectedBrand}
+        value={selectedBrands}
         onchange={handleBrandChange}
-      ></lightning-combobox>
+      ></lightning-dual-listbox>
 
       <template if:true={hasNoBrands}>
         <div class="slds-var-m-top_small slds-text-color_weak">

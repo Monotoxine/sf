@@ -39,7 +39,7 @@ private class TEKCO_UserMailVerifyController_Test {
       TEKCO_UserMailVerifyAccess.clearCache();
       try {
         TEKCO_UserMailVerifyController.getUnverifiedUsers(
-          TEKCO_UserMailVerifyTestUtil.testBrand()
+          new List<String>{ TEKCO_UserMailVerifyTestUtil.testBrand() }
         );
       } catch (Exception e) {
         refused = true;

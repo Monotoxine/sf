@@ -47,6 +47,7 @@ const USERS = {
       email: "ada@example.com",
       profileName: "Standard User",
       createdDate: "2026-01-01T00:00:00.000Z",
+      brand: "ACME",
       hasInvalidSuffix: false
     },
     {
@@ -56,6 +57,7 @@ const USERS = {
       email: "alan@example.com.invalid",
       profileName: "Standard User",
       createdDate: "2026-01-02T00:00:00.000Z",
+      brand: "GLOBEX",
       hasInvalidSuffix: true
     }
   ],
@@ -71,10 +73,10 @@ function createComponent() {
   return element;
 }
 
-async function selectBrand(element, brand = "ACME") {
-  const combobox = element.shadowRoot.querySelector("lightning-combobox");
-  combobox.dispatchEvent(
-    new CustomEvent("change", { detail: { value: brand } })
+async function selectBrands(element, brands = ["ACME"]) {
+  const listbox = element.shadowRoot.querySelector("lightning-dual-listbox");
+  listbox.dispatchEvent(
+    new CustomEvent("change", { detail: { value: brands } })
   );
   await Promise.resolve();
   await Promise.resolve();
@@ -88,7 +90,7 @@ describe("c-tekco-user-mail-verify", () => {
     jest.clearAllMocks();
   });
 
-  it("fills the brand combobox from Apex", async () => {
+  it("fills the brand picker from Apex", async () => {
     const element = createComponent();
 
     getBrands.emit([
@@ -97,8 +99,8 @@ describe("c-tekco-user-mail-verify", () => {
     ]);
     await Promise.resolve();
 
-    const combobox = element.shadowRoot.querySelector("lightning-combobox");
-    expect(combobox.options).toEqual([
+    const listbox = element.shadowRoot.querySelector("lightning-dual-listbox");
+    expect(listbox.options).toEqual([
       { label: "Acme", value: "ACME" },
       { label: "Globex", value: "GLOBEX" }
     ]);
@@ -108,7 +110,7 @@ describe("c-tekco-user-mail-verify", () => {
     getUnverifiedUsers.mockResolvedValue(USERS);
     const element = createComponent();
 
-    await selectBrand(element);
+    await selectBrands(element);
 
     // getSettings never emits here, so isSandbox stays false.
     const labels = Array.from(
@@ -116,6 +118,17 @@ describe("c-tekco-user-mail-verify", () => {
     ).map((b) => b.label);
     expect(labels).toContain("Verify");
     expect(labels).not.toContain("Verify and reset password");
+  });
+
+  it("queries every selected brand at once", async () => {
+    getUnverifiedUsers.mockResolvedValue(USERS);
+    const element = createComponent();
+
+    await selectBrands(element, ["ACME", "GLOBEX"]);
+
+    expect(getUnverifiedUsers).toHaveBeenCalledWith({
+      brands: ["ACME", "GLOBEX"]
+    });
   });
 
   it("shows no table before a brand is chosen", () => {
@@ -127,9 +140,9 @@ describe("c-tekco-user-mail-verify", () => {
     getUnverifiedUsers.mockResolvedValue(USERS);
     const element = createComponent();
 
-    await selectBrand(element);
+    await selectBrands(element);
 
-    expect(getUnverifiedUsers).toHaveBeenCalledWith({ brand: "ACME" });
+    expect(getUnverifiedUsers).toHaveBeenCalledWith({ brands: ["ACME"] });
     const table = element.shadowRoot.querySelector("lightning-datatable");
     expect(table).not.toBeNull();
     expect(table.data).toHaveLength(2);
@@ -139,7 +152,7 @@ describe("c-tekco-user-mail-verify", () => {
     getUnverifiedUsers.mockResolvedValue(USERS);
     const element = createComponent();
 
-    await selectBrand(element);
+    await selectBrands(element);
 
     const table = element.shadowRoot.querySelector("lightning-datatable");
     expect(table.data[0].invalidLabel).toBe("");
@@ -150,7 +163,7 @@ describe("c-tekco-user-mail-verify", () => {
     getUnverifiedUsers.mockResolvedValue(USERS);
     const element = createComponent();
 
-    await selectBrand(element);
+    await selectBrands(element);
 
     const buttons = element.shadowRoot.querySelectorAll("lightning-button");
     const verify = Array.from(buttons).find((b) => b.label === "Verify");
@@ -165,7 +178,7 @@ describe("c-tekco-user-mail-verify", () => {
     });
     const element = createComponent();
 
-    await selectBrand(element);
+    await selectBrands(element);
 
     const table = element.shadowRoot.querySelector("lightning-datatable");
     table.dispatchEvent(
@@ -188,7 +201,7 @@ describe("c-tekco-user-mail-verify", () => {
   it("filters the table on the search term", async () => {
     getUnverifiedUsers.mockResolvedValue(USERS);
     const element = createComponent();
-    await selectBrand(element);
+    await selectBrands(element);
 
     const search = element.shadowRoot.querySelector(
       'lightning-input[data-id="search"]'
@@ -205,7 +218,7 @@ describe("c-tekco-user-mail-verify", () => {
   it("keeps a selection made before filtering", async () => {
     getUnverifiedUsers.mockResolvedValue(USERS);
     const element = createComponent();
-    await selectBrand(element);
+    await selectBrands(element);
 
     const table = element.shadowRoot.querySelector("lightning-datatable");
     table.dispatchEvent(
@@ -246,7 +259,7 @@ describe("c-tekco-user-mail-verify", () => {
     });
     const element = createComponent();
 
-    await selectBrand(element);
+    await selectBrands(element);
 
     expect(element.shadowRoot.textContent).toContain("Access denied");
   });

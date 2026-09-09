@@ -13,6 +13,7 @@ const COLUMNS = [
   { label: "Username", fieldName: "username", type: "text" },
   { label: "Email", fieldName: "email", type: "email" },
   { label: "Profile", fieldName: "profileName", type: "text" },
+  { label: "Brand", fieldName: "brand", type: "text" },
   {
     label: "Created",
     fieldName: "createdDate",
@@ -34,7 +35,7 @@ export default class TekcoUserMailVerify extends LightningElement {
   @track rows = [];
   @track brandOptions = [];
 
-  selectedBrand;
+  selectedBrands = [];
   selectedIds = [];
   isLoading = false;
   isRunning = false;
@@ -111,9 +112,13 @@ export default class TekcoUserMailVerify extends LightningElement {
     return this.rows.length > 0;
   }
 
+  get hasBrandSelection() {
+    return this.selectedBrands.length > 0;
+  }
+
   get showEmptyState() {
     return (
-      !!this.selectedBrand &&
+      this.hasBrandSelection &&
       !this.isLoading &&
       !this.hasRows &&
       !this.errorMessage
@@ -149,7 +154,7 @@ export default class TekcoUserMailVerify extends LightningElement {
   }
 
   handleBrandChange(event) {
-    this.selectedBrand = event.detail.value;
+    this.selectedBrands = event.detail.value || [];
     this.loadUsers();
   }
 
@@ -202,7 +207,7 @@ export default class TekcoUserMailVerify extends LightningElement {
   }
 
   async loadUsers() {
-    if (!this.selectedBrand) {
+    if (!this.hasBrandSelection) {
       return;
     }
     this.isLoading = true;
@@ -210,7 +215,7 @@ export default class TekcoUserMailVerify extends LightningElement {
     this.selectedIds = [];
     this.searchTerm = "";
     try {
-      const result = await getUnverifiedUsers({ brand: this.selectedBrand });
+      const result = await getUnverifiedUsers({ brands: this.selectedBrands });
       this.rows = result.rows.map((row) => ({
         ...row,
         invalidLabel: row.hasInvalidSuffix ? "Yes" : "",

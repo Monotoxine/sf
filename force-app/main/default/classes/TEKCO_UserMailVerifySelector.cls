@@ -32,6 +32,8 @@ public with sharing class TEKCO_UserMailVerifySelector {
     @AuraEnabled
     public Datetime createdDate;
     @AuraEnabled
+    public String brand;
+    @AuraEnabled
     public Boolean hasInvalidSuffix;
   }
 
@@ -115,16 +117,20 @@ public with sharing class TEKCO_UserMailVerifySelector {
     return verifiedFieldCache;
   }
 
-  public static UserListResult findUnverifiedByBrand(
-    String brand,
+  public static UserListResult findUnverifiedByBrands(
+    List<String> brands,
     Integer maxRows
   ) {
     UserListResult result = new UserListResult();
-    if (String.isBlank(brand)) {
+    if (brands == null || brands.isEmpty()) {
+      return result;
+    }
+    // The brand field itself may be missing; say nothing rather than throw.
+    if (Schema.SObjectType.User.fields.getMap().get(BRAND_FIELD) == null) {
       return result;
     }
 
-    List<User> candidates = queryCandidates(brand);
+    List<User> candidates = queryCandidates(brands);
     if (candidates.isEmpty()) {
       return result;
     }
@@ -159,16 +165,20 @@ public with sharing class TEKCO_UserMailVerifySelector {
     return result;
   }
 
-  private static List<User> queryCandidates(String brand) {
-    String fields = 'Id, Name, Username, Email, Profile.Name, CreatedDate';
+  private static List<User> queryCandidates(List<String> brands) {
+    String fields =
+      'Id, Name, Username, Email, Profile.Name, CreatedDate, ' + BRAND_FIELD;
     if (hasVerifiedField()) {
       fields += ', HasUserVerifiedEmail';
     }
     String base =
       'SELECT ' +
       fields +
-      ' FROM User WHERE IsActive = true AND Email != null AND TEKCO_Brand__c = :brand';
-    String tail = ' ORDER BY Name LIMIT ' + QUERY_CEILING;
+      ' FROM User WHERE IsActive = true AND Email != null AND ' +
+      BRAND_FIELD +
+      ' IN :brands';
+    // Ordered by brand first: rows from several brands are shown together.
+    String tail = ' ORDER BY ' + BRAND_FIELD + ', Name LIMIT ' + QUERY_CEILING;
 
     if (hasVerifiedField()) {
       // Filtering at source is cheaper, but HasUserVerifiedEmail is not
@@ -257,6 +267,7 @@ public with sharing class TEKCO_UserMailVerifySelector {
     row.email = u.Email;
     row.profileName = u.Profile == null ? null : u.Profile.Name;
     row.createdDate = u.CreatedDate;
+    row.brand = (String) u.get(BRAND_FIELD);
     row.hasInvalidSuffix =
       u.Email != null && u.Email.endsWithIgnoreCase('.invalid');
     return row;
