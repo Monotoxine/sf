@@ -7,15 +7,23 @@
   font-style: italic;
 }
 
-/* The query filters read as one centred block; the table below stays full
+/* The query filters read as one centred block. The table below stays full
    width, so they are not stretched to match it. */
 .umv-filters {
   margin-inline: auto;
-  max-width: 34rem;
+  max-width: 30rem;
 }
 
-/* Narrow on purpose: it only narrows what is already displayed, so it should
-   not carry the visual weight of the filters that build the query. */
+.umv-filters-title {
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Narrow on purpose: search only narrows what is already displayed, so it
+   should not carry the visual weight of the filters that build the query.
+   Constrained on a wrapper rather than the base component, whose own layout
+   would otherwise win. */
 .umv-search {
-  max-width: 20rem;
+  max-width: 18rem;
 }
