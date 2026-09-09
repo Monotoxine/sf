@@ -14,16 +14,6 @@
   max-width: 30rem;
 }
 
-/* Rendered here rather than styled inside the base component: CSS does not
-   reach into a shadow root under native shadow DOM. The component keeps its
-   own label for assistive technology, so this one is hidden from it. */
-.umv-label {
-  display: block;
-  font-weight: 700;
-  font-size: 0.75rem;
-  line-height: 1.5;
-}
-
 .umv-search-row {
   display: flex;
   justify-content: flex-end;

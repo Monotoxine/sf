@@ -14,31 +14,25 @@
           onchange={handleBrandChange}
         ></lightning-dual-listbox>
 
-        <div class="slds-var-m-top_x-small">
-          <span class="umv-label" aria-hidden="true">Status</span>
-          <lightning-combobox
-            data-id="verification"
-            name="verification"
-            label="Status"
-            variant="label-hidden"
-            options={verificationOptions}
-            value={verificationFilter}
-            onchange={handleVerificationChange}
-          ></lightning-combobox>
-        </div>
+        <lightning-combobox
+          class="slds-var-m-top_x-small"
+          data-id="verification"
+          name="verification"
+          label="Status"
+          options={verificationOptions}
+          value={verificationFilter}
+          onchange={handleVerificationChange}
+        ></lightning-combobox>
 
-        <div class="slds-var-m-top_x-small">
-          <span class="umv-label" aria-hidden="true">Address</span>
-          <lightning-combobox
-            data-id="suffix"
-            name="suffix"
-            label="Address"
-            variant="label-hidden"
-            options={suffixOptions}
-            value={suffixFilter}
-            onchange={handleSuffixChange}
-          ></lightning-combobox>
-        </div>
+        <lightning-combobox
+          class="slds-var-m-top_x-small"
+          data-id="suffix"
+          name="suffix"
+          label="Address"
+          options={suffixOptions}
+          value={suffixFilter}
+          onchange={handleSuffixChange}
+        ></lightning-combobox>
       </div>
 
       <template if:true={hasNoBrands}>
