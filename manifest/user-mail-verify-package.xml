@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
 	<types>
-		<members>TEKCO_MassUserEmailVerificationBatch</members>
-		<members>TEKCO_MassUserEmailVerificationBatch_Test</members>
+		<members>TEKCO_UserMailVerifyBatch</members>
+		<members>TEKCO_UserMailVerifyBatch_Test</members>
 		<members>TEKCO_UserMailVerifyAccess</members>
 		<members>TEKCO_UserMailVerifyAccess_Test</members>
 		<members>TEKCO_UserMailVerifyConstants</members>

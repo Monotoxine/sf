@@ -96,7 +96,7 @@ sf project retrieve start --manifest manifest/user-mail-verify-package.xml --tar
 
 Add `--dry-run` to validate without deploying.
 
-`TEKCO_MassUserEmailVerificationBatch` is listed in that manifest although it predates
+`TEKCO_UserMailVerifyBatch` is listed in that manifest although it predates
 the tab: it now delegates its unit actions to `TEKCO_UserMailVerifyService` and no
 longer compiles without it.
 

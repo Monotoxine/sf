@@ -33,7 +33,7 @@
  * interface, "Generate new password and notify user immediately" covers that
  * second need; in bulk, enable sendPasswordReset:
  *
- *   TEKCO_MassUserEmailVerificationBatch b = new TEKCO_MassUserEmailVerificationBatch();
+ *   TEKCO_UserMailVerifyBatch b = new TEKCO_UserMailVerifyBatch();
  *   b.sendPasswordReset = true;
  *   Database.executeBatch(b, 10);   // <-- 10, mandatory, see below
  *
@@ -49,15 +49,15 @@
  * EXAMPLES
  * --------
  * Every active, unverified user:
- *   Database.executeBatch(new TEKCO_MassUserEmailVerificationBatch(), 50);
+ *   Database.executeBatch(new TEKCO_UserMailVerifyBatch(), 50);
  *
  * Only the batch loaded today by the integration:
- *   TEKCO_MassUserEmailVerificationBatch b = new TEKCO_MassUserEmailVerificationBatch();
+ *   TEKCO_UserMailVerifyBatch b = new TEKCO_UserMailVerifyBatch();
  *   b.createdSince = System.now().addDays(-1);
  *   Database.executeBatch(b, 50);
  *
  * An explicit list of ids (pilot run):
- *   TEKCO_MassUserEmailVerificationBatch b = new TEKCO_MassUserEmailVerificationBatch();
+ *   TEKCO_UserMailVerifyBatch b = new TEKCO_UserMailVerifyBatch();
  *   b.userIds = new Set<Id>{ '005...' };
  *   Database.executeBatch(b, 50);
  *
@@ -67,7 +67,7 @@
  * applies to external addresses only: take it into account for an Experience
  * Cloud user base.
  */
-public with sharing class TEKCO_MassUserEmailVerificationBatch implements Database.Batchable<sObject>, Database.Stateful {
+public with sharing class TEKCO_UserMailVerifyBatch implements Database.Batchable<sObject>, Database.Stateful {
   /** Restricts the run to users whose email is not verified yet. */
   public Boolean onlyUnverified = true;
 
@@ -286,7 +286,7 @@ public with sharing class TEKCO_MassUserEmailVerificationBatch implements Databa
   }
 
   public void finish(Database.BatchableContext ctx) {
-    System.debug('TEKCO_MassUserEmailVerificationBatch finished.');
+    System.debug('TEKCO_UserMailVerifyBatch finished.');
     System.debug('  Verification links sent : ' + sentCount);
     System.debug('  Passwords reset         : ' + resetCount);
     System.debug('  Skipped (already done)  : ' + skippedCount);

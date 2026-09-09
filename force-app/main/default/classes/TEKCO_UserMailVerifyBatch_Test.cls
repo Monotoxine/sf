@@ -1,5 +1,5 @@
 @IsTest
-private class TEKCO_MassUserEmailVerificationBatch_Test {
+private class TEKCO_UserMailVerifyBatch_Test {
   private static final String TEST_DOMAIN = 'masstest.example.com';
 
   private static User buildUser(String alias) {
@@ -23,7 +23,7 @@ private class TEKCO_MassUserEmailVerificationBatch_Test {
     User u = buildUser('mvt1');
     insert u;
 
-    TEKCO_MassUserEmailVerificationBatch batch = new TEKCO_MassUserEmailVerificationBatch();
+    TEKCO_UserMailVerifyBatch batch = new TEKCO_UserMailVerifyBatch();
     batch.dryRun = true;
     batch.onlyUnverified = false;
     batch.emailDomainFilter = TEST_DOMAIN;
@@ -49,7 +49,7 @@ private class TEKCO_MassUserEmailVerificationBatch_Test {
     User other = buildUser('mvt3');
     insert new List<User>{ target, other };
 
-    TEKCO_MassUserEmailVerificationBatch batch = new TEKCO_MassUserEmailVerificationBatch();
+    TEKCO_UserMailVerifyBatch batch = new TEKCO_UserMailVerifyBatch();
     batch.dryRun = true;
     batch.onlyUnverified = false;
     batch.userIds = new Set<Id>{ target.Id };
@@ -72,7 +72,7 @@ private class TEKCO_MassUserEmailVerificationBatch_Test {
     User u = buildUser('mvt4');
     insert u;
 
-    TEKCO_MassUserEmailVerificationBatch batch = new TEKCO_MassUserEmailVerificationBatch();
+    TEKCO_UserMailVerifyBatch batch = new TEKCO_UserMailVerifyBatch();
     batch.dryRun = true;
     batch.onlyUnverified = false;
     batch.emailDomainFilter = TEST_DOMAIN;
@@ -95,7 +95,7 @@ private class TEKCO_MassUserEmailVerificationBatch_Test {
     u.Email = u.Email + '.invalid';
     insert u;
 
-    TEKCO_MassUserEmailVerificationBatch batch = new TEKCO_MassUserEmailVerificationBatch();
+    TEKCO_UserMailVerifyBatch batch = new TEKCO_UserMailVerifyBatch();
     batch.dryRun = true;
     batch.onlyUnverified = false;
     batch.emailDomainFilter = TEST_DOMAIN + '.invalid';
@@ -117,7 +117,7 @@ private class TEKCO_MassUserEmailVerificationBatch_Test {
     u.Email = u.Email + '.invalid';
     insert u;
 
-    TEKCO_MassUserEmailVerificationBatch batch = new TEKCO_MassUserEmailVerificationBatch();
+    TEKCO_UserMailVerifyBatch batch = new TEKCO_UserMailVerifyBatch();
     batch.dryRun = true;
     batch.onlyUnverified = false;
     batch.includeInvalidAddresses = false;
@@ -137,7 +137,7 @@ private class TEKCO_MassUserEmailVerificationBatch_Test {
 
   @IsTest
   static void passwordResetIsOffByDefault() {
-    TEKCO_MassUserEmailVerificationBatch batch = new TEKCO_MassUserEmailVerificationBatch();
+    TEKCO_UserMailVerifyBatch batch = new TEKCO_UserMailVerifyBatch();
 
     System.assertEquals(
       false,
@@ -157,7 +157,7 @@ private class TEKCO_MassUserEmailVerificationBatch_Test {
     User u = buildUser('mvt8');
     insert u;
 
-    TEKCO_MassUserEmailVerificationBatch batch = new TEKCO_MassUserEmailVerificationBatch();
+    TEKCO_UserMailVerifyBatch batch = new TEKCO_UserMailVerifyBatch();
     batch.dryRun = true;
     batch.onlyUnverified = false;
     batch.sendPasswordReset = true;
@@ -180,7 +180,7 @@ private class TEKCO_MassUserEmailVerificationBatch_Test {
 
   @IsTest
   static void passwordResetInProductionIsGuarded() {
-    TEKCO_MassUserEmailVerificationBatch batch = new TEKCO_MassUserEmailVerificationBatch();
+    TEKCO_UserMailVerifyBatch batch = new TEKCO_UserMailVerifyBatch();
 
     System.assertEquals(
       false,
@@ -200,7 +200,7 @@ private class TEKCO_MassUserEmailVerificationBatch_Test {
     User u = buildUser('mvt6');
     insert u;
 
-    TEKCO_MassUserEmailVerificationBatch batch = new TEKCO_MassUserEmailVerificationBatch();
+    TEKCO_UserMailVerifyBatch batch = new TEKCO_UserMailVerifyBatch();
     batch.dryRun = true;
     batch.onlyUnverified = true;
     batch.emailDomainFilter = TEST_DOMAIN;

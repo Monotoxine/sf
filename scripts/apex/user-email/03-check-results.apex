@@ -9,12 +9,12 @@
  */
 
 // --- 1. Etat des derniers batchs lances -----------------------------------
-System.debug('=== DERNIERS JOBS TEKCO_MassUserEmailVerificationBatch ===');
+System.debug('=== DERNIERS JOBS TEKCO_UserMailVerifyBatch ===');
 for (AsyncApexJob j : [
     SELECT Id, Status, JobItemsProcessed, TotalJobItems, NumberOfErrors,
            ExtendedStatus, CreatedDate, CompletedDate
     FROM AsyncApexJob
-    WHERE ApexClass.Name = 'TEKCO_MassUserEmailVerificationBatch'
+    WHERE ApexClass.Name = 'TEKCO_UserMailVerifyBatch'
     ORDER BY CreatedDate DESC
     LIMIT 5
 ]) {

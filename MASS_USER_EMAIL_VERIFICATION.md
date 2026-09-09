@@ -33,7 +33,7 @@ System.UserManagement.sendAsyncEmailConfirmation(
 
 C'est **exactement l'action du bouton Verify**, appelable par code. Reste à
 l'appeler pour N utilisateurs sans exploser les limites : c'est le rôle de
-`TEKCO_MassUserEmailVerificationBatch`.
+`TEKCO_UserMailVerifyBatch`.
 
 Le batch **ne modifie aucune adresse email**. Il envoie les liens, les
 utilisateurs cliquent une fois, et passent en `Email Verified`.
@@ -42,15 +42,15 @@ utilisateurs cliquent une fois, et passent en `Email Verified`.
 
 ## Déploiement
 
-⚠️ **`Invalid type: TEKCO_MassUserEmailVerificationBatch` ?** La classe n'est pas encore
+⚠️ **`Invalid type: TEKCO_UserMailVerifyBatch` ?** La classe n'est pas encore
 dans l'org. Un script anonyme ne peut référencer qu'une classe déjà déployée.
 
 ```bash
 sf project deploy start \
-  --source-dir force-app/main/default/classes/TEKCO_MassUserEmailVerificationBatch.cls \
-  --source-dir force-app/main/default/classes/TEKCO_MassUserEmailVerificationBatch.cls-meta.xml \
-  --source-dir force-app/main/default/classes/TEKCO_MassUserEmailVerificationBatch_Test.cls \
-  --source-dir force-app/main/default/classes/TEKCO_MassUserEmailVerificationBatch_Test.cls-meta.xml \
+  --source-dir force-app/main/default/classes/TEKCO_UserMailVerifyBatch.cls \
+  --source-dir force-app/main/default/classes/TEKCO_UserMailVerifyBatch.cls-meta.xml \
+  --source-dir force-app/main/default/classes/TEKCO_UserMailVerifyBatch_Test.cls \
+  --source-dir force-app/main/default/classes/TEKCO_UserMailVerifyBatch_Test.cls-meta.xml \
   --target-org <alias>
 ```
 
@@ -58,7 +58,7 @@ En **production**, le déploiement exige l'exécution des tests :
 
 ```bash
 sf project deploy start --source-dir force-app/main/default/classes \
-  --test-level RunSpecifiedTests --tests TEKCO_MassUserEmailVerificationBatch_Test \
+  --test-level RunSpecifiedTests --tests TEKCO_UserMailVerifyBatch_Test \
   --target-org <alias>
 ```
 
@@ -92,7 +92,7 @@ délivrabilité à contrôler.
 ### 2. Simuler
 
 ```apex
-TEKCO_MassUserEmailVerificationBatch b = new TEKCO_MassUserEmailVerificationBatch();
+TEKCO_UserMailVerifyBatch b = new TEKCO_UserMailVerifyBatch();
 b.dryRun = true;              // compte les cibles, n'envoie rien
 b.onlyUnverified = true;
 Database.executeBatch(b, 50);
@@ -114,7 +114,7 @@ après le clic.
 ### 4. Le lot chargé par l'intégration
 
 ```apex
-TEKCO_MassUserEmailVerificationBatch b = new TEKCO_MassUserEmailVerificationBatch();
+TEKCO_UserMailVerifyBatch b = new TEKCO_UserMailVerifyBatch();
 b.createdSince = System.now().addDays(-1);
 Database.executeBatch(b, 50);
 ```
@@ -124,7 +124,7 @@ C'est le mode à câbler en routine après chaque chargement Talend.
 ### 5. Rattrapage de tout le parc
 
 ```apex
-Database.executeBatch(new TEKCO_MassUserEmailVerificationBatch(), 50);
+Database.executeBatch(new TEKCO_UserMailVerifyBatch(), 50);
 ```
 
 Script prêt à l'emploi et commenté :
@@ -175,7 +175,7 @@ l'interface, la case _Generate new password and notify user immediately_ couvre 
 second. En masse :
 
 ```apex
-TEKCO_MassUserEmailVerificationBatch b = new TEKCO_MassUserEmailVerificationBatch();
+TEKCO_UserMailVerifyBatch b = new TEKCO_UserMailVerifyBatch();
 b.sendVerification  = true;
 b.sendPasswordReset = true;
 b.createdSince = System.now().addDays(-1);
@@ -364,7 +364,7 @@ du suffixe déjà en place.
 //    -> 04-prepare-test-users.apex, section 4
 
 // b. lancer la vérification sur eux seuls
-TEKCO_MassUserEmailVerificationBatch b = new TEKCO_MassUserEmailVerificationBatch();
+TEKCO_UserMailVerifyBatch b = new TEKCO_UserMailVerifyBatch();
 b.emailDomainFilter = 'gmail.com';     // ou userIds
 Database.executeBatch(b, 50);
 
