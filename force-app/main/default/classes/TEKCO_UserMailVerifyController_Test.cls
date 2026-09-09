@@ -37,7 +37,7 @@ private class TEKCO_UserMailVerifyController_Test {
     }
 
     Assert.areEqual(
-      3,
+      TEKCO_UserMailVerifyConstants.MAX_USERS_PER_RUN,
       settings.maxUsersPerRun,
       'The screen must receive the configured cap.'
     );
