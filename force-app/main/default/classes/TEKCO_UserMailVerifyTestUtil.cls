@@ -75,7 +75,7 @@ public class TEKCO_UserMailVerifyTestUtil {
    */
   public static void useAccessPermissionSet(String permissionSetName) {
     TEKCO_UserMailVerifyConstants.permissionSetOverride = permissionSetName;
-    TEKCO_UserMailVerifyAccess.clearCache();
+    TEKCO_UserMailVerifyController.clearAccessCache();
   }
 
   public static User buildUser(String alias, String email) {

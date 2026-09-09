@@ -3,8 +3,6 @@
 	<types>
 		<members>TEKCO_UserMailVerifyBatch</members>
 		<members>TEKCO_UserMailVerifyBatch_Test</members>
-		<members>TEKCO_UserMailVerifyAccess</members>
-		<members>TEKCO_UserMailVerifyAccess_Test</members>
 		<members>TEKCO_UserMailVerifyConstants</members>
 		<members>TEKCO_UserMailVerifyController</members>
 		<members>TEKCO_UserMailVerifyController_Test</members>

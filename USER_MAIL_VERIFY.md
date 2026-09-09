@@ -60,7 +60,7 @@ Access is granted by an assignment to the permission set named in
 
 The check lives in Apex, not only on the tab. Apex reached from a Lightning Web
 Component runs in **system mode**, so hiding the tab is not an access control:
-without `TEKCO_UserMailVerifyAccess.assertAuthorized()`, anyone able to call the
+without the guard in `TEKCO_UserMailVerifyController`, anyone able to call the
 controller could reset passwords in bulk.
 
 ## Fixed values
