@@ -140,10 +140,10 @@ address, an already verified user is a legitimate target for a reset, and the
 screen has to be able to show them. A Verified column reports the state per row,
 with `?` when the org exposes no signal.
 
-The three controls share one responsive row, and the brand picker is capped at
-four visible entries: at full height it took as much room as the table it filters.
-On a narrow screen the row wraps, brands on their own line and the two others
-side by side.
+Brands and status are stacked in a half-width column, the picker capped at four
+visible entries: at full height it took as much room as the table it filters.
+The search box sits directly above the table instead, so it reads as belonging
+to the list it narrows rather than to the query that built it.
 
 **Brands are picked several at a time**, through a dual listbox. The rows carry a
 Brand column, since a list can now mix them, and the query orders by brand before

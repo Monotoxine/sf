@@ -6,11 +6,3 @@
 .umv-truncation {
   font-style: italic;
 }
-
-/* The dual listbox is the tallest control on the page; align the two shorter
-   ones with its list rather than letting them float at the top of the row. */
-.umv-filters .slds-col {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-}

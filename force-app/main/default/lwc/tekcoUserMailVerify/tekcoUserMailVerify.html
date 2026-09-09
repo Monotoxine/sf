@@ -1,8 +1,8 @@
 <template>
   <lightning-card title="User Mail Verify" icon-name="standard:email">
     <div class="slds-var-p-horizontal_medium slds-var-p-bottom_medium">
-      <div class="slds-grid slds-wrap slds-gutters_x-small umv-filters">
-        <div class="slds-col slds-size_1-of-1 slds-medium-size_5-of-12">
+      <div class="slds-grid slds-wrap umv-filters">
+        <div class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12">
           <lightning-dual-listbox
             data-id="brands"
             name="brands"
@@ -14,10 +14,9 @@
             value={selectedBrands}
             onchange={handleBrandChange}
           ></lightning-dual-listbox>
-        </div>
 
-        <div class="slds-col slds-size_1-of-2 slds-medium-size_3-of-12">
           <lightning-combobox
+            class="slds-var-m-top_x-small"
             data-id="verification"
             name="verification"
             label="Status"
@@ -25,17 +24,6 @@
             value={verificationFilter}
             onchange={handleVerificationChange}
           ></lightning-combobox>
-        </div>
-
-        <div class="slds-col slds-size_1-of-2 slds-medium-size_4-of-12">
-          <lightning-input
-            data-id="search"
-            type="search"
-            label="Search"
-            placeholder="Name, username, email…"
-            value={searchTerm}
-            onchange={handleSearch}
-          ></lightning-input>
         </div>
       </div>
 
@@ -74,13 +62,24 @@
           </div>
         </template>
 
+        <lightning-input
+          class="slds-var-m-top_medium"
+          data-id="search"
+          type="search"
+          label="Search"
+          variant="label-hidden"
+          placeholder="Search this list by name, username, email or brand"
+          value={searchTerm}
+          onchange={handleSearch}
+        ></lightning-input>
+
         <template if:true={hasNoMatch}>
-          <div class="slds-var-m-top_small slds-text-color_weak">
+          <div class="slds-var-m-top_x-small slds-text-color_weak">
             No user matches this search.
           </div>
         </template>
 
-        <div class="slds-var-m-top_small umv-table">
+        <div class="slds-var-m-top_xx-small umv-table">
           <lightning-datatable
             key-field="id"
             data={filteredRows}
