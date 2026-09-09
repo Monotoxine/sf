@@ -63,7 +63,7 @@ public with sharing class TEKCO_UserMailVerifyController {
     try {
       validateSelection(userIds);
       return toResult(
-        TEKCO_UserMailVerifyQueueable.startVerification(userIds),
+        TEKCO_UserMailVerify_QBL.startVerification(userIds),
         userIds.size()
       );
     } catch (Exception e) {
@@ -77,7 +77,7 @@ public with sharing class TEKCO_UserMailVerifyController {
       assertResetAllowed();
       validateSelection(userIds);
       return toResult(
-        TEKCO_UserMailVerifyQueueable.startPasswordReset(userIds),
+        TEKCO_UserMailVerify_QBL.startPasswordReset(userIds),
         userIds.size()
       );
     } catch (Exception e) {

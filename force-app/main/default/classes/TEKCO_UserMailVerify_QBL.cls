@@ -1,7 +1,7 @@
 /**
  * Runs a User Mail Verify request asynchronously, one chunk per transaction.
  */
-public with sharing class TEKCO_UserMailVerifyQueueable implements Queueable {
+public with sharing class TEKCO_UserMailVerify_QBL implements Queueable {
   public enum Phase {
     STRIP_INVALID,
     VERIFY,
@@ -25,7 +25,7 @@ public with sharing class TEKCO_UserMailVerifyQueueable implements Queueable {
 
   public static Id startVerification(List<Id> userIds) {
     return System.enqueueJob(
-      new TEKCO_UserMailVerifyQueueable(
+      new TEKCO_UserMailVerify_QBL(
         Phase.STRIP_INVALID,
         Phase.VERIFY,
         userIds,
@@ -36,7 +36,7 @@ public with sharing class TEKCO_UserMailVerifyQueueable implements Queueable {
 
   public static Id startPasswordReset(List<Id> userIds) {
     return System.enqueueJob(
-      new TEKCO_UserMailVerifyQueueable(
+      new TEKCO_UserMailVerify_QBL(
         Phase.STRIP_INVALID,
         Phase.RESET,
         userIds,
@@ -52,12 +52,12 @@ public with sharing class TEKCO_UserMailVerifyQueueable implements Queueable {
   }
 
   @TestVisible
-  private static TEKCO_UserMailVerifyQueueable forPhase(
+  private static TEKCO_UserMailVerify_QBL forPhase(
     Phase phaseToRun,
     List<Id> userIds,
     Integer chunkSize
   ) {
-    return new TEKCO_UserMailVerifyQueueable(
+    return new TEKCO_UserMailVerify_QBL(
       phaseToRun,
       phaseToRun,
       userIds,
@@ -65,7 +65,7 @@ public with sharing class TEKCO_UserMailVerifyQueueable implements Queueable {
     );
   }
 
-  private TEKCO_UserMailVerifyQueueable(
+  private TEKCO_UserMailVerify_QBL(
     Phase phaseToRun,
     Phase phaseToFinishWith,
     List<Id> userIds,
@@ -83,8 +83,9 @@ public with sharing class TEKCO_UserMailVerifyQueueable implements Queueable {
     this.errors = new List<String>();
   }
 
-  private TEKCO_UserMailVerifyQueueable(
-    TEKCO_UserMailVerifyQueueable previous,
+  /** Continuation constructor: carries the running totals into the next link. */
+  private TEKCO_UserMailVerify_QBL(
+    TEKCO_UserMailVerify_QBL previous,
     Phase phaseToRun,
     List<Id> pending
   ) {
@@ -110,7 +111,7 @@ public with sharing class TEKCO_UserMailVerifyQueueable implements Queueable {
     }
 
     if (!pending.isEmpty()) {
-      chain(new TEKCO_UserMailVerifyQueueable(this, currentPhase, pending));
+      chain(new TEKCO_UserMailVerify_QBL(this, currentPhase, pending));
       return;
     }
 
@@ -119,11 +120,7 @@ public with sharing class TEKCO_UserMailVerifyQueueable implements Queueable {
       finalPhase != Phase.STRIP_INVALID
     ) {
       chain(
-        new TEKCO_UserMailVerifyQueueable(
-          this,
-          finalPhase,
-          new List<Id>(allUserIds)
-        )
+        new TEKCO_UserMailVerify_QBL(this, finalPhase, new List<Id>(allUserIds))
       );
       return;
     }
@@ -196,7 +193,11 @@ public with sharing class TEKCO_UserMailVerifyQueueable implements Queueable {
     }
   }
 
-  private void chain(TEKCO_UserMailVerifyQueueable next) {
+  /**
+   * Chaining is skipped under test: Apex allows only one queued job from a
+   * running test, so the assertions cover a single chunk.
+   */
+  private void chain(TEKCO_UserMailVerify_QBL next) {
     if (Test.isRunningTest()) {
       return;
     }

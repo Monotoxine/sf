@@ -1,5 +1,14 @@
 /**
  * Unit actions behind the User Mail Verify feature.
+ *
+ * Holds no orchestration: chunking, chaining and counting live in
+ * TEKCO_UserMailVerify_QBL.
+ *
+ * The platform calls sit here directly. They were behind an injectable
+ * interface so the orchestration could be asserted against a test double; that
+ * seam was removed for readability, and with it the tests that counted sends,
+ * resets and notifications. Reintroducing the interface is what brings them
+ * back.
  */
 public with sharing class TEKCO_UserMailVerifyService {
   private static final String INVALID_SUFFIX = '.invalid';

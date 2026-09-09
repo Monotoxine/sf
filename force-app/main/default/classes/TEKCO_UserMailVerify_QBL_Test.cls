@@ -11,7 +11,7 @@
  * Restoring the interface is what brings the rest back.
  */
 @IsTest
-private class TEKCO_UserMailVerifyQueueable_Test {
+private class TEKCO_UserMailVerify_QBL_Test {
   @IsTest
   static void cleanupPhaseRemovesTheInvalidSuffix() {
     User suffixed = TEKCO_UserMailVerifyTestUtil.buildUser(
@@ -22,8 +22,8 @@ private class TEKCO_UserMailVerifyQueueable_Test {
 
     Test.startTest();
     System.enqueueJob(
-      TEKCO_UserMailVerifyQueueable.forPhase(
-        TEKCO_UserMailVerifyQueueable.Phase.STRIP_INVALID,
+      TEKCO_UserMailVerify_QBL.forPhase(
+        TEKCO_UserMailVerify_QBL.Phase.STRIP_INVALID,
         new List<Id>{ suffixed.Id },
         50
       )
@@ -46,9 +46,7 @@ private class TEKCO_UserMailVerifyQueueable_Test {
     insert suffixed;
 
     Test.startTest();
-    TEKCO_UserMailVerifyQueueable.startVerification(
-      new List<Id>{ suffixed.Id }
-    );
+    TEKCO_UserMailVerify_QBL.startVerification(new List<Id>{ suffixed.Id });
     Test.stopTest();
 
     User reloaded = [SELECT Email FROM User WHERE Id = :suffixed.Id];
@@ -68,9 +66,7 @@ private class TEKCO_UserMailVerifyQueueable_Test {
     insert suffixed;
 
     Test.startTest();
-    TEKCO_UserMailVerifyQueueable.startPasswordReset(
-      new List<Id>{ suffixed.Id }
-    );
+    TEKCO_UserMailVerify_QBL.startPasswordReset(new List<Id>{ suffixed.Id });
     Test.stopTest();
 
     User reloaded = [SELECT Email FROM User WHERE Id = :suffixed.Id];
@@ -91,8 +87,8 @@ private class TEKCO_UserMailVerifyQueueable_Test {
 
     Test.startTest();
     System.enqueueJob(
-      TEKCO_UserMailVerifyQueueable.forPhase(
-        TEKCO_UserMailVerifyQueueable.Phase.STRIP_INVALID,
+      TEKCO_UserMailVerify_QBL.forPhase(
+        TEKCO_UserMailVerify_QBL.Phase.STRIP_INVALID,
         new List<Id>{ clean.Id },
         50
       )

@@ -6,13 +6,13 @@
 		<members>TEKCO_UserMailVerifyConstants</members>
 		<members>TEKCO_UserMailVerifyController</members>
 		<members>TEKCO_UserMailVerifyController_Test</members>
-		<members>TEKCO_UserMailVerifyQueueable</members>
-		<members>TEKCO_UserMailVerifyQueueable_Test</members>
 		<members>TEKCO_UserMailVerifySelector</members>
 		<members>TEKCO_UserMailVerifySelector_Test</members>
 		<members>TEKCO_UserMailVerifyService</members>
 		<members>TEKCO_UserMailVerifyService_Test</members>
 		<members>TEKCO_UserMailVerifyTestUtil</members>
+		<members>TEKCO_UserMailVerify_QBL</members>
+		<members>TEKCO_UserMailVerify_QBL_Test</members>
 		<name>ApexClass</name>
 	</types>
 	<types>

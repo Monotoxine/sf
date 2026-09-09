@@ -33,7 +33,7 @@ Creating a user through the API triggers **neither** of them.
 ## How a run works
 
 ```
-Selection ──► TEKCO_UserMailVerifyController ──► TEKCO_UserMailVerifyQueueable
+Selection ──► TEKCO_UserMailVerifyController ──► TEKCO_UserMailVerify_QBL
                   (permission + cap)          chunk 1 ─► chunk 2 ─► ... ─► notification
 ```
 
@@ -116,9 +116,7 @@ Then, in Setup:
 
 1. Add the **User Mail Verify** tab to the TEKCO_RunTeamTools app.
 2. Add the tab and the `TEKCO_UserMailVerify*` Apex classes to the permission set.
-3. Check `ACCESS_PERMISSION_SET` in `TEKCO_UserMailVerifyConstants` matches the
-   real permission set API name.
-4. Check `Setup → Deliverability → Access to Send Email` is **All email**. In a
+3. Check `Setup → Deliverability → Access to Send Email` is **All email**. In a
    sandbox the default is `System email only`, which silently blocks every send
    while the run still reports success.
 
