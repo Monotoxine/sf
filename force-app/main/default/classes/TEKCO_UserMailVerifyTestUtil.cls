@@ -33,36 +33,6 @@ public class TEKCO_UserMailVerifyTestUtil {
     return cachedBrand;
   }
 
-  private static String cachedBrand;
-  private static Boolean brandResolved = false;
-
-  /**
-   * A real value taken from the Brands value set.
-   *
-   * TEKCO_Brand__c is backed by a global value set, which is normally
-   * restricted: an invented value would be rejected at insert. Reading the
-   * describe keeps the tests working whatever the value set contains, and
-   * returns null when the field is absent so a test can skip rather than fail.
-   */
-  public static String testBrand() {
-    if (!brandResolved) {
-      brandResolved = true;
-      Schema.SObjectField field = Schema.SObjectType.User.fields.getMap()
-        .get('TEKCO_Brand__c');
-      if (field != null) {
-        for (
-          Schema.PicklistEntry entry : field.getDescribe().getPicklistValues()
-        ) {
-          if (entry.isActive()) {
-            cachedBrand = entry.getValue();
-            break;
-          }
-        }
-      }
-    }
-    return cachedBrand;
-  }
-
   public static User buildUser(String alias, String email) {
     Profile standard = [
       SELECT Id
