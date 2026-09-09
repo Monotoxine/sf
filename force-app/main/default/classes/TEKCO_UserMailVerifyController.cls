@@ -14,6 +14,9 @@ public with sharing class TEKCO_UserMailVerifyController {
     public Integer maxUsersPerRun;
     @AuraEnabled
     public Integer maxRowsDisplayed;
+    /** Drives whether the screen offers the reset button at all. */
+    @AuraEnabled
+    public Boolean isSandbox;
   }
 
   public class LaunchResult {
@@ -30,6 +33,7 @@ public with sharing class TEKCO_UserMailVerifyController {
       Settings result = new Settings();
       result.maxUsersPerRun = TEKCO_UserMailVerifyConstants.MAX_USERS_PER_RUN;
       result.maxRowsDisplayed = TEKCO_UserMailVerifyConstants.MAX_ROWS_DISPLAYED;
+      result.isSandbox = TEKCO_UserMailVerifySelector.isSandbox();
       return result;
     } catch (Exception e) {
       throw asAuraException(e);
@@ -89,6 +93,7 @@ public with sharing class TEKCO_UserMailVerifyController {
   public static LaunchResult launchPasswordReset(List<Id> userIds) {
     try {
       TEKCO_UserMailVerifyAccess.assertAuthorized();
+      assertResetAllowed();
       validateSelection(userIds);
       return toResult(
         TEKCO_UserMailVerifyQueueable.startPasswordReset(userIds),
@@ -96,6 +101,20 @@ public with sharing class TEKCO_UserMailVerifyController {
       );
     } catch (Exception e) {
       throw asAuraException(e);
+    }
+  }
+
+  /**
+   * Hiding the button is not a control: the controller is reachable regardless.
+   * In production users authenticate through SSO and have no Salesforce
+   * password, so a reset there mails out credentials nobody can use.
+   */
+  private static void assertResetAllowed() {
+    if (!TEKCO_UserMailVerifySelector.isSandbox()) {
+      throw new IllegalArgumentException(
+        'Password reset is available in sandboxes only. In production, users ' +
+        'sign in through SSO and have no Salesforce password to set.'
+      );
     }
   }
 

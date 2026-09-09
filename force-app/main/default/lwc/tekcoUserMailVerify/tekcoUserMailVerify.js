@@ -42,6 +42,7 @@ export default class TekcoUserMailVerify extends LightningElement {
   totalCount = 0;
   isTruncated = false;
   maxUsersPerRun;
+  isSandbox = false;
 
   brandsLoaded = false;
 
@@ -66,6 +67,8 @@ export default class TekcoUserMailVerify extends LightningElement {
   handleSettings({ data, error }) {
     if (data) {
       this.maxUsersPerRun = data.maxUsersPerRun;
+      // Reset is offered in sandboxes only; production signs in through SSO.
+      this.isSandbox = data.isSandbox === true;
     } else if (error) {
       this.reportError(error);
     }

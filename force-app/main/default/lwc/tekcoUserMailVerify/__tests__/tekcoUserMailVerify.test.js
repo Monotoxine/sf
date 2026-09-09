@@ -104,6 +104,20 @@ describe("c-tekco-user-mail-verify", () => {
     ]);
   });
 
+  it("hides the reset button outside a sandbox", async () => {
+    getUnverifiedUsers.mockResolvedValue(USERS);
+    const element = createComponent();
+
+    await selectBrand(element);
+
+    // getSettings never emits here, so isSandbox stays false.
+    const labels = Array.from(
+      element.shadowRoot.querySelectorAll("lightning-button")
+    ).map((b) => b.label);
+    expect(labels).toContain("Verify");
+    expect(labels).not.toContain("Verify and reset password");
+  });
+
   it("shows no table before a brand is chosen", () => {
     const element = createComponent();
     expect(element.shadowRoot.querySelector("lightning-datatable")).toBeNull();

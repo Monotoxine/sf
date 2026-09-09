@@ -18,6 +18,8 @@ private class TEKCO_UserMailVerifyController_Test {
     );
 
     TEKCO_UserMailVerifyTestUtil.useAccessPermissionSet('UMV_Ctl_Access');
+    // Reset is sandbox-only; the tests that exercise it assume one.
+    TEKCO_UserMailVerifySelector.sandboxOverride = true;
     return u;
   }
 
@@ -144,6 +146,51 @@ private class TEKCO_UserMailVerifyController_Test {
     Assert.isNotNull(
       message,
       'Resetting your own password from this screen must be refused.'
+    );
+  }
+
+  @IsTest
+  static void refusesPasswordResetOutsideASandbox() {
+    User granted = grantedUser();
+    TEKCO_UserMailVerifySelector.sandboxOverride = false;
+    List<User> users = TEKCO_UserMailVerifyTestUtil.insertUsers(1);
+    List<Id> ids = new List<Id>(new Map<Id, User>(users).keySet());
+
+    String message;
+    System.runAs(granted) {
+      TEKCO_UserMailVerifyAccess.clearCache();
+      try {
+        TEKCO_UserMailVerifyController.launchPasswordReset(ids);
+      } catch (Exception e) {
+        message = e.getMessage();
+      }
+    }
+
+    Assert.isNotNull(
+      message,
+      'Hiding the button is not a control: the controller must refuse too.'
+    );
+    Assert.isTrue(
+      message.contains('sandboxes only'),
+      'The refusal must say why, so the administrator does not hunt for a bug: ' +
+      message
+    );
+  }
+
+  @IsTest
+  static void reportsWhetherTheOrgIsASandbox() {
+    User granted = grantedUser();
+    TEKCO_UserMailVerifySelector.sandboxOverride = false;
+
+    TEKCO_UserMailVerifyController.Settings settings;
+    System.runAs(granted) {
+      TEKCO_UserMailVerifyAccess.clearCache();
+      settings = TEKCO_UserMailVerifyController.getSettings();
+    }
+
+    Assert.isFalse(
+      settings.isSandbox,
+      'The screen needs this flag to decide whether to offer the reset button.'
     );
   }
 

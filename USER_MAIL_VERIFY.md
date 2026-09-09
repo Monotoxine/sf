@@ -11,12 +11,21 @@ mail on their behalf: workflow alerts, Flow _Send Email_ elements, Email-to-Case
 Without this tab, the _Verify_ action has to be clicked one record at a time in
 Setup → Users.
 
-Two distinct actions, two distinct emails, deliberately kept separate:
+Two buttons, each sending one email:
 
-| Action                | What it does                                       | Effect                                                  |
-| --------------------- | -------------------------------------------------- | ------------------------------------------------------- |
-| **Send verification** | `System.UserManagement.sendAsyncEmailConfirmation` | the user clicks a link, `HasUserVerifiedEmail` flips    |
-| **Reset password**    | `System.resetPassword`                             | new credentials mailed; existing password stops working |
+| Button                        | Apex                                               | Effect                                                                                   |
+| ----------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| **Verify**                    | `System.UserManagement.sendAsyncEmailConfirmation` | the user clicks a link, `HasUserVerifiedEmail` flips                                     |
+| **Verify and reset password** | `System.resetPassword`                             | credentials mailed; clicking the link and setting the password also verifies the address |
+
+Resetting a password verifies the address as a side effect, once the user has
+clicked the link and completed the reset. It is not a way to verify without the
+user acting; it replaces two emails with one.
+
+**The reset button appears in sandboxes only.** In production, users sign in
+through SSO and have no Salesforce password, so a reset would mail out
+credentials nobody can use. The controller refuses it there as well: hiding a
+button is not an access control.
 
 Creating a user through the API triggers **neither** of them.
 
@@ -122,6 +131,11 @@ Not in this repository, expected to exist in the org:
 **Frozen users** are resolved through `UserLogin` filtered on `IsFrozen = true`,
 never `IsFrozen = false`: a user with no `UserLogin` record is not frozen, and
 the negative filter would wrongly drop them.
+
+**Both buttons start by stripping `.invalid`.** Sending anything to an address
+still carrying the suffix delivers nothing, and on the reset path the verification
+it performs would be lost with it. The cleanup runs in its own transaction so the
+new address is committed before any link is generated against it.
 
 **The running user is always excluded** from the list. The same screen resets
 passwords, and locking yourself out of an admin tool is not recoverable.

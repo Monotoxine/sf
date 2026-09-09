@@ -56,6 +56,35 @@ private class TEKCO_UserMailVerifyQueueable_Test {
   }
 
   @IsTest
+  static void aResetStartsByCleaningTheInvalidSuffix() {
+    TEKCO_UserMailVerifyTestUtil.useAccessPermissionSet('UMV_Test_Access');
+    TEKCO_UserMailVerifyTestUtil.PerformerSpy spy = TEKCO_UserMailVerifyTestUtil.installSpy();
+    User suffixed = TEKCO_UserMailVerifyTestUtil.buildUser(
+      'umvq2',
+      'q2@umv-test.example.com.invalid'
+    );
+    insert suffixed;
+
+    Test.startTest();
+    TEKCO_UserMailVerifyQueueable.startPasswordReset(
+      new List<Id>{ suffixed.Id }
+    );
+    Test.stopTest();
+
+    User reloaded = [SELECT Email FROM User WHERE Id = :suffixed.Id];
+    Assert.isFalse(
+      reloaded.Email.endsWith('.invalid'),
+      'A reset must clean the address first: credentials sent to a .invalid ' +
+      'address are lost, and so is the verification the reset performs.'
+    );
+    Assert.areEqual(
+      0,
+      spy.reset.size(),
+      'Nothing may be sent during cleanup: the new address is not committed yet.'
+    );
+  }
+
+  @IsTest
   static void resetPhaseNotifiesOnceWhenTheRunCompletes() {
     TEKCO_UserMailVerifyTestUtil.useAccessPermissionSet('UMV_Test_Access');
     TEKCO_UserMailVerifyTestUtil.PerformerSpy spy = TEKCO_UserMailVerifyTestUtil.installSpy();

@@ -82,6 +82,23 @@ public with sharing class TEKCO_UserMailVerifySelector {
     return options;
   }
 
+  private static Boolean sandboxCache;
+
+  /** Forced in tests, where the org type cannot be chosen. */
+  @TestVisible
+  private static Boolean sandboxOverride;
+
+  /** True when this org is a sandbox. */
+  public static Boolean isSandbox() {
+    if (sandboxOverride != null) {
+      return sandboxOverride;
+    }
+    if (sandboxCache == null) {
+      sandboxCache = [SELECT IsSandbox FROM Organization LIMIT 1].IsSandbox;
+    }
+    return sandboxCache;
+  }
+
   private static Boolean verifiedFieldCache;
 
   /**
