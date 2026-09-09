@@ -69,14 +69,13 @@ change to the permission model here.
 
 `TEKCO_UserMailVerifyConstants` holds everything the feature tunes:
 
-| Constant                | Value                               | Purpose                                                       |
-| ----------------------- | ----------------------------------- | ------------------------------------------------------------- |
-| `ACCESS_PERMISSION_SET` | `TEKCO_RunTeamTools`                | permission set granting the tab — **confirm against the org** |
-| `NOTIFICATION_TYPE`     | `TEKCO_UserMailVerify_Run_Complete` | notification type shipped with the feature                    |
-| `MAX_USERS_PER_RUN`     | 200                                 | blocking per-run cap, enforced server-side                    |
-| `CHUNK_SIZE_VERIFY`     | 50                                  | users per transaction when sending links                      |
-| `RESET_HARD_LIMIT`      | 10                                  | platform cap on `System.resetPassword` per transaction        |
-| `MAX_ROWS_DISPLAYED`    | 500                                 | rows shown for one brand before truncating                    |
+| Constant             | Value                               | Purpose                                                |
+| -------------------- | ----------------------------------- | ------------------------------------------------------ |
+| `NOTIFICATION_TYPE`  | `TEKCO_UserMailVerify_Run_Complete` | notification type shipped with the feature             |
+| `MAX_USERS_PER_RUN`  | 200                                 | blocking per-run cap, enforced server-side             |
+| `CHUNK_SIZE_VERIFY`  | 50                                  | users per transaction when sending links               |
+| `RESET_HARD_LIMIT`   | 10                                  | platform cap on `System.resetPassword` per transaction |
+| `MAX_ROWS_DISPLAYED` | 500                                 | rows shown for one brand before truncating             |
 
 These were held in a custom metadata type at first. That was over-engineering:
 none of them is expected to change, the reset chunk size cannot legally differ
