@@ -2,8 +2,6 @@
   <lightning-card title="User Mail Verify" icon-name="standard:email">
     <div class="slds-var-p-horizontal_medium slds-var-p-bottom_medium">
       <div class="umv-filters">
-        <h2 class="umv-filters-title slds-text-align_center">Filters</h2>
-
         <lightning-dual-listbox
           data-id="brands"
           name="brands"
@@ -16,25 +14,31 @@
           onchange={handleBrandChange}
         ></lightning-dual-listbox>
 
-        <lightning-combobox
-          class="slds-var-m-top_x-small"
-          data-id="verification"
-          name="verification"
-          label="Status"
-          options={verificationOptions}
-          value={verificationFilter}
-          onchange={handleVerificationChange}
-        ></lightning-combobox>
+        <div class="slds-var-m-top_x-small">
+          <span class="umv-label" aria-hidden="true">Status</span>
+          <lightning-combobox
+            data-id="verification"
+            name="verification"
+            label="Status"
+            variant="label-hidden"
+            options={verificationOptions}
+            value={verificationFilter}
+            onchange={handleVerificationChange}
+          ></lightning-combobox>
+        </div>
 
-        <lightning-combobox
-          class="slds-var-m-top_x-small"
-          data-id="suffix"
-          name="suffix"
-          label="Address"
-          options={suffixOptions}
-          value={suffixFilter}
-          onchange={handleSuffixChange}
-        ></lightning-combobox>
+        <div class="slds-var-m-top_x-small">
+          <span class="umv-label" aria-hidden="true">Address</span>
+          <lightning-combobox
+            data-id="suffix"
+            name="suffix"
+            label="Address"
+            variant="label-hidden"
+            options={suffixOptions}
+            value={suffixFilter}
+            onchange={handleSuffixChange}
+          ></lightning-combobox>
+        </div>
       </div>
 
       <template if:true={hasNoBrands}>
@@ -72,16 +76,18 @@
           </div>
         </template>
 
-        <div class="umv-search slds-var-m-top_medium">
-          <lightning-input
-            data-id="search"
-            type="search"
-            label="Search"
-            variant="label-hidden"
-            placeholder="Search this list"
-            value={searchTerm}
-            onchange={handleSearch}
-          ></lightning-input>
+        <div class="umv-search-row slds-var-m-top_medium">
+          <div class="umv-search">
+            <lightning-input
+              data-id="search"
+              type="search"
+              label="Search"
+              variant="label-hidden"
+              placeholder="Search this list"
+              value={searchTerm}
+              onchange={handleSearch}
+            ></lightning-input>
+          </div>
         </div>
 
         <template if:true={hasNoMatch}>

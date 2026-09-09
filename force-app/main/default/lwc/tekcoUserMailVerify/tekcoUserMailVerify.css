@@ -14,16 +14,23 @@
   max-width: 30rem;
 }
 
-.umv-filters-title {
+/* Rendered here rather than styled inside the base component: CSS does not
+   reach into a shadow root under native shadow DOM. The component keeps its
+   own label for assistive technology, so this one is hidden from it. */
+.umv-label {
+  display: block;
   font-weight: 700;
-  font-size: 1rem;
-  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.umv-search-row {
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* Narrow on purpose: search only narrows what is already displayed, so it
-   should not carry the visual weight of the filters that build the query.
-   Constrained on a wrapper rather than the base component, whose own layout
-   would otherwise win. */
+   should not carry the visual weight of the filters that build the query. */
 .umv-search {
-  max-width: 18rem;
+  width: 18rem;
 }
