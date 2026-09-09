@@ -49,7 +49,7 @@ private class TEKCO_UserMailVerifySelector_Test {
 
     Test.startTest();
     TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findUnverifiedByBrand(
-      TEKCO_UserMailVerifyTestUtil.TEST_BRAND,
+      TEKCO_UserMailVerifyTestUtil.testBrand(),
       500
     );
     Test.stopTest();
@@ -71,7 +71,7 @@ private class TEKCO_UserMailVerifySelector_Test {
 
     Test.startTest();
     TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findUnverifiedByBrand(
-      TEKCO_UserMailVerifyTestUtil.TEST_BRAND,
+      TEKCO_UserMailVerifyTestUtil.testBrand(),
       500
     );
     Test.stopTest();
@@ -96,7 +96,7 @@ private class TEKCO_UserMailVerifySelector_Test {
 
     Test.startTest();
     TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findUnverifiedByBrand(
-      TEKCO_UserMailVerifyTestUtil.TEST_BRAND,
+      TEKCO_UserMailVerifyTestUtil.testBrand(),
       500
     );
     Test.stopTest();
@@ -120,7 +120,7 @@ private class TEKCO_UserMailVerifySelector_Test {
 
     Test.startTest();
     TEKCO_UserMailVerifySelector.UserListResult result = TEKCO_UserMailVerifySelector.findUnverifiedByBrand(
-      TEKCO_UserMailVerifyTestUtil.TEST_BRAND,
+      TEKCO_UserMailVerifyTestUtil.testBrand(),
       1
     );
     Test.stopTest();
