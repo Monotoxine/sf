@@ -82,9 +82,19 @@ filled record cannot break the feature.
 
 ## Deployment
 
+The feature has its own manifest, so it can be deployed and retrieved as a unit
+without touching the rest of the project:
+
 ```bash
-sf project deploy start --source-dir force-app/main/default --target-org <alias>
+sf project deploy start --manifest manifest/user-mail-verify-package.xml --target-org <alias>
+sf project retrieve start --manifest manifest/user-mail-verify-package.xml --target-org <alias>
 ```
+
+Add `--dry-run` to validate without deploying.
+
+`MassUserEmailVerificationBatch` is listed in that manifest although it predates
+the tab: it now delegates its unit actions to `UserMailVerifyService` and no
+longer compiles without it.
 
 Then, in Setup:
 
