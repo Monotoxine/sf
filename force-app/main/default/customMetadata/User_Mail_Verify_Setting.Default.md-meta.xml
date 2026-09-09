@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomMetadata
+  xmlns="http://soap.sforce.com/2006/04/metadata"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+>
+    <label>Default</label>
+    <protected>false</protected>
+    <values>
+        <field>Access_Permission_Set__c</field>
+        <value xsi:type="xsd:string">TEKCO_RunTeamTools</value>
+    </values>
+    <values>
+        <field>Chunk_Size_Reset__c</field>
+        <value xsi:type="xsd:double">10.0</value>
+    </values>
+    <values>
+        <field>Chunk_Size_Verify__c</field>
+        <value xsi:type="xsd:double">50.0</value>
+    </values>
+    <values>
+        <field>Max_Rows_Displayed__c</field>
+        <value xsi:type="xsd:double">500.0</value>
+    </values>
+    <values>
+        <field>Max_Users_Per_Run__c</field>
+        <value xsi:type="xsd:double">200.0</value>
+    </values>
+    <values>
+        <field>Notification_Type_Name__c</field>
+        <value xsi:type="xsd:string">UserMailVerify_Run_Complete</value>
+    </values>
+</CustomMetadata>

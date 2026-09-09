@@ -1,5 +1,9 @@
 # Vérification d'email en masse pour les utilisateurs créés par API
 
+> **Le chemin supporté est désormais l'onglet _User Mail Verify_** — voir
+> [`USER_MAIL_VERIFY.md`](USER_MAIL_VERIFY.md). Les scripts décrits ici restent
+> utiles pour le diagnostic et les balayages ponctuels hors écran.
+
 ## Le problème
 
 Créer un utilisateur par API (Talend, Data Loader, Bulk API) n'envoie **aucun**
@@ -145,21 +149,21 @@ restant, sans avoir à fouiller les logs.
 
 ## Paramètres
 
-| Paramètre | Défaut | Rôle |
-|---|---|---|
-| `dryRun` | `false` | compte les cibles sans rien envoyer |
-| `onlyUnverified` | `true` | ignore les utilisateurs déjà vérifiés |
-| `userIds` | `null` | sélection explicite, **prime sur tous les autres filtres** |
-| `createdSince` | `null` | ne cible que les utilisateurs créés depuis cette date |
-| `emailDomainFilter` | `null` | restreint à un domaine d'adresses |
-| `emailTemplateId` | `null` | template personnalisé — **sans effet pour les utilisateurs internes** |
-| `networkId` | `null` | site Experience Cloud, sinon utilisateurs internes |
-| `startUrl` | `null` | page d'atterrissage après le clic |
-| `sendVerification` | `true` | envoie le lien de vérification d'adresse |
-| `sendPasswordReset` | `false` | réinitialise le mot de passe et envoie les identifiants |
-| `notifyUserOnReset` | `true` | notifier l'utilisateur du reset (`false` = reset silencieux) |
-| `allowPasswordResetInProduction` | `false` | lève le refus du reset hors sandbox |
-| `includeInvalidAddresses` | `true` | garde les adresses en `.invalid` (voir annexe) |
+| Paramètre                        | Défaut  | Rôle                                                                  |
+| -------------------------------- | ------- | --------------------------------------------------------------------- |
+| `dryRun`                         | `false` | compte les cibles sans rien envoyer                                   |
+| `onlyUnverified`                 | `true`  | ignore les utilisateurs déjà vérifiés                                 |
+| `userIds`                        | `null`  | sélection explicite, **prime sur tous les autres filtres**            |
+| `createdSince`                   | `null`  | ne cible que les utilisateurs créés depuis cette date                 |
+| `emailDomainFilter`              | `null`  | restreint à un domaine d'adresses                                     |
+| `emailTemplateId`                | `null`  | template personnalisé — **sans effet pour les utilisateurs internes** |
+| `networkId`                      | `null`  | site Experience Cloud, sinon utilisateurs internes                    |
+| `startUrl`                       | `null`  | page d'atterrissage après le clic                                     |
+| `sendVerification`               | `true`  | envoie le lien de vérification d'adresse                              |
+| `sendPasswordReset`              | `false` | réinitialise le mot de passe et envoie les identifiants               |
+| `notifyUserOnReset`              | `true`  | notifier l'utilisateur du reset (`false` = reset silencieux)          |
+| `allowPasswordResetInProduction` | `false` | lève le refus du reset hors sandbox                                   |
+| `includeInvalidAddresses`        | `true`  | garde les adresses en `.invalid` (voir annexe)                        |
 
 ---
 
@@ -167,7 +171,7 @@ restant, sans avoir à fouiller les logs.
 
 La vérification d'email et l'envoi des identifiants sont **deux mécanismes
 distincts**, et la création par API ne déclenche ni l'un ni l'autre. Dans
-l'interface, la case *Generate new password and notify user immediately* couvre le
+l'interface, la case _Generate new password and notify user immediately_ couvre le
 second. En masse :
 
 ```apex
@@ -296,7 +300,7 @@ relance, sans avoir à tracer qui a reçu quoi.
   depuis un poste utilisateur, pas depuis un compte admin.
 - **Restrictions IP et plages horaires de connexion** sur les profils : elles
   s'appliquent au clic, et peuvent le faire échouer hors site ou hors horaires.
-- **Délivrabilité** : `Access to Send Email` sur *All email*.
+- **Délivrabilité** : `Access to Send Email` sur _All email_.
 
 ---
 
@@ -336,11 +340,11 @@ sf apex run --file scripts/apex/user-email/04-prepare-test-users.apex
 Sort le `ProfileId` à utiliser, les licences restantes, et un exemple de suffixe
 d'username en usage dans l'org. Deux substitutions à faire dans le CSV :
 
-| Placeholder | Remplacer par |
-|---|---|
-| `REMPLACER_PROFILE_ID` | un ProfileId de l'org (ex. `00e...`) |
-| `REMPLACER-DOMAINE.com` | le suffixe d'username en usage dans l'org |
-| `TON.ADRESSE+testNN@gmail.com` | une adresse dont vous relevez la boîte |
+| Placeholder                    | Remplacer par                             |
+| ------------------------------ | ----------------------------------------- |
+| `REMPLACER_PROFILE_ID`         | un ProfileId de l'org (ex. `00e...`)      |
+| `REMPLACER-DOMAINE.com`        | le suffixe d'username en usage dans l'org |
+| `TON.ADRESSE+testNN@gmail.com` | une adresse dont vous relevez la boîte    |
 
 ### 2. L'astuce qui rend le test praticable
 
@@ -397,14 +401,14 @@ externes : à prendre en compte pour un parc Experience Cloud.
 **Détection des non vérifiés.** Le batch et l'audit utilisent en priorité le champ
 standard `User.HasUserVerifiedEmail`, qui n'exige aucune permission particulière.
 Ils ne retombent sur `TwoFactorMethodsInfo` que si l'org n'expose pas ce champ —
-et cet objet exige alors la permission *Manage Multi-Factor Authentication in API*.
+et cet objet exige alors la permission _Manage Multi-Factor Authentication in API_.
 
 **Suivi sans code.** Setup → Users → Create New View, en ajoutant les colonnes de
-vérification (dont *Email Verified*). Permet de suivre l'avancement sans relancer
+vérification (dont _Email Verified_). Permet de suivre l'avancement sans relancer
 de script.
 
-**Anomalie connue Summer '26.** Sur le flux de *changement* d'adresse, le clic sur
-*Verify Email Address* peut renvoyer vers la page de login sans appliquer le
+**Anomalie connue Summer '26.** Sur le flux de _changement_ d'adresse, le clic sur
+_Verify Email Address_ peut renvoyer vers la page de login sans appliquer le
 changement — [Issue a02Ka00000mGGGyIAO](https://help.salesforce.com/s/issue?language=en_US&id=a02Ka00000mGGGyIAO).
 Ne concerne pas la vérification d'une adresse inchangée, mais à connaître si un
 utilisateur signale un lien qui ne fait rien.
@@ -424,7 +428,7 @@ vérification ne soit plus requise du tout sur un domaine que vous possédez :
 Variante équivalente : une **clé DKIM active** sur le domaine plus l'option de
 bypass correspondante dans les réglages de délivrabilité.
 
-> **⚠️ Impact sécurité.** Le bypass s'applique à *toutes* les adresses du domaine.
+> **⚠️ Impact sécurité.** Le bypass s'applique à _toutes_ les adresses du domaine.
 > Salesforce pourra envoyer au nom de n'importe quelle adresse de ce domaine, et
 > toute personne pouvant créer des utilisateurs pourra en usurper une. À réserver
 > aux domaines dont vous contrôlez strictement la création de comptes.
@@ -440,7 +444,7 @@ d'« Email Change Verification ») **est en cours de retrait**, échéance annon
 Sans rapport avec le problème ci-dessus, mais fréquemment confondu avec lui.
 
 À la **création, au refresh ou au clonage** d'une sandbox, Salesforce suffixe les
-emails des utilisateurs *copiés* en `.invalid`, pour que les users de production
+emails des utilisateurs _copiés_ en `.invalid`, pour que les users de production
 ne reçoivent pas les mails de la sandbox. Ces adresses ne peuvent rien recevoir
 (`.invalid` est un TLD réservé par la [RFC 2606](https://datatracker.ietf.org/doc/html/rfc2606)),
 donc y envoyer un lien de vérification est vain.

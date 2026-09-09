@@ -18,6 +18,9 @@
  * Chaque utilisateur cible recoit le lien de verification standard et clique une
  * fois. Aucune adresse email n'est modifiee par ce batch.
  *
+ * Les actions unitaires sont deleguees a UserMailVerifyService, partage avec
+ * l'onglet User Mail Verify, pour eviter deux implementations divergentes.
+ *
  * REINITIALISATION DU MOT DE PASSE
  * --------------------------------
  * Creer un utilisateur par API ne declenche pas non plus l'envoi des
@@ -58,251 +61,266 @@
  * Le plafond de 5 000 mails/jour ne vise que les adresses externes : le prendre
  * en compte pour un parc d'utilisateurs Experience Cloud.
  */
-public with sharing class MassUserEmailVerificationBatch
-    implements Database.Batchable<sObject>, Database.Stateful {
+public with sharing class MassUserEmailVerificationBatch implements Database.Batchable<sObject>, Database.Stateful {
+  /** Restreint aux utilisateurs dont l'email n'est pas encore verifie. */
+  public Boolean onlyUnverified = true;
 
-    /** Restreint aux utilisateurs dont l'email n'est pas encore verifie. */
-    public Boolean onlyUnverified = true;
+  /** Ne cible que les utilisateurs crees depuis cette date. Null = pas de filtre. */
+  public Datetime createdSince;
 
-    /** Ne cible que les utilisateurs crees depuis cette date. Null = pas de filtre. */
-    public Datetime createdSince;
+  /** Liste d'Id explicite. Non vide = ignore les autres filtres de selection. */
+  public Set<Id> userIds;
 
-    /** Liste d'Id explicite. Non vide = ignore les autres filtres de selection. */
-    public Set<Id> userIds;
+  /** Ne cible que les emails de ce domaine (ex. 'mondomaine.com'). Null = tous. */
+  public String emailDomainFilter;
 
-    /** Ne cible que les emails de ce domaine (ex. 'mondomaine.com'). Null = tous. */
-    public String emailDomainFilter;
+  /**
+   * Template d'email personnalise.
+   *
+   * SANS EFFET POUR LES UTILISATEURS INTERNES : Salesforce envoie son mail de
+   * verification standard quel que soit le template passe. Le parametre n'est
+   * suivi d'effet que pour les utilisateurs Experience Cloud, avec networkId
+   * renseigne. Le contenu du mail recu par un utilisateur interne n'est donc
+   * pas personnalisable — en tenir compte pour la communication en amont d'un
+   * envoi de masse.
+   */
+  public Id emailTemplateId;
 
-    /**
-     * Template d'email personnalise.
-     *
-     * SANS EFFET POUR LES UTILISATEURS INTERNES : Salesforce envoie son mail de
-     * verification standard quel que soit le template passe. Le parametre n'est
-     * suivi d'effet que pour les utilisateurs Experience Cloud, avec networkId
-     * renseigne. Le contenu du mail recu par un utilisateur interne n'est donc
-     * pas personnalisable — en tenir compte pour la communication en amont d'un
-     * envoi de masse.
-     */
-    public Id emailTemplateId;
+  /** Site Experience Cloud. Null pour les utilisateurs internes. */
+  public Id networkId;
 
-    /** Site Experience Cloud. Null pour les utilisateurs internes. */
-    public Id networkId;
+  /** Page d'atterrissage apres le clic de verification. Null = accueil de l'org. */
+  public String startUrl;
 
-    /** Page d'atterrissage apres le clic de verification. Null = accueil de l'org. */
-    public String startUrl;
+  /** Envoie le lien de verification d'adresse. */
+  public Boolean sendVerification = true;
 
-    /** Envoie le lien de verification d'adresse. */
-    public Boolean sendVerification = true;
+  /**
+   * Reinitialise le mot de passe et envoie les identifiants.
+   * Equivalent de "Generate new password and notify user immediately".
+   * INVALIDE le mot de passe existant : activation explicite uniquement,
+   * et taille de lot limitee a 10 (cf. en-tete).
+   */
+  public Boolean sendPasswordReset = false;
 
-    /**
-     * Reinitialise le mot de passe et envoie les identifiants.
-     * Equivalent de "Generate new password and notify user immediately".
-     * INVALIDE le mot de passe existant : activation explicite uniquement,
-     * et taille de lot limitee a 10 (cf. en-tete).
-     */
-    public Boolean sendPasswordReset = false;
+  /** Notifier l'utilisateur lors du reset. False = reset silencieux. */
+  public Boolean notifyUserOnReset = true;
 
-    /** Notifier l'utilisateur lors du reset. False = reset silencieux. */
-    public Boolean notifyUserOnReset = true;
+  /**
+   * Garde-fou : hors sandbox, sendPasswordReset est refuse tant que ce flag
+   * n'est pas explicitement leve.
+   *
+   * Motif : dans une org de production authentifiee par SSO, les utilisateurs
+   * n'ont pas de mot de passe Salesforce a saisir. Un reset de masse y genere
+   * des mails "definissez votre mot de passe" que personne ne peut ni ne doit
+   * utiliser. La verification d'email, elle, reste pertinente : elle est
+   * independante de l'authentification.
+   */
+  public Boolean allowPasswordResetInProduction = false;
 
-    /**
-     * Garde-fou : hors sandbox, sendPasswordReset est refuse tant que ce flag
-     * n'est pas explicitement leve.
-     *
-     * Motif : dans une org de production authentifiee par SSO, les utilisateurs
-     * n'ont pas de mot de passe Salesforce a saisir. Un reset de masse y genere
-     * des mails "definissez votre mot de passe" que personne ne peut ni ne doit
-     * utiliser. La verification d'email, elle, reste pertinente : elle est
-     * independante de l'authentification.
-     */
-    public Boolean allowPasswordResetInProduction = false;
+  /** Compte les cibles sans rien envoyer. A utiliser pour le premier run. */
+  public Boolean dryRun = false;
 
-    /** Compte les cibles sans rien envoyer. A utiliser pour le premier run. */
-    public Boolean dryRun = false;
+  /**
+   * Inclure les adresses se terminant par ".invalid" (artefact de refresh de
+   * sandbox). Ces adresses ne peuvent rien recevoir : les exclure evite des
+   * envois vains. Sans effet hors sandbox.
+   */
+  public Boolean includeInvalidAddresses = true;
 
-    /**
-     * Inclure les adresses se terminant par ".invalid" (artefact de refresh de
-     * sandbox). Ces adresses ne peuvent rien recevoir : les exclure evite des
-     * envois vains. Sans effet hors sandbox.
-     */
-    public Boolean includeInvalidAddresses = true;
+  /**
+   * Plafond Salesforce : 10 appels a System.resetPassword par transaction.
+   * Source unique partagee avec l'onglet User Mail Verify.
+   */
+  private static final Integer MAX_PASSWORD_RESETS_PER_CHUNK = UserMailVerifySettings.RESET_HARD_LIMIT;
 
-    /** Plafond Salesforce : 10 appels a System.resetPassword par transaction. */
-    private static final Integer MAX_PASSWORD_RESETS_PER_CHUNK = 10;
+  public Integer sentCount = 0;
+  public Integer resetCount = 0;
+  public Integer skippedCount = 0;
+  public Integer failedCount = 0;
+  public Integer resetFailedCount = 0;
+  private List<String> errors = new List<String>();
 
-    public Integer sentCount = 0;
-    public Integer resetCount = 0;
-    public Integer skippedCount = 0;
-    public Integer failedCount = 0;
-    public Integer resetFailedCount = 0;
-    private List<String> errors = new List<String>();
+  private static Boolean hasVerifiedEmailFieldCache;
 
-    private static Boolean hasVerifiedEmailFieldCache;
+  /**
+   * True si le champ standard User.HasUserVerifiedEmail est disponible.
+   * Detecte a l'execution : son absence ne doit pas faire echouer le batch,
+   * un repli sur TwoFactorMethodsInfo prend alors le relais.
+   */
+  @TestVisible
+  private static Boolean hasVerifiedEmailField() {
+    if (hasVerifiedEmailFieldCache == null) {
+      hasVerifiedEmailFieldCache = Schema.SObjectType.User.fields.getMap()
+        .containsKey('hasuserverifiedemail');
+    }
+    return hasVerifiedEmailFieldCache;
+  }
 
-    /**
-     * True si le champ standard User.HasUserVerifiedEmail est disponible.
-     * Detecte a l'execution : son absence ne doit pas faire echouer le batch,
-     * un repli sur TwoFactorMethodsInfo prend alors le relais.
-     */
-    @TestVisible
-    private static Boolean hasVerifiedEmailField() {
-        if (hasVerifiedEmailFieldCache == null) {
-            hasVerifiedEmailFieldCache = Schema.SObjectType.User.fields.getMap()
-                .containsKey('hasuserverifiedemail');
-        }
-        return hasVerifiedEmailFieldCache;
+  public Database.QueryLocator start(Database.BatchableContext ctx) {
+    if (sendPasswordReset == true && allowPasswordResetInProduction != true) {
+      Boolean isSandbox = [SELECT IsSandbox FROM Organization LIMIT 1]
+      .IsSandbox;
+      if (!isSandbox) {
+        throw new MassUserEmailVerificationException(
+          'sendPasswordReset est refuse hors sandbox. Sous SSO les ' +
+            'utilisateurs n ont pas de mot de passe Salesforce a saisir, ' +
+            'et un reset de masse leur enverrait des identifiants ' +
+            'inutilisables. Si le reset est reellement voulu ici, poser ' +
+            'allowPasswordResetInProduction = true.'
+        );
+      }
     }
 
-    public Database.QueryLocator start(Database.BatchableContext ctx) {
-        if (sendPasswordReset == true && allowPasswordResetInProduction != true) {
-            Boolean isSandbox = [SELECT IsSandbox FROM Organization LIMIT 1].IsSandbox;
-            if (!isSandbox) {
-                throw new MassUserEmailVerificationException(
-                    'sendPasswordReset est refuse hors sandbox. Sous SSO les '
-                    + 'utilisateurs n ont pas de mot de passe Salesforce a saisir, '
-                    + 'et un reset de masse leur enverrait des identifiants '
-                    + 'inutilisables. Si le reset est reellement voulu ici, poser '
-                    + 'allowPasswordResetInProduction = true.'
-                );
-            }
+    // Binds declares hors des blocs conditionnels : ils doivent rester dans
+    // la portee au moment ou Database.getQueryLocator les resout.
+    Set<Id> ids = userIds;
+    Datetime since = createdSince;
+    String domainLike = '%@' + emailDomainFilter;
+
+    String soql = 'SELECT Id, Username, Email FROM User WHERE Email != null';
+
+    if (ids != null && !ids.isEmpty()) {
+      // Selection explicite : elle prime sur tous les autres filtres.
+      soql += ' AND Id IN :ids';
+    } else {
+      soql += ' AND IsActive = true';
+
+      if (onlyUnverified == true && hasVerifiedEmailField()) {
+        // Filtrage a la source : plus efficace que le repli par lot, et
+        // sans permission "Manage Multi-Factor Authentication in API".
+        soql += ' AND HasUserVerifiedEmail = false';
+      }
+      if (since != null) {
+        soql += ' AND CreatedDate >= :since';
+      }
+      if (String.isNotBlank(emailDomainFilter)) {
+        soql += ' AND Email LIKE :domainLike';
+      }
+      if (includeInvalidAddresses == false) {
+        soql += ' AND (NOT Email LIKE \'%.invalid\')';
+      }
+    }
+    return Database.getQueryLocator(soql);
+  }
+
+  public void execute(Database.BatchableContext ctx, List<User> scope) {
+    Set<Id> targets = new Set<Id>();
+    for (User u : scope) {
+      targets.add(u.Id);
+    }
+
+    // Deja filtre par la requete si User.HasUserVerifiedEmail est disponible.
+    if (onlyUnverified == true && !hasVerifiedEmailField()) {
+      targets = filterUnverified(targets);
+    }
+
+    Integer resetsThisChunk = 0;
+
+    for (User u : scope) {
+      if (!targets.contains(u.Id)) {
+        skippedCount++;
+        continue;
+      }
+      if (dryRun == true) {
+        sentCount++;
+        if (sendPasswordReset == true) {
+          resetCount++;
         }
+        continue;
+      }
 
-        // Binds declares hors des blocs conditionnels : ils doivent rester dans
-        // la portee au moment ou Database.getQueryLocator les resout.
-        Set<Id> ids = userIds;
-        Datetime since = createdSince;
-        String domainLike = '%@' + emailDomainFilter;
-
-        String soql = 'SELECT Id, Username, Email FROM User WHERE Email != null';
-
-        if (ids != null && !ids.isEmpty()) {
-            // Selection explicite : elle prime sur tous les autres filtres.
-            soql += ' AND Id IN :ids';
+      if (sendVerification == true) {
+        UserMailVerifyService.ActionOutcome verifyOutcome = UserMailVerifyService.sendVerification(
+          u.Id,
+          u.Username,
+          emailTemplateId,
+          networkId,
+          startUrl
+        );
+        if (verifyOutcome.success) {
+          sentCount++;
         } else {
-            soql += ' AND IsActive = true';
-
-            if (onlyUnverified == true && hasVerifiedEmailField()) {
-                // Filtrage a la source : plus efficace que le repli par lot, et
-                // sans permission "Manage Multi-Factor Authentication in API".
-                soql += ' AND HasUserVerifiedEmail = false';
-            }
-            if (since != null) {
-                soql += ' AND CreatedDate >= :since';
-            }
-            if (String.isNotBlank(emailDomainFilter)) {
-                soql += ' AND Email LIKE :domainLike';
-            }
-            if (includeInvalidAddresses == false) {
-                soql += ' AND (NOT Email LIKE \'%.invalid\')';
-            }
+          failedCount++;
+          logError(u.Username + ' (verification) : ' + verifyOutcome.message);
         }
-        return Database.getQueryLocator(soql);
+      }
+
+      if (sendPasswordReset == true) {
+        if (resetsThisChunk >= MAX_PASSWORD_RESETS_PER_CHUNK) {
+          // Compte en echec plutot que traite silencieusement : rien
+          // n'est perdu, mais il faut relancer avec une taille de lot
+          // de 10 pour couvrir ces utilisateurs.
+          resetFailedCount++;
+          logError(
+            u.Username +
+              ' (reset) : limite de ' +
+              MAX_PASSWORD_RESETS_PER_CHUNK +
+              ' resets par transaction atteinte. Relancer avec ' +
+              'Database.executeBatch(batch, 10).'
+          );
+          continue;
+        }
+        UserMailVerifyService.ActionOutcome resetOutcome = UserMailVerifyService.resetPassword(
+          u.Id,
+          u.Username,
+          notifyUserOnReset
+        );
+        if (resetOutcome.success) {
+          resetsThisChunk++;
+          resetCount++;
+        } else {
+          resetFailedCount++;
+          logError(u.Username + ' (reset) : ' + resetOutcome.message);
+        }
+      }
     }
+  }
 
-    public void execute(Database.BatchableContext ctx, List<User> scope) {
-        Set<Id> targets = new Set<Id>();
-        for (User u : scope) {
-            targets.add(u.Id);
-        }
-
-        // Deja filtre par la requete si User.HasUserVerifiedEmail est disponible.
-        if (onlyUnverified == true && !hasVerifiedEmailField()) {
-            targets = filterUnverified(targets);
-        }
-
-        Integer resetsThisChunk = 0;
-
-        for (User u : scope) {
-            if (!targets.contains(u.Id)) {
-                skippedCount++;
-                continue;
-            }
-            if (dryRun == true) {
-                sentCount++;
-                if (sendPasswordReset == true) {
-                    resetCount++;
-                }
-                continue;
-            }
-
-            if (sendVerification == true) {
-                try {
-                    System.UserManagement.sendAsyncEmailConfirmation(
-                        u.Id, emailTemplateId, networkId, startUrl
-                    );
-                    sentCount++;
-                } catch (Exception e) {
-                    failedCount++;
-                    logError(u.Username + ' (verification) : ' + e.getMessage());
-                }
-            }
-
-            if (sendPasswordReset == true) {
-                if (resetsThisChunk >= MAX_PASSWORD_RESETS_PER_CHUNK) {
-                    // Compte en echec plutot que traite silencieusement : rien
-                    // n'est perdu, mais il faut relancer avec une taille de lot
-                    // de 10 pour couvrir ces utilisateurs.
-                    resetFailedCount++;
-                    logError(u.Username + ' (reset) : limite de '
-                        + MAX_PASSWORD_RESETS_PER_CHUNK
-                        + ' resets par transaction atteinte. Relancer avec '
-                        + 'Database.executeBatch(batch, 10).');
-                    continue;
-                }
-                try {
-                    System.resetPassword(u.Id, notifyUserOnReset);
-                    resetsThisChunk++;
-                    resetCount++;
-                } catch (Exception e) {
-                    resetFailedCount++;
-                    logError(u.Username + ' (reset) : ' + e.getMessage());
-                }
-            }
-        }
+  private void logError(String message) {
+    if (errors.size() < 50) {
+      errors.add(message);
     }
+  }
 
-    private void logError(String message) {
-        if (errors.size() < 50) {
-            errors.add(message);
-        }
+  public void finish(Database.BatchableContext ctx) {
+    System.debug('MassUserEmailVerificationBatch termine.');
+    System.debug('  Liens de verification envoyes : ' + sentCount);
+    System.debug('  Mots de passe reinitialises   : ' + resetCount);
+    System.debug('  Ignores (deja verifies)       : ' + skippedCount);
+    System.debug('  Echecs verification           : ' + failedCount);
+    System.debug('  Echecs reset                  : ' + resetFailedCount);
+    for (String err : errors) {
+      System.debug('  !! ' + err);
     }
+  }
 
-    public void finish(Database.BatchableContext ctx) {
-        System.debug('MassUserEmailVerificationBatch termine.');
-        System.debug('  Liens de verification envoyes : ' + sentCount);
-        System.debug('  Mots de passe reinitialises   : ' + resetCount);
-        System.debug('  Ignores (deja verifies)       : ' + skippedCount);
-        System.debug('  Echecs verification           : ' + failedCount);
-        System.debug('  Echecs reset                  : ' + resetFailedCount);
-        for (String err : errors) {
-            System.debug('  !! ' + err);
-        }
+  /**
+   * Repli pour les orgs qui n'exposent pas User.HasUserVerifiedEmail.
+   * TwoFactorMethodsInfo exige la permission "Manage Multi-Factor
+   * Authentication in API" ; si la lecture echoue, toutes les cibles sont
+   * conservees : renvoyer un lien a un utilisateur deja verifie est sans
+   * effet de bord.
+   */
+  private Set<Id> filterUnverified(Set<Id> candidates) {
+    Set<Id> unverified = new Set<Id>();
+    try {
+      for (TwoFactorMethodsInfo info : [
+        SELECT UserId
+        FROM TwoFactorMethodsInfo
+        WHERE UserId IN :candidates AND HasUserVerifiedEmailAddress = FALSE
+      ]) {
+        unverified.add(info.UserId);
+      }
+    } catch (Exception e) {
+      System.debug(
+        'Lecture TwoFactorMethodsInfo impossible : ' + e.getMessage()
+      );
+      return candidates;
     }
+    return unverified;
+  }
 
-    /**
-     * Repli pour les orgs qui n'exposent pas User.HasUserVerifiedEmail.
-     * TwoFactorMethodsInfo exige la permission "Manage Multi-Factor
-     * Authentication in API" ; si la lecture echoue, toutes les cibles sont
-     * conservees : renvoyer un lien a un utilisateur deja verifie est sans
-     * effet de bord.
-     */
-    private Set<Id> filterUnverified(Set<Id> candidates) {
-        Set<Id> unverified = new Set<Id>();
-        try {
-            for (TwoFactorMethodsInfo info : [
-                SELECT UserId
-                FROM TwoFactorMethodsInfo
-                WHERE UserId IN :candidates
-                  AND HasUserVerifiedEmailAddress = false
-            ]) {
-                unverified.add(info.UserId);
-            }
-        } catch (Exception e) {
-            System.debug('Lecture TwoFactorMethodsInfo impossible : ' + e.getMessage());
-            return candidates;
-        }
-        return unverified;
-    }
-
-    public class MassUserEmailVerificationException extends Exception {}
+  public class MassUserEmailVerificationException extends Exception {
+  }
 }

@@ -1,0 +1,88 @@
+<template>
+  <lightning-card title="User Mail Verify" icon-name="standard:email">
+    <div class="slds-var-p-horizontal_medium slds-var-p-bottom_medium">
+      <lightning-combobox
+        name="brand"
+        label="Brand"
+        placeholder="Select a brand"
+        options={brandOptions}
+        value={selectedBrand}
+        onchange={handleBrandChange}
+      ></lightning-combobox>
+
+      <template if:true={errorMessage}>
+        <div class="slds-var-m-top_small slds-text-color_error" role="alert">
+          {errorMessage}
+        </div>
+      </template>
+
+      <template if:true={isLoading}>
+        <div class="slds-var-m-top_medium slds-align_absolute-center">
+          <lightning-spinner
+            alternative-text="Loading users"
+            size="small"
+          ></lightning-spinner>
+        </div>
+      </template>
+
+      <template if:true={showEmptyState}>
+        <div class="slds-var-m-top_medium slds-text-color_weak">
+          No active, unverified user found for this brand.
+        </div>
+      </template>
+
+      <template if:true={hasRows}>
+        <template if:true={isTruncated}>
+          <div class="slds-var-m-top_small slds-text-color_weak umv-truncation">
+            {truncationMessage}
+          </div>
+        </template>
+
+        <div class="slds-var-m-top_medium umv-table">
+          <lightning-datatable
+            key-field="id"
+            data={rows}
+            columns={columns}
+            onrowselection={handleRowSelection}
+          ></lightning-datatable>
+        </div>
+
+        <div
+          class="slds-var-m-top_small slds-grid slds-grid_vertical-align-center slds-wrap"
+        >
+          <span class="slds-text-body_small slds-var-m-right_medium">
+            {selectionSummary}
+          </span>
+
+          <lightning-button
+            class="slds-var-m-right_x-small"
+            label="Refresh"
+            onclick={handleRefresh}
+            disabled={isLoading}
+          ></lightning-button>
+
+          <lightning-button
+            class="slds-var-m-right_x-small"
+            variant="brand"
+            label="Send verification"
+            onclick={handleVerify}
+            disabled={isActionDisabled}
+          ></lightning-button>
+
+          <lightning-button
+            variant="destructive"
+            label="Reset password"
+            onclick={handleReset}
+            disabled={isActionDisabled}
+          ></lightning-button>
+        </div>
+
+        <template if:true={isOverCap}>
+          <div class="slds-var-m-top_x-small slds-text-color_error">
+            Selection exceeds the per-run limit. Reduce it before launching.
+          </div>
+        </template>
+      </template>
+    </div>
+  </lightning-card>
+</template>

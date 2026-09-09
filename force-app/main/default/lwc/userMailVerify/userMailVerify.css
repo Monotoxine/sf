@@ -1,0 +1,8 @@
+.umv-table {
+  max-height: 28rem;
+  overflow-y: auto;
+}
+
+.umv-truncation {
+  font-style: italic;
+}
