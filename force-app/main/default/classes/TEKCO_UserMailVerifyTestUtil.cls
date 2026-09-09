@@ -11,10 +11,10 @@ public class TEKCO_UserMailVerifyTestUtil {
    *
    * Reading the first active entry of the describe used to be enough, until it
    * produced INVALID_OR_NULL_FOR_RESTRICTED_PICKLIST: the value set is
-   * restricted, and brand may depend on country, so an entry that looks active
-   * in the describe is not necessarily assignable on its own. Values the org
-   * already accepts on a live record are, and taking both from the same record
-   * keeps the pair consistent.
+   * restricted, and brand is a dependent picklist controlled by country, so an
+   * entry that looks active in the describe is not assignable on its own.
+   * Values the org already accepts on a live record are, and taking the pair
+   * from one record keeps it a valid combination.
    *
    * Returns null when the field is absent or no user carries a brand, so a
    * test can skip rather than fail.
@@ -32,10 +32,15 @@ public class TEKCO_UserMailVerifyTestUtil {
     Boolean hasCountry = fields.containsKey('TEKCO_Country__c');
 
     // Dynamic so the class still compiles in an org without these fields.
+    // Both values must be present on the same record: brand is a dependent
+    // picklist controlled by country, so a brand without its country is
+    // rejected at insert.
     List<User> found = Database.query(
       'SELECT TEKCO_Brand__c' +
         (hasCountry ? ', TEKCO_Country__c' : '') +
-        ' FROM User WHERE TEKCO_Brand__c != null LIMIT 1'
+        ' FROM User WHERE TEKCO_Brand__c != null' +
+        (hasCountry ? ' AND TEKCO_Country__c != null' : '') +
+        ' LIMIT 1'
     );
     if (found.isEmpty()) {
       return null;
@@ -44,7 +49,7 @@ public class TEKCO_UserMailVerifyTestUtil {
     cachedSample = new Map<String, Object>{
       'TEKCO_Brand__c' => found[0].get('TEKCO_Brand__c')
     };
-    if (hasCountry && found[0].get('TEKCO_Country__c') != null) {
+    if (hasCountry) {
       cachedSample.put('TEKCO_Country__c', found[0].get('TEKCO_Country__c'));
     }
     return cachedSample;
