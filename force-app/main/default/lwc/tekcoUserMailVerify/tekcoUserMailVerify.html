@@ -1,7 +1,7 @@
 <template>
   <lightning-card title="User Mail Verify" icon-name="standard:email">
     <div class="slds-var-p-horizontal_medium slds-var-p-bottom_medium">
-      <div class="slds-grid slds-wrap umv-filters">
+      <div class="slds-grid slds-wrap slds-grid_align-center umv-filters">
         <div class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12">
           <lightning-dual-listbox
             data-id="brands"
@@ -73,12 +73,12 @@
         </template>
 
         <lightning-input
-          class="slds-var-m-top_medium"
+          class="slds-var-m-top_medium umv-search"
           data-id="search"
           type="search"
           label="Search"
           variant="label-hidden"
-          placeholder="Search this list by name, username, email or brand"
+          placeholder="Search this list"
           value={searchTerm}
           onchange={handleSearch}
         ></lightning-input>

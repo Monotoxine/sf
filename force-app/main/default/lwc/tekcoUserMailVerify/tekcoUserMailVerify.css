@@ -6,3 +6,16 @@
 .umv-truncation {
   font-style: italic;
 }
+
+/* The query filters read as one centred block; the table below stays full
+   width, so they are not stretched to match it. */
+.umv-filters {
+  margin-inline: auto;
+  max-width: 34rem;
+}
+
+/* Narrow on purpose: it only narrows what is already displayed, so it should
+   not carry the visual weight of the filters that build the query. */
+.umv-search {
+  max-width: 20rem;
+}
