@@ -3,34 +3,56 @@
  */
 @IsTest
 public class TEKCO_UserMailVerifyTestUtil {
-  private static String cachedBrand;
-  private static Boolean brandResolved = false;
+  private static Map<String, Object> cachedSample;
+  private static Boolean sampleResolved = false;
 
   /**
-   * A real value taken from the Brands value set.
+   * Brand, and country when the org has one, copied from a real user.
    *
-   * TEKCO_Brand__c is backed by a global value set, which is normally
-   * restricted: an invented value would be rejected at insert. Reading the
-   * describe keeps the tests working whatever the value set contains, and
-   * returns null when the field is absent so a test can skip rather than fail.
+   * Reading the first active entry of the describe used to be enough, until it
+   * produced INVALID_OR_NULL_FOR_RESTRICTED_PICKLIST: the value set is
+   * restricted, and brand may depend on country, so an entry that looks active
+   * in the describe is not necessarily assignable on its own. Values the org
+   * already accepts on a live record are, and taking both from the same record
+   * keeps the pair consistent.
+   *
+   * Returns null when the field is absent or no user carries a brand, so a
+   * test can skip rather than fail.
    */
-  public static String testBrand() {
-    if (!brandResolved) {
-      brandResolved = true;
-      Schema.SObjectField field = Schema.SObjectType.User.fields.getMap()
-        .get('TEKCO_Brand__c');
-      if (field != null) {
-        for (
-          Schema.PicklistEntry entry : field.getDescribe().getPicklistValues()
-        ) {
-          if (entry.isActive()) {
-            cachedBrand = entry.getValue();
-            break;
-          }
-        }
-      }
+  private static Map<String, Object> brandSample() {
+    if (sampleResolved) {
+      return cachedSample;
     }
-    return cachedBrand;
+    sampleResolved = true;
+
+    Map<String, Schema.SObjectField> fields = Schema.SObjectType.User.fields.getMap();
+    if (!fields.containsKey('TEKCO_Brand__c')) {
+      return null;
+    }
+    Boolean hasCountry = fields.containsKey('TEKCO_Country__c');
+
+    // Dynamic so the class still compiles in an org without these fields.
+    List<User> found = Database.query(
+      'SELECT TEKCO_Brand__c' +
+        (hasCountry ? ', TEKCO_Country__c' : '') +
+        ' FROM User WHERE TEKCO_Brand__c != null LIMIT 1'
+    );
+    if (found.isEmpty()) {
+      return null;
+    }
+
+    cachedSample = new Map<String, Object>{
+      'TEKCO_Brand__c' => found[0].get('TEKCO_Brand__c')
+    };
+    if (hasCountry && found[0].get('TEKCO_Country__c') != null) {
+      cachedSample.put('TEKCO_Country__c', found[0].get('TEKCO_Country__c'));
+    }
+    return cachedSample;
+  }
+
+  public static String testBrand() {
+    Map<String, Object> sample = brandSample();
+    return sample == null ? null : (String) sample.get('TEKCO_Brand__c');
   }
 
   public static User buildUser(String alias, String email) {
@@ -53,8 +75,11 @@ public class TEKCO_UserMailVerifyTestUtil {
       Username = stamp + '@umv-test.example.com'
     );
     // put() throws on a field the org does not have, so guard the assignment.
-    if (testBrand() != null) {
-      u.put('TEKCO_Brand__c', testBrand());
+    Map<String, Object> sample = brandSample();
+    if (sample != null) {
+      for (String fieldName : sample.keySet()) {
+        u.put(fieldName, sample.get(fieldName));
+      }
     }
     return u;
   }
