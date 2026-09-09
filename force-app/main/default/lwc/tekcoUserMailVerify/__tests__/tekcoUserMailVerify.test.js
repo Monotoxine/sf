@@ -185,6 +185,61 @@ describe("c-tekco-user-mail-verify", () => {
     });
   });
 
+  it("filters the table on the search term", async () => {
+    getUnverifiedUsers.mockResolvedValue(USERS);
+    const element = createComponent();
+    await selectBrand(element);
+
+    const search = element.shadowRoot.querySelector(
+      'lightning-input[data-id="search"]'
+    );
+    search.value = "alan";
+    search.dispatchEvent(new CustomEvent("change"));
+    await Promise.resolve();
+
+    const table = element.shadowRoot.querySelector("lightning-datatable");
+    expect(table.data).toHaveLength(1);
+    expect(table.data[0].username).toBe("alan@example.com");
+  });
+
+  it("keeps a selection made before filtering", async () => {
+    getUnverifiedUsers.mockResolvedValue(USERS);
+    const element = createComponent();
+    await selectBrand(element);
+
+    const table = element.shadowRoot.querySelector("lightning-datatable");
+    table.dispatchEvent(
+      new CustomEvent("rowselection", {
+        detail: { selectedRows: [USERS.rows[0]] }
+      })
+    );
+    await Promise.resolve();
+
+    // Filter Ada out of view, then select Alan among the visible rows.
+    const search = element.shadowRoot.querySelector(
+      'lightning-input[data-id="search"]'
+    );
+    search.value = "alan";
+    search.dispatchEvent(new CustomEvent("change"));
+    await Promise.resolve();
+
+    table.dispatchEvent(
+      new CustomEvent("rowselection", {
+        detail: { selectedRows: [USERS.rows[1]] }
+      })
+    );
+    await Promise.resolve();
+
+    const buttons = element.shadowRoot.querySelectorAll("lightning-button");
+    const verify = Array.from(buttons).find((b) => b.label === "Verify");
+    verify.click();
+    await Promise.resolve();
+
+    expect(launchVerification).toHaveBeenCalledWith({
+      userIds: ["005000000000001AAA", "005000000000002AAA"]
+    });
+  });
+
   it("surfaces an Apex error message", async () => {
     getUnverifiedUsers.mockRejectedValue({
       body: { message: "Access denied" }

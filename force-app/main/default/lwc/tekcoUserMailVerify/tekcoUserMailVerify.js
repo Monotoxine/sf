@@ -45,6 +45,7 @@ export default class TekcoUserMailVerify extends LightningElement {
   isSandbox = false;
 
   brandsLoaded = false;
+  searchTerm = "";
 
   // Served from Apex rather than the UI API: getPicklistValues needs a record
   // type id, and the User object does not support record types, so that wire
@@ -72,6 +73,26 @@ export default class TekcoUserMailVerify extends LightningElement {
     } else if (error) {
       this.reportError(error);
     }
+  }
+
+  /**
+   * Filtered client-side: the rows for one brand are already loaded, so a
+   * server round-trip per keystroke would buy nothing.
+   */
+  get filteredRows() {
+    const term = this.searchTerm.trim().toLowerCase();
+    if (!term) {
+      return this.rows;
+    }
+    return this.rows.filter((row) =>
+      [row.name, row.username, row.email, row.profileName].some(
+        (value) => value && value.toLowerCase().includes(term)
+      )
+    );
+  }
+
+  get hasNoMatch() {
+    return this.rows.length > 0 && this.filteredRows.length === 0;
   }
 
   get hasNoBrands() {
@@ -112,7 +133,13 @@ export default class TekcoUserMailVerify extends LightningElement {
     const cap = this.maxUsersPerRun
       ? ` (max ${this.maxUsersPerRun} per run)`
       : "";
-    return `${this.selectedIds.length} of ${this.rows.length} selected${cap}`;
+    // The count spans every loaded row, not just the visible ones: a selection
+    // made before filtering still counts towards the run.
+    const shown =
+      this.filteredRows.length === this.rows.length
+        ? ""
+        : `, ${this.filteredRows.length} shown`;
+    return `${this.selectedIds.length} of ${this.rows.length} selected${shown}${cap}`;
   }
 
   get truncationMessage() {
@@ -130,8 +157,30 @@ export default class TekcoUserMailVerify extends LightningElement {
     this.loadUsers();
   }
 
+  handleSearch(event) {
+    this.searchTerm = event.target.value || "";
+  }
+
+  /**
+   * The datatable only reports the rows it currently shows, so a selection made
+   * before filtering would be dropped. Selections outside the current filter
+   * are preserved and only the visible ones are replaced.
+   */
   handleRowSelection(event) {
-    this.selectedIds = event.detail.selectedRows.map((row) => row.id);
+    const visibleIds = new Set(this.filteredRows.map((row) => row.id));
+    const selectedVisible = event.detail.selectedRows.map((row) => row.id);
+    const merged = [
+      ...this.selectedIds.filter((id) => !visibleIds.has(id)),
+      ...selectedVisible
+    ];
+
+    // Assigning an equivalent array would re-render, feed selected-rows back
+    // into the datatable and bounce another rowselection event.
+    if (
+      merged.slice().sort().join() !== this.selectedIds.slice().sort().join()
+    ) {
+      this.selectedIds = merged;
+    }
   }
 
   async handleVerify() {
@@ -159,6 +208,7 @@ export default class TekcoUserMailVerify extends LightningElement {
     this.isLoading = true;
     this.errorMessage = undefined;
     this.selectedIds = [];
+    this.searchTerm = "";
     try {
       const result = await getUnverifiedUsers({ brand: this.selectedBrand });
       this.rows = result.rows.map((row) => ({

@@ -45,11 +45,29 @@
           </div>
         </template>
 
-        <div class="slds-var-m-top_medium umv-table">
+        <lightning-input
+          class="slds-var-m-top_small"
+          data-id="search"
+          type="search"
+          label="Search"
+          variant="label-hidden"
+          placeholder="Filter by name, username, email or profile"
+          value={searchTerm}
+          onchange={handleSearch}
+        ></lightning-input>
+
+        <template if:true={hasNoMatch}>
+          <div class="slds-var-m-top_small slds-text-color_weak">
+            No user matches this search.
+          </div>
+        </template>
+
+        <div class="slds-var-m-top_small umv-table">
           <lightning-datatable
             key-field="id"
-            data={rows}
+            data={filteredRows}
             columns={columns}
+            selected-rows={selectedIds}
             onrowselection={handleRowSelection}
           ></lightning-datatable>
         </div>

@@ -132,6 +132,15 @@ Not in this repository, expected to exist in the org:
 never `IsFrozen = false`: a user with no `UserLogin` record is not frozen, and
 the negative filter would wrongly drop them.
 
+**The search box filters client-side.** The rows for one brand are already
+loaded, so a server round-trip per keystroke would buy nothing. It matches on
+name, username, email and profile.
+
+A selection survives filtering. `lightning-datatable` only reports the rows it
+currently shows, so selections outside the active filter are preserved and only
+the visible ones are replaced; the counter reads against every loaded row, not
+just the visible ones.
+
 **Both buttons start by stripping `.invalid`.** Sending anything to an address
 still carrying the suffix delivers nothing, and on the reset path the verification
 it performs would be lost with it. The cleanup runs in its own transaction so the
