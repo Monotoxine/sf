@@ -1,6 +1,6 @@
 @IsTest
 private class TEKCO_UserMailVerifyController_Test {
-  /** Reset is sandbox-only, so the tests that exercise it assume one. */
+
   private static User testUser() {
     User u = TEKCO_UserMailVerifyTestUtil.buildUser(
       'umvctl',
@@ -50,14 +50,10 @@ private class TEKCO_UserMailVerifyController_Test {
   static void enforcesThePerRunCapServerSide() {
     User granted = testUser();
 
-    // Synthetic ids: the cap is checked before any query, so no user needs to
-    // exist. Inserting MAX_USERS_PER_RUN + 1 real users would be gratuitous.
     List<Id> ids = new List<Id>();
     for (
       Integer i = 0; i <= TEKCO_UserMailVerifyConstants.MAX_USERS_PER_RUN; i++
     ) {
-      // Padded to 15 characters: an 18-character id would need a valid
-      // checksum suffix, and a 12-digit literal overflows an Apex Integer.
       ids.add(Id.valueOf('005' + String.valueOf(i + 1).leftPad(12, '0')));
     }
 

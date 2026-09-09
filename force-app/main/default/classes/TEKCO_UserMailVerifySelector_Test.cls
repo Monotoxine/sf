@@ -122,8 +122,6 @@ private class TEKCO_UserMailVerifySelector_Test {
         return;
       }
     }
-    // Reaching here means the org already considers the user verified, which
-    // is legitimate; the flag itself is asserted only when the row is present.
   }
 
   @IsTest

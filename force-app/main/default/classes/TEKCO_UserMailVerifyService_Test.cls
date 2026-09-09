@@ -1,8 +1,3 @@
-/**
- * The tests that asserted sends and resets went with the injectable interface
- * they relied on. What remains covers the address cleanup, which writes to the
- * database and is observable without a test double.
- */
 @IsTest
 private class TEKCO_UserMailVerifyService_Test {
   @IsTest
