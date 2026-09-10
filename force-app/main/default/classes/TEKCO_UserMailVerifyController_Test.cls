@@ -1,23 +1,11 @@
-/**
- * Two test methods, split only by a platform limit: a test transaction accepts
- * a single System.enqueueJob, and both launch methods queue a run.
- *
- * No System.runAs here. The controller carries no permission check, so running
- * as a low-privilege user only added a way for the code to fail before
- * reaching the lines under test.
- */
 @IsTest
 private class TEKCO_UserMailVerifyController_Test {
-  /**
-   * Test_UserHelper stamps brand and country from TestContext. Both are
-   * needed: brand is a dependent picklist controlled by country, so setting
-   * one without the other is rejected at insert.
-   */
+  
   private static List<User> insertUsers(Integer count) {
     List<User> users = new List<User>();
     for (Integer i = 0; i < count; i++) {
-      User u = Test_UserHelper.createMinimumAccessUser('umvc' + i, false);
-      u.Email = 'umvc' + i + '@umv-test.example.com';
+      User u = Test_UserHelper.createMinimumAccessUser('mailverify' + i, false);
+      u.Email = 'mailverify' + i + '@test.example.com';
       users.add(u);
     }
     insert users;
@@ -94,9 +82,6 @@ private class TEKCO_UserMailVerifyController_Test {
     Assert.isNotNull(brands, 'The brand picker must always get a list.');
     Assert.isNotNull(listed, 'The user list must always come back.');
 
-    // Each refusal is asserted on its own message. A bare "an exception was
-    // thrown" would pass on any failure, including one that never reaches the
-    // guard being tested.
     Assert.isTrue(
       resetRefused != null && resetRefused.contains('sandboxes only'),
       'Hiding the button is not a control, and the refusal must say why: ' +

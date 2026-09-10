@@ -1,5 +1,5 @@
 /**
- * Entry point for the tekcoUserMailVerify Lightning Web Component.
+ * Entry point for the tekcoUserMailVerify LWC.
  */
 public with sharing class TEKCO_UserMailVerifyController {
   public class Settings {

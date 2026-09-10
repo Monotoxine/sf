@@ -1,18 +1,5 @@
 /**
  * Runs a User Mail Verify request asynchronously, one chunk per transaction.
- *
- * Chunking exists because System.resetPassword is capped at 10 calls per
- * transaction, and because a bulk send should not sit inside the user's HTTP
- * request. Each link in the chain hands its counters to the next through the
- * constructor, so a single summary survives the whole run and only the final
- * link notifies the administrator.
- *
- * There is no address cleanup phase. Removing a ".invalid" suffix from Apex
- * leaves the change pending an Email Change Verification the user cannot
- * complete, since the address it is sent to is the dead one. The only sequence
- * that works sets a password first, which this screen has no business doing on
- * a verification. Suffixed addresses are surfaced and filtered by the screen
- * instead, and handled by hand in Setup.
  */
 public with sharing class TEKCO_UserMailVerify_QBL implements Queueable {
   public enum Phase {
@@ -20,7 +7,6 @@ public with sharing class TEKCO_UserMailVerify_QBL implements Queueable {
     RESET
   }
 
-  /** Failure messages kept in the summary; beyond this, see the debug logs. */
   private static final Integer MAX_REPORTED_ERRORS = 10;
 
   private final Phase currentPhase;
@@ -57,10 +43,6 @@ public with sharing class TEKCO_UserMailVerify_QBL implements Queueable {
       : TEKCO_UserMailVerifyConstants.CHUNK_SIZE_VERIFY;
   }
 
-  /**
-   * Lets a test run one phase without queueing it. Apex allows a single job
-   * per test transaction, and chaining is skipped under test anyway.
-   */
   @TestVisible
   private static TEKCO_UserMailVerify_QBL forPhase(
     Phase phaseToRun,
@@ -86,7 +68,6 @@ public with sharing class TEKCO_UserMailVerify_QBL implements Queueable {
     this.errors = new List<String>();
   }
 
-  /** Continuation constructor: carries the running totals into the next link. */
   private TEKCO_UserMailVerify_QBL(
     TEKCO_UserMailVerify_QBL previous,
     List<Id> pending
@@ -126,17 +107,6 @@ public with sharing class TEKCO_UserMailVerify_QBL implements Queueable {
     return chunk;
   }
 
-  /**
-   * Sending a verification link to an address that is already verified asks
-   * the user to confirm what they have already confirmed. Those users are
-   * skipped and reported, not counted as successes.
-   *
-   * Only on the verification path. A verified user is a legitimate target for
-   * a password reset, so that phase touches everyone it was given.
-   *
-   * The query is dynamic because HasUserVerifiedEmail is not present in every
-   * org. Where it is absent nothing is skipped, as before.
-   */
   private void processActions(List<Id> chunk) {
     Boolean skipVerified =
       currentPhase == Phase.VERIFY &&
@@ -187,10 +157,6 @@ public with sharing class TEKCO_UserMailVerify_QBL implements Queueable {
     }
   }
 
-  /**
-   * Chaining is skipped under test: Apex allows only one queued job from a
-   * running test, so the assertions cover a single chunk.
-   */
   private void chain(TEKCO_UserMailVerify_QBL next) {
     if (Test.isRunningTest()) {
       return;

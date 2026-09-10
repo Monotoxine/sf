@@ -1,17 +1,6 @@
-/**
- * One test method on purpose.
- *
- * Coverage counts lines executed, not methods, and every platform call in the
- * service is wrapped in try/catch: the outcome is recorded whether the call
- * succeeds or not, so a single pass walks all of them.
- */
 @IsTest
 private class TEKCO_UserMailVerifyService_Test {
-  /**
-   * Test_UserHelper stamps brand and country from TestContext. Both are
-   * needed: brand is a dependent picklist controlled by country, so setting
-   * one without the other is rejected at insert.
-   */
+ 
   private static User buildUser(String alias, String email) {
     User u = Test_UserHelper.createMinimumAccessUser(alias, false);
     u.Email = email;
@@ -20,7 +9,7 @@ private class TEKCO_UserMailVerifyService_Test {
 
   @IsTest
   static void coversEveryServiceAction() {
-    User target = buildUser('umvsvc', 'svc@umv-test.example.com');
+    User target = buildUser('umvsvc', 'svc@test.example.com');
     insert target;
 
     Test.startTest();
@@ -29,7 +18,6 @@ private class TEKCO_UserMailVerifyService_Test {
       target.Username,
       null
     );
-    // notifyUser = false: a test must not depend on mail going out.
     TEKCO_UserMailVerifyService.ActionOutcome reset = TEKCO_UserMailVerifyService.resetPassword(
       target.Id,
       target.Username,
@@ -42,8 +30,6 @@ private class TEKCO_UserMailVerifyService_Test {
     );
     Test.stopTest();
 
-    // Whether the platform accepts these depends on org configuration, so the
-    // assertion is on the contract: an outcome comes back, never an exception.
     Assert.isNotNull(sent, 'sendVerification must always report an outcome.');
     Assert.areEqual(
       target.Id,

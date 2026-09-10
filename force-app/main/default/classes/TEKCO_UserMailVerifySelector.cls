@@ -90,10 +90,6 @@ public with sharing class TEKCO_UserMailVerifySelector {
 
   private static Boolean verifiedFieldCache;
 
-  /**
-   * Public because the queueable needs it too: it skips users whose address is
-   * already verified, and can only do that where the org exposes the field.
-   */
   public static Boolean hasVerifiedField() {
     if (verifiedFieldCache == null) {
       verifiedFieldCache = Schema.SObjectType.User.fields.getMap()

@@ -1,14 +1,6 @@
-/**
- * One test method on purpose: the selector performs no asynchronous work, so
- * every branch can be walked in a single pass.
- */
 @IsTest
 private class TEKCO_UserMailVerifySelector_Test {
-  /**
-   * Test_UserHelper stamps brand and country from TestContext. Both are
-   * needed: brand is a dependent picklist controlled by country, so setting
-   * one without the other is rejected at insert.
-   */
+
   private static User buildUser(String alias, String email) {
     User u = Test_UserHelper.createMinimumAccessUser(alias, false);
     u.Email = email;
@@ -34,9 +26,9 @@ private class TEKCO_UserMailVerifySelector_Test {
     List<String> brand = new List<String>{ TestContext.BRAND };
     List<String> unknown = new List<String>{ 'UMV_BRAND_THAT_DOES_NOT_EXIST' };
 
-    User suffixed = buildUser('umvsfx', 'sfx@umv-test.example.com.invalid');
-    User clean = buildUser('umvcln', 'cln@umv-test.example.com');
-    User inactive = buildUser('umvina', 'ina@umv-test.example.com');
+    User suffixed = buildUser('umvsfx', 'sfx@test.example.com.invalid');
+    User clean = buildUser('umvcln', 'cln@test.example.com');
+    User inactive = buildUser('umvina', 'ina@test.example.com');
     insert new List<User>{ suffixed, clean, inactive };
     inactive.IsActive = false;
     update inactive;
@@ -84,7 +76,6 @@ private class TEKCO_UserMailVerifySelector_Test {
       TEKCO_UserMailVerifySelector.SUFFIX_NONE,
       500
     );
-    // maxRows null means "no cap", which is a different branch from a number.
     TEKCO_UserMailVerifySelector.UserListResult uncapped = find(
       brand,
       TEKCO_UserMailVerifySelector.FILTER_ALL,
