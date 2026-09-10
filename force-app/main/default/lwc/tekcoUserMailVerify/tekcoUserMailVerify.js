@@ -159,8 +159,6 @@ export default class TekcoUserMailVerify extends LightningElement {
     );
   }
 
-  // The server skips these too, but only once the run reaches them, which is
-  // after the toast has claimed the selection was queued.
   get selectedVerifiedCount() {
     const selected = new Set(this.selectedIds);
     return this.rows.filter(

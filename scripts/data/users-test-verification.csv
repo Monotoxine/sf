@@ -1,6 +1,6 @@
-FirstName,LastName,Alias,Username,Email,ProfileId,TimeZoneSidKey,LocaleSidKey,EmailEncodingKey,LanguageLocaleKey,Department
-Test01,VerifEmail,tverif01,test01.verif@REMPLACER-DOMAINE.com,TON.ADRESSE+test01@gmail.com,REMPLACER_PROFILE_ID,Europe/Paris,fr_FR_EURO,UTF-8,fr,TEST-VERIF
-Test02,VerifEmail,tverif02,test02.verif@REMPLACER-DOMAINE.com,TON.ADRESSE+test02@gmail.com,REMPLACER_PROFILE_ID,Europe/Paris,fr_FR_EURO,UTF-8,fr,TEST-VERIF
-Test03,VerifEmail,tverif03,test03.verif@REMPLACER-DOMAINE.com,TON.ADRESSE+test03@gmail.com,REMPLACER_PROFILE_ID,Europe/Paris,fr_FR_EURO,UTF-8,fr,TEST-VERIF
-Test04,VerifEmail,tverif04,test04.verif@REMPLACER-DOMAINE.com,TON.ADRESSE+test04@gmail.com,REMPLACER_PROFILE_ID,Europe/Paris,fr_FR_EURO,UTF-8,fr,TEST-VERIF
-Test05,VerifEmail,tverif05,test05.verif@REMPLACER-DOMAINE.com,TON.ADRESSE+test05@gmail.com,REMPLACER_PROFILE_ID,Europe/Paris,fr_FR_EURO,UTF-8,fr,TEST-VERIF
+FirstName,LastName,Alias,Username,Email,ProfileId,TimeZoneSidKey,LocaleSidKey,EmailEncodingKey,LanguageLocaleKey,Department,TEKCO_Brand__c,TEKCO_Country__c
+Test001,VerifEmail,tverif01,Test001.verif@test.com,sara.elhannaoui-sc@airliquide.com,00e5E000000jJI2QAM,Europe/Paris,fr_FR_EURO,UTF-8,fr,TEST-VERIF,FR_VIT,FRA
+Test002,VerifEmail,tverif02,Test002.verif@test.com,sara.elhannaoui-sc@airliquide.com,00e5E000000jJI2QAM,Europe/Paris,fr_FR_EURO,UTF-8,fr,TEST-VERIF,FR_VIT,FRA
+Test003,VerifEmail,tverif03,Test003.verif@test.com,sara.elhannaoui-sc@airliquide.com,00e5E000000jJI2QAM,Europe/Paris,fr_FR_EURO,UTF-8,fr,TEST-VERIF,FR_VIT,FRA
+Test004,VerifEmail,tverif04,Test004.verif@test.com,sara.elhannaoui-sc@airliquide.com,00e5E000000jJI2QAM,Europe/Paris,fr_FR_EURO,UTF-8,fr,TEST-VERIF,FR_VIT,FRA
+Test005,VerifEmail,tverif05,Test005.verif@test.com,sara.elhannaoui-sc@airliquide.com,00e5E000000jJI2QAM,Europe/Paris,fr_FR_EURO,UTF-8,fr,TEST-VERIF,FR_VIT,FRA

@@ -7,15 +7,6 @@
   font-style: italic;
 }
 
-/* Left-aligned so the filters share their left edge with the first column of
-   the table. They were centred when they were the only thing on screen; once
-   rows load, the table sets the page edge and an island in the middle reads as
-   unrelated to the list it builds.
-
-   Width is set by the longest brand label, not by the table: at 30rem the
-   picker truncated names like "Respiratory Therapy Specialists" mid-word,
-   which makes two brands indistinguishable. Still capped rather than
-   stretched, since a picker gains nothing from matching a full-width table. */
 .umv-filters {
   max-width: 44rem;
 }
@@ -25,8 +16,6 @@
   justify-content: flex-end;
 }
 
-/* Narrow on purpose: search only narrows what is already displayed, so it
-   should not carry the visual weight of the filters that build the query. */
 .umv-search {
   width: 18rem;
 }
