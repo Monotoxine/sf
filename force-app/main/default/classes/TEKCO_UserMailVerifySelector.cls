@@ -203,7 +203,6 @@ public with sharing class TEKCO_UserMailVerifySelector {
       : ' AND HasUserVerifiedEmail = false';
   }
 
-  /** null means the org exposes no signal, which the screen renders as "?". */
   private static Boolean verificationState(User u) {
     return hasVerifiedField() ? u.get('HasUserVerifiedEmail') == true : null;
   }
