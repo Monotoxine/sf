@@ -159,6 +159,15 @@ export default class TekcoUserMailVerify extends LightningElement {
     );
   }
 
+  // The server skips these too, but only once the run reaches them, which is
+  // after the toast has claimed the selection was queued.
+  get selectedVerifiedCount() {
+    const selected = new Set(this.selectedIds);
+    return this.rows.filter(
+      (row) => selected.has(row.id) && row.isVerified === true
+    ).length;
+  }
+
   get selectionSummary() {
     if (!this.hasRows) {
       return "";
@@ -218,7 +227,17 @@ export default class TekcoUserMailVerify extends LightningElement {
   }
 
   async handleVerify() {
-    await this.run(launchVerification, "Verification");
+    const alreadyVerified = this.selectedVerifiedCount;
+    if (alreadyVerified === this.selectedIds.length) {
+      this.toast(
+        "Nothing to send",
+        "Every selected address is already verified. The run would ask those " +
+          "users to confirm what they have already confirmed, so no email is sent.",
+        "warning"
+      );
+      return;
+    }
+    await this.run(launchVerification, "Verification", alreadyVerified);
   }
 
   async handleReset() {
@@ -266,13 +285,17 @@ export default class TekcoUserMailVerify extends LightningElement {
     }
   }
 
-  async run(apexAction, label) {
+  async run(apexAction, label, alreadyVerified = 0) {
     this.isRunning = true;
     try {
       const result = await apexAction({ userIds: this.selectedIds });
+      const queued = result.queuedCount - alreadyVerified;
+      const skipped = alreadyVerified
+        ? ` ${alreadyVerified} already verified, skipped.`
+        : "";
       this.toast(
         `${label} started`,
-        `${result.queuedCount} user(s) queued. You will be notified when the run completes.`,
+        `${queued} user(s) queued.${skipped} You will be notified when the run completes.`,
         "success"
       );
       await this.loadUsers();

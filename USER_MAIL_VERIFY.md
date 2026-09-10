@@ -220,11 +220,22 @@ remove the suffix and tick _Generate new password and notify user immediately_
 in the same save. `scripts/apex/user-email/07-sandbox-set-password.apex` covers
 the case where you need a password without a mailbox first.
 
-**An already verified address is skipped by the verify button**, and reported
-as skipped rather than as a success. Asking someone to confirm what they have
-already confirmed is noise. The reset button skips nobody: a verified user is a
-legitimate target for a password reset, which is exactly why the screen can list
-verified users at all.
+**An already verified address is refused before the run starts.** The screen
+already knows the state per row, so pressing _Verify_ on a fully verified
+selection reports that nothing would be sent and launches nothing, and a mixed
+selection says how many will be skipped. Without that, the toast announced a
+queued run and no email ever arrived, which reads as a failure rather than as
+the intended behaviour.
+
+**The same check runs server-side**, in the queueable, at the last moment
+before the send. The screen check is for the administrator, this one is the
+guarantee: it survives a stale list, a state that changed since loading, and a
+call made straight to the Aura endpoint. Those users are counted as skipped in
+the completion notification, never as successes.
+
+Both checks are on the verify path only. The reset button skips nobody: a
+verified user is a legitimate target for a password reset, which is exactly why
+the screen can list verified users at all.
 
 **The running user is always excluded** from the list. The same screen resets
 passwords, and locking yourself out of an admin tool is not recoverable.
