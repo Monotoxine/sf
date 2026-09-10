@@ -182,9 +182,18 @@ verified users at all.
 **The running user is always excluded** from the list. The same screen resets
 passwords, and locking yourself out of an admin tool is not recoverable.
 
-**`HasUserVerifiedEmail` filterability is undocumented.** The selector tries the
-`WHERE` clause first and falls back to in-memory filtering, then to
-`TwoFactorMethodsInfo`, so the feature degrades instead of failing.
+**`HasUserVerifiedEmail` filterability is undocumented.** Nothing guarantees a
+read-only standard field accepts a `WHERE`, so the selector tries the clause
+first and falls back to filtering in memory. That fallback answers a real
+uncertainty and stays.
+
+A second fallback used to read `TwoFactorMethodsInfo` when the field was absent
+from the org altogether. It is gone. Nobody could name an org where a modern
+User lacks the field, the path never ran, and it was subtly wrong: it collected
+the unverified, so a user with no `TwoFactorMethodsInfo` record read as
+verified. What remains is a describe guard that keeps the field out of the
+`SELECT` where it does not exist, which turns a broken screen into one showing
+`?` in every Verified cell.
 
 **The platform calls sit directly in the service.** They were behind an
 injectable interface so the orchestration could be asserted against a test

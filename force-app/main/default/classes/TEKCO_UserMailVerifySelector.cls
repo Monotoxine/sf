@@ -122,9 +122,6 @@ public with sharing class TEKCO_UserMailVerifySelector {
     }
 
     Set<Id> frozenIds = frozenUserIds(candidates);
-    Set<Id> unverifiedIds = hasVerifiedField()
-      ? null
-      : unverifiedViaTwoFactor(candidates);
     Id runningUserId = UserInfo.getUserId();
 
     List<UserRow> matches = new List<UserRow>();
@@ -132,7 +129,7 @@ public with sharing class TEKCO_UserMailVerifySelector {
       if (u.Id == runningUserId || frozenIds.contains(u.Id)) {
         continue;
       }
-      Boolean verified = verificationState(u, unverifiedIds);
+      Boolean verified = verificationState(u);
       if (!matchesFilter(verified, verificationFilter)) {
         continue;
       }
@@ -206,14 +203,9 @@ public with sharing class TEKCO_UserMailVerifySelector {
       : ' AND HasUserVerifiedEmail = false';
   }
 
-  private static Boolean verificationState(User u, Set<Id> unverifiedIds) {
-    if (unverifiedIds != null) {
-      return !unverifiedIds.contains(u.Id);
-    }
-    if (!hasVerifiedField()) {
-      return null;
-    }
-    return u.get('HasUserVerifiedEmail') == true;
+  /** null means the org exposes no signal, which the screen renders as "?". */
+  private static Boolean verificationState(User u) {
+    return hasVerifiedField() ? u.get('HasUserVerifiedEmail') == true : null;
   }
 
   private static Boolean matchesFilter(Boolean verified, String filter) {
@@ -237,28 +229,6 @@ public with sharing class TEKCO_UserMailVerifySelector {
       frozen.add(login.UserId);
     }
     return frozen;
-  }
-
-  private static Set<Id> unverifiedViaTwoFactor(List<User> candidates) {
-    Set<Id> candidateIds = new Map<Id, User>(candidates).keySet();
-    Set<Id> unverified = new Set<Id>();
-    try {
-      for (TwoFactorMethodsInfo info : [
-        SELECT UserId
-        FROM TwoFactorMethodsInfo
-        WHERE UserId IN :candidateIds AND HasUserVerifiedEmailAddress = FALSE
-      ]) {
-        unverified.add(info.UserId);
-      }
-      return unverified;
-    } catch (Exception e) {
-      System.debug(
-        LoggingLevel.WARN,
-        'TwoFactorMethodsInfo is not readable, treating all candidates as unverified: ' +
-        e.getMessage()
-      );
-      return null;
-    }
   }
 
   private static UserRow toRow(User u, Boolean verified) {
