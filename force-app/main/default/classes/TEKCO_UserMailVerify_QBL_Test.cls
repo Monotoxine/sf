@@ -3,12 +3,13 @@
  * a single System.enqueueJob, and both entry points queue a run.
  *
  * The phases themselves are executed directly rather than queued, which is
- * what lets one method walk all three. Chaining is a no-op under test, so a
- * queued run only ever covers its first chunk.
+ * what lets one method walk both. Chaining is a no-op under test, so a queued
+ * run only ever covers its first chunk.
  *
  * What is asserted is limited on purpose. Sends, resets and notifications used
  * to run through an injectable interface, which let a test double count them.
- * That seam was removed, so only database side effects remain observable.
+ * That seam was removed, so only database side effects remain observable, and
+ * neither phase writes to the database any more.
  */
 @IsTest
 private class TEKCO_UserMailVerify_QBL_Test {
@@ -24,65 +25,55 @@ private class TEKCO_UserMailVerify_QBL_Test {
   }
 
   @IsTest
-  static void everyPhaseRunsAndOnlySuffixedAddressesChange() {
+  static void bothPhasesRunAndLeaveTheAddressAlone() {
     User suffixed = buildUser('umvq1', 'q1@umv-test.example.com.invalid');
     User clean = buildUser('umvq2', 'q2@umv-test.example.com');
     insert new List<User>{ suffixed, clean };
 
     List<Id> both = new List<Id>{ suffixed.Id, clean.Id };
-    List<Id> one = new List<Id>{ clean.Id };
 
     Test.startTest();
     TEKCO_UserMailVerify_QBL.forPhase(
-        TEKCO_UserMailVerify_QBL.Phase.STRIP_INVALID,
+        TEKCO_UserMailVerify_QBL.Phase.VERIFY,
         both,
         50
       )
       .execute(null);
     TEKCO_UserMailVerify_QBL.forPhase(
-        TEKCO_UserMailVerify_QBL.Phase.VERIFY,
-        one,
-        50
-      )
-      .execute(null);
-    TEKCO_UserMailVerify_QBL.forPhase(
         TEKCO_UserMailVerify_QBL.Phase.RESET,
-        one,
+        new List<Id>{ clean.Id },
         10
       )
       .execute(null);
-    TEKCO_UserMailVerify_QBL.startVerification(one);
+    TEKCO_UserMailVerify_QBL.startVerification(new List<Id>{ clean.Id });
     Test.stopTest();
 
     Map<Id, User> reloaded = new Map<Id, User>(
       [SELECT Id, Email FROM User WHERE Id IN :both]
     );
-    Assert.isFalse(
-      reloaded.get(suffixed.Id).Email.endsWith('.invalid'),
-      'Sending a link to a .invalid address delivers nothing, so the run has ' +
-      'to clean it first.'
+    Assert.areEqual(
+      suffixed.Email,
+      reloaded.get(suffixed.Id).Email,
+      'The run must never rewrite an address, suffixed or not.'
     );
     Assert.areEqual(
       clean.Email,
       reloaded.get(clean.Id).Email,
-      'An address without the suffix must not be touched.'
+      'The run must never rewrite an address, suffixed or not.'
     );
   }
 
   @IsTest
-  static void aResetStartsByCleaningTheInvalidSuffix() {
-    User suffixed = buildUser('umvq3', 'q3@umv-test.example.com.invalid');
-    insert suffixed;
+  static void aPasswordResetQueuesWithoutError() {
+    User target = buildUser('umvq3', 'q3@umv-test.example.com');
+    insert target;
 
     Test.startTest();
-    TEKCO_UserMailVerify_QBL.startPasswordReset(new List<Id>{ suffixed.Id });
+    Id jobId = TEKCO_UserMailVerify_QBL.startPasswordReset(
+      new List<Id>{ target.Id }
+    );
     Test.stopTest();
 
-    User reloaded = [SELECT Email FROM User WHERE Id = :suffixed.Id];
-    Assert.isFalse(
-      reloaded.Email.endsWith('.invalid'),
-      'Credentials sent to a .invalid address are lost, and so is the ' +
-      'verification completing the reset performs.'
-    );
+    Assert.isNotNull(jobId, 'The run must return a job id for traceability.');
   }
 }

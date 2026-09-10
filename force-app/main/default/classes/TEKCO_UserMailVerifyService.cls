@@ -11,8 +11,6 @@
  * back.
  */
 public with sharing class TEKCO_UserMailVerifyService {
-  private static final String INVALID_SUFFIX = '.invalid';
-
   public class ActionOutcome {
     public Id userId;
     public String username;
@@ -30,44 +28,6 @@ public with sharing class TEKCO_UserMailVerifyService {
       this.success = success;
       this.message = message;
     }
-  }
-
-  public static List<ActionOutcome> stripInvalidSuffix(List<Id> userIds) {
-    List<ActionOutcome> outcomes = new List<ActionOutcome>();
-    if (userIds == null || userIds.isEmpty()) {
-      return outcomes;
-    }
-
-    List<User> toUpdate = new List<User>();
-    for (User u : [
-      SELECT Id, Username, Email
-      FROM User
-      WHERE Id IN :userIds
-    ]) {
-      if (u.Email != null && u.Email.endsWithIgnoreCase(INVALID_SUFFIX)) {
-        u.Email = u.Email.substring(
-          0,
-          u.Email.length() - INVALID_SUFFIX.length()
-        );
-        toUpdate.add(u);
-      }
-    }
-    if (toUpdate.isEmpty()) {
-      return outcomes;
-    }
-
-    List<Database.SaveResult> results = Database.update(toUpdate, false);
-    for (Integer i = 0; i < results.size(); i++) {
-      User u = toUpdate[i];
-      if (results[i].isSuccess()) {
-        outcomes.add(new ActionOutcome(u.Id, u.Username, true, null));
-      } else {
-        outcomes.add(
-          new ActionOutcome(u.Id, u.Username, false, firstError(results[i]))
-        );
-      }
-    }
-    return outcomes;
   }
 
   public static ActionOutcome sendVerification(
@@ -152,11 +112,5 @@ public with sharing class TEKCO_UserMailVerifyService {
       return value;
     }
     return value.substring(0, maxLength - 3) + '...';
-  }
-
-  private static String firstError(Database.SaveResult result) {
-    return result.getErrors().isEmpty()
-      ? 'Unknown error'
-      : result.getErrors()[0].getMessage();
   }
 }

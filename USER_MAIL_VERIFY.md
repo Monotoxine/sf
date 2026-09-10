@@ -43,14 +43,7 @@ sent at the end of the whole run rather than one per chunk. It reaches the
 Salesforce bell and the mobile app, and arrives even if the administrator closed
 the tab.
 
-A verification run has two phases. The `.invalid` suffix is stripped first and
-that transaction is allowed to commit **before** any verification link is
-generated. Generating the link in the same transaction risks building it against
-the pre-update address.
-
-Removing the suffix is an email _change_, so it is subject to Email Change
-Verification: depending on org configuration the address may stay pending until
-the user clicks.
+A run has one phase. It never rewrites an address.
 
 ## Who can use it
 
@@ -164,10 +157,21 @@ currently shows, so selections outside the active filter are preserved and only
 the visible ones are replaced; the counter reads against every loaded row, not
 just the visible ones.
 
-**Both buttons start by stripping `.invalid`.** Sending anything to an address
-still carrying the suffix delivers nothing, and on the reset path the verification
-it performs would be lost with it. The cleanup runs in its own transaction so the
-new address is committed before any link is generated against it.
+**Nothing removes the `.invalid` suffix.** An earlier version did, and it could
+not work. Changing the address from Apex leaves the change pending an Email
+Change Verification, and that confirmation can only be honoured from a session
+as the user in question. After a sandbox refresh nobody has a password to open
+one with, and the reset mail goes to the dead address, so the loop never closes.
+Setting a password first does break it, but a screen called _Verify_ has no
+business setting passwords on accounts it does not own.
+
+The suffix is a sandbox artefact, added by Salesforce at refresh. Production
+addresses are real and merely unverified, which is exactly what the verify
+button handles. So the screen surfaces suffixed users and lets you filter them
+in or out, and removing a suffix stays a manual gesture in Setup: edit the user,
+remove the suffix and tick _Generate new password and notify user immediately_
+in the same save. `scripts/apex/user-email/07-sandbox-set-password.apex` covers
+the case where you need a password without a mailbox first.
 
 **The running user is always excluded** from the list. The same screen resets
 passwords, and locking yourself out of an admin tool is not recoverable.

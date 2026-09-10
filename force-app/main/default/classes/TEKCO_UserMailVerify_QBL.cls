@@ -1,17 +1,29 @@
 /**
  * Runs a User Mail Verify request asynchronously, one chunk per transaction.
+ *
+ * Chunking exists because System.resetPassword is capped at 10 calls per
+ * transaction, and because a bulk send should not sit inside the user's HTTP
+ * request. Each link in the chain hands its counters to the next through the
+ * constructor, so a single summary survives the whole run and only the final
+ * link notifies the administrator.
+ *
+ * There is no address cleanup phase. Removing a ".invalid" suffix from Apex
+ * leaves the change pending an Email Change Verification the user cannot
+ * complete, since the address it is sent to is the dead one. The only sequence
+ * that works sets a password first, which this screen has no business doing on
+ * a verification. Suffixed addresses are surfaced and filtered by the screen
+ * instead, and handled by hand in Setup.
  */
 public with sharing class TEKCO_UserMailVerify_QBL implements Queueable {
   public enum Phase {
-    STRIP_INVALID,
     VERIFY,
     RESET
   }
 
+  /** Failure messages kept in the summary; beyond this, see the debug logs. */
   private static final Integer MAX_REPORTED_ERRORS = 10;
 
   private final Phase currentPhase;
-  private final Phase finalPhase;
 
   private final Id requesterId;
   private final List<Id> allUserIds;
@@ -20,28 +32,21 @@ public with sharing class TEKCO_UserMailVerify_QBL implements Queueable {
 
   private Integer successCount;
   private Integer failureCount;
-  private Integer strippedCount;
   private List<String> errors;
 
   public static Id startVerification(List<Id> userIds) {
     return System.enqueueJob(
       new TEKCO_UserMailVerify_QBL(
-        Phase.STRIP_INVALID,
         Phase.VERIFY,
         userIds,
-        chunkFor(Phase.STRIP_INVALID)
+        chunkFor(Phase.VERIFY)
       )
     );
   }
 
   public static Id startPasswordReset(List<Id> userIds) {
     return System.enqueueJob(
-      new TEKCO_UserMailVerify_QBL(
-        Phase.STRIP_INVALID,
-        Phase.RESET,
-        userIds,
-        chunkFor(Phase.STRIP_INVALID)
-      )
+      new TEKCO_UserMailVerify_QBL(Phase.RESET, userIds, chunkFor(Phase.RESET))
     );
   }
 
@@ -51,77 +56,54 @@ public with sharing class TEKCO_UserMailVerify_QBL implements Queueable {
       : TEKCO_UserMailVerifyConstants.CHUNK_SIZE_VERIFY;
   }
 
+  /**
+   * Lets a test run one phase without queueing it. Apex allows a single job
+   * per test transaction, and chaining is skipped under test anyway.
+   */
   @TestVisible
   private static TEKCO_UserMailVerify_QBL forPhase(
     Phase phaseToRun,
     List<Id> userIds,
     Integer chunkSize
   ) {
-    return new TEKCO_UserMailVerify_QBL(
-      phaseToRun,
-      phaseToRun,
-      userIds,
-      chunkSize
-    );
+    return new TEKCO_UserMailVerify_QBL(phaseToRun, userIds, chunkSize);
   }
 
   private TEKCO_UserMailVerify_QBL(
     Phase phaseToRun,
-    Phase phaseToFinishWith,
     List<Id> userIds,
     Integer chunkSize
   ) {
     this.currentPhase = phaseToRun;
-    this.finalPhase = phaseToFinishWith;
     this.allUserIds = new List<Id>(userIds);
     this.pending = new List<Id>(userIds);
     this.chunkSize = chunkSize;
     this.requesterId = UserInfo.getUserId();
     this.successCount = 0;
     this.failureCount = 0;
-    this.strippedCount = 0;
     this.errors = new List<String>();
   }
 
   /** Continuation constructor: carries the running totals into the next link. */
   private TEKCO_UserMailVerify_QBL(
     TEKCO_UserMailVerify_QBL previous,
-    Phase phaseToRun,
     List<Id> pending
   ) {
-    this.currentPhase = phaseToRun;
-    this.finalPhase = previous.finalPhase;
+    this.currentPhase = previous.currentPhase;
     this.allUserIds = previous.allUserIds;
     this.pending = pending;
-    this.chunkSize = chunkFor(phaseToRun);
+    this.chunkSize = previous.chunkSize;
     this.requesterId = previous.requesterId;
     this.successCount = previous.successCount;
     this.failureCount = previous.failureCount;
-    this.strippedCount = previous.strippedCount;
     this.errors = previous.errors;
   }
 
   public void execute(QueueableContext context) {
-    List<Id> chunk = takeChunk();
-
-    if (currentPhase == Phase.STRIP_INVALID) {
-      processStrip(chunk);
-    } else {
-      processActions(chunk);
-    }
+    processActions(takeChunk());
 
     if (!pending.isEmpty()) {
-      chain(new TEKCO_UserMailVerify_QBL(this, currentPhase, pending));
-      return;
-    }
-
-    if (
-      currentPhase == Phase.STRIP_INVALID &&
-      finalPhase != Phase.STRIP_INVALID
-    ) {
-      chain(
-        new TEKCO_UserMailVerify_QBL(this, finalPhase, new List<Id>(allUserIds))
-      );
+      chain(new TEKCO_UserMailVerify_QBL(this, pending));
       return;
     }
 
@@ -139,21 +121,6 @@ public with sharing class TEKCO_UserMailVerify_QBL implements Queueable {
       chunk.add(pending.remove(0));
     }
     return chunk;
-  }
-
-  private void processStrip(List<Id> chunk) {
-    for (
-      TEKCO_UserMailVerifyService.ActionOutcome outcome : TEKCO_UserMailVerifyService.stripInvalidSuffix(
-        chunk
-      )
-    ) {
-      if (outcome.success) {
-        strippedCount++;
-      } else {
-        failureCount++;
-        recordError(outcome, 'address cleanup');
-      }
-    }
   }
 
   private void processActions(List<Id> chunk) {
@@ -221,11 +188,6 @@ public with sharing class TEKCO_UserMailVerify_QBL implements Queueable {
         allUserIds.size() +
         ' user(s) processed successfully.'
     );
-    if (strippedCount > 0) {
-      lines.add(
-        strippedCount + ' address(es) had the .invalid suffix removed.'
-      );
-    }
     if (failureCount > 0) {
       lines.add(failureCount + ' failure(s):');
       lines.addAll(errors);
