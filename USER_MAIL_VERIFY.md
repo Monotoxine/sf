@@ -177,8 +177,11 @@ address, an already verified user is a legitimate target for a reset, and the
 screen has to be able to show them. A Verified column reports the state per row,
 with `?` when the org exposes no signal.
 
-Brands and status are stacked in a half-width column, the picker capped at four
-visible entries: at full height it took as much room as the table it filters.
+Brands and status are stacked in a column of their own, the picker capped at
+six visible entries: at full height it took as much room as the table it
+filters. The column is 44rem wide, a width set by the longest brand label
+rather than by the table, since a truncated name makes two brands
+indistinguishable.
 The search box sits directly above the table instead, so it reads as belonging
 to the list it narrows rather than to the query that built it.
 
