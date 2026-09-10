@@ -248,7 +248,7 @@ describe("c-tekco-user-mail-verify", () => {
     const table = element.shadowRoot.querySelector("lightning-datatable");
     table.dispatchEvent(
       new CustomEvent("rowselection", {
-        detail: { selectedRows: [USERS.rows[1]] }
+        detail: { selectedRows: [USERS.rows[0]] }
       })
     );
     await Promise.resolve();
@@ -259,8 +259,31 @@ describe("c-tekco-user-mail-verify", () => {
     await Promise.resolve();
 
     expect(launchVerification).toHaveBeenCalledWith({
-      userIds: ["005000000000002AAA"]
+      userIds: ["005000000000001AAA"]
     });
+  });
+
+  it("does not launch a verification when every selected address is verified", async () => {
+    getUsers.mockResolvedValue(USERS);
+    const element = createComponent();
+
+    await selectBrands(element);
+
+    // rows[1] carries isVerified: true.
+    const table = element.shadowRoot.querySelector("lightning-datatable");
+    table.dispatchEvent(
+      new CustomEvent("rowselection", {
+        detail: { selectedRows: [USERS.rows[1]] }
+      })
+    );
+    await Promise.resolve();
+
+    const buttons = element.shadowRoot.querySelectorAll("lightning-button");
+    const verify = Array.from(buttons).find((b) => b.label === "Verify");
+    verify.click();
+    await Promise.resolve();
+
+    expect(launchVerification).not.toHaveBeenCalled();
   });
 
   it("filters the table on the search term", async () => {

@@ -60,15 +60,60 @@ change to the permission model here.
 
 ## Fixed values
 
-`TEKCO_UserMailVerifyConstants` holds everything the feature tunes:
+`TEKCO_UserMailVerifyConstants` holds what the feature tunes. **One of these
+numbers is imposed by the platform, the rest are judgement calls**, and the
+difference is what matters when someone wants to change one.
 
-| Constant             | Value                               | Purpose                                                |
-| -------------------- | ----------------------------------- | ------------------------------------------------------ |
-| `NOTIFICATION_TYPE`  | `TEKCO_UserMailVerify_Run_Complete` | notification type shipped with the feature             |
-| `MAX_USERS_PER_RUN`  | 200                                 | blocking per-run cap, enforced server-side             |
-| `CHUNK_SIZE_VERIFY`  | 50                                  | users per transaction when sending links               |
-| `RESET_HARD_LIMIT`   | 10                                  | platform cap on `System.resetPassword` per transaction |
-| `MAX_ROWS_DISPLAYED` | 500                                 | rows shown for one brand before truncating             |
+| Constant             | Value                               | Origin                                            |
+| -------------------- | ----------------------------------- | ------------------------------------------------- |
+| `RESET_HARD_LIMIT`   | 10                                  | **imposed**: platform cap per transaction         |
+| `MAX_USERS_PER_RUN`  | 200                                 | chosen: guardrail against an accidental mass send |
+| `CHUNK_SIZE_VERIFY`  | 50                                  | chosen: CPU margin, no published cap on the send  |
+| `MAX_ROWS_DISPLAYED` | 500                                 | chosen: this is a picking list, not a report      |
+| `NOTIFICATION_TYPE`  | `TEKCO_UserMailVerify_Run_Complete` | fixed: names the notification type shipped here   |
+
+**`RESET_HARD_LIMIT`, 10.** The only one nobody may touch. Salesforce refuses
+more than ten `System.resetPassword` calls in a single transaction, so the
+reset chunk is clamped to it rather than merely defaulted. Raising it would not
+buy speed, it would make every reset past the tenth fail at runtime, in the
+middle of a run, after mails have already gone out.
+
+**`MAX_USERS_PER_RUN`, 200.** The blocking cap, refused server-side rather than
+only greyed out in the screen. The number answers one question: how many users
+would a realistic batch of Talend-provisioned accounts contain, and where does
+a misclick stop being recoverable. Two hundred covers the first comfortably
+while keeping the blast radius of a wrong selection legible. It costs four
+chained transactions on the verify path and twenty on the reset path, both
+acceptable. It cannot be a _daily_ cap: nothing is persisted, so there is no
+way to know how many sends already happened today.
+
+**`CHUNK_SIZE_VERIFY`, 50.** Unlike the reset, no published limit constrains
+`sendAsyncEmailConfirmation`. What bounds a chunk is CPU time, sixty seconds in
+an asynchronous transaction, and the cost of one call has never been measured
+here. Fifty is a margin, not a computed optimum. It also keeps the blast radius
+small: a transaction killed by a governor limit stops the whole chain, and with
+fifty at most one chunk is lost. To make it an informed number, run fifty users
+and read the CPU time in the job log.
+
+**`MAX_ROWS_DISPLAYED`, 500.** The screen is a list you pick from, not a report
+you read. Past a few hundred rows nobody scrolls, they filter, which is why the
+brand, status and address filters exist. Exceeding the cap is signalled rather
+than silent, so the administrator knows to narrow rather than assuming the list
+is complete.
+
+Two further numbers live outside the class, next to the code that needs them.
+
+**`QUERY_CEILING`, 2000, in the selector.** The `LIMIT` on the candidate query,
+before frozen users, the running user and the in-memory status filter are
+subtracted. It sits at four times `MAX_ROWS_DISPLAYED` on purpose: those
+filters can discard three quarters of the candidates and the screen still
+fills.
+
+**`MAX_REPORTED_ERRORS`, 10, in the queueable.** How many failure messages are
+kept for the completion notification, whose body is truncated at 750
+characters. Ten lines of roughly seventy characters is what fits. The failure
+_count_ is never capped, every failure reaches the debug log, and the summary
+says how many more there are.
 
 These were held in a custom metadata type at first. That was over-engineering:
 none of them is expected to change, the reset chunk size cannot legally differ
@@ -79,14 +124,10 @@ code change, reviewed and deployed like the rest.
 
 ## Email volume
 
-- Sends to **internal** users are **not capped** by Salesforce. The 5,000/day
-  ceiling applies to external addresses only.
-- `System.resetPassword` is capped at **10 calls per transaction**. That is why
-  the reset chunk size is clamped rather than merely defaulted: a configuration
-  mistake would otherwise make every reset past the tenth fail at runtime.
-- The per-run cap is the guardrail against an accidental mass send. It cannot be
-  a _daily_ cap: nothing is persisted, so there is no way to know how many sends
-  already happened today.
+Sends to **internal** users are **not capped** by Salesforce. The 5,000 a day
+ceiling applies to external addresses only, so nothing here throttles a run
+against staff accounts. The per-run cap above is therefore the only volume
+guardrail, and it exists to stop a misclick rather than to stay under a quota.
 
 ## Deployment
 
@@ -179,11 +220,22 @@ remove the suffix and tick _Generate new password and notify user immediately_
 in the same save. `scripts/apex/user-email/07-sandbox-set-password.apex` covers
 the case where you need a password without a mailbox first.
 
-**An already verified address is skipped by the verify button**, and reported
-as skipped rather than as a success. Asking someone to confirm what they have
-already confirmed is noise. The reset button skips nobody: a verified user is a
-legitimate target for a password reset, which is exactly why the screen can list
-verified users at all.
+**An already verified address is refused before the run starts.** The screen
+already knows the state per row, so pressing _Verify_ on a fully verified
+selection reports that nothing would be sent and launches nothing, and a mixed
+selection says how many will be skipped. Without that, the toast announced a
+queued run and no email ever arrived, which reads as a failure rather than as
+the intended behaviour.
+
+**The same check runs server-side**, in the queueable, at the last moment
+before the send. The screen check is for the administrator, this one is the
+guarantee: it survives a stale list, a state that changed since loading, and a
+call made straight to the Aura endpoint. Those users are counted as skipped in
+the completion notification, never as successes.
+
+Both checks are on the verify path only. The reset button skips nobody: a
+verified user is a legitimate target for a password reset, which is exactly why
+the screen can list verified users at all.
 
 **The running user is always excluded** from the list. The same screen resets
 passwords, and locking yourself out of an admin tool is not recoverable.
