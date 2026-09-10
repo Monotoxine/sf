@@ -7,10 +7,12 @@
   font-style: italic;
 }
 
-/* The query filters read as one centred block. The table below stays full
-   width, so they are not stretched to match it. */
+/* Left-aligned so the filters share their left edge with the first column of
+   the table. They were centred when they were the only thing on screen; once
+   rows load, the table sets the page edge and an island in the middle reads as
+   unrelated to the list it builds. Kept narrow rather than stretched: a
+   30rem-wide picker is not improved by matching a full-width table. */
 .umv-filters {
-  margin-inline: auto;
   max-width: 30rem;
 }
 

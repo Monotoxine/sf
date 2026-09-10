@@ -141,6 +141,12 @@ visible entries: at full height it took as much room as the table it filters.
 The search box sits directly above the table instead, so it reads as belonging
 to the list it narrows rather than to the query that built it.
 
+That column is aligned left, sharing its edge with the first table column. It
+was centred while it was the only thing on screen, but once rows load the table
+sets the page edge and a block floating in the middle reads as unrelated to the
+list it builds. It stays narrow rather than stretched: a picker is not improved
+by matching the width of a full-width table.
+
 **Brands are picked several at a time**, through a dual listbox. The rows carry a
 Brand column, since a list can now mix them, and the query orders by brand before
 name.
