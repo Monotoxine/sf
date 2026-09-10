@@ -32,6 +32,7 @@ public with sharing class TEKCO_UserMailVerify_QBL implements Queueable {
 
   private Integer successCount;
   private Integer failureCount;
+  private Integer alreadyVerifiedCount;
   private List<String> errors;
 
   public static Id startVerification(List<Id> userIds) {
@@ -81,6 +82,7 @@ public with sharing class TEKCO_UserMailVerify_QBL implements Queueable {
     this.requesterId = UserInfo.getUserId();
     this.successCount = 0;
     this.failureCount = 0;
+    this.alreadyVerifiedCount = 0;
     this.errors = new List<String>();
   }
 
@@ -96,6 +98,7 @@ public with sharing class TEKCO_UserMailVerify_QBL implements Queueable {
     this.requesterId = previous.requesterId;
     this.successCount = previous.successCount;
     this.failureCount = previous.failureCount;
+    this.alreadyVerifiedCount = previous.alreadyVerifiedCount;
     this.errors = previous.errors;
   }
 
@@ -123,14 +126,38 @@ public with sharing class TEKCO_UserMailVerify_QBL implements Queueable {
     return chunk;
   }
 
+  /**
+   * Sending a verification link to an address that is already verified asks
+   * the user to confirm what they have already confirmed. Those users are
+   * skipped and reported, not counted as successes.
+   *
+   * Only on the verification path. A verified user is a legitimate target for
+   * a password reset, so that phase touches everyone it was given.
+   *
+   * The query is dynamic because HasUserVerifiedEmail is not present in every
+   * org. Where it is absent nothing is skipped, as before.
+   */
   private void processActions(List<Id> chunk) {
+    Boolean skipVerified =
+      currentPhase == Phase.VERIFY &&
+      TEKCO_UserMailVerifySelector.hasVerifiedField();
+
     Map<Id, User> usersById = new Map<Id, User>(
-      [SELECT Id, Username FROM User WHERE Id IN :chunk]
+      (List<User>) Database.query(
+        'SELECT Id, Username' +
+          (skipVerified ? ', HasUserVerifiedEmail' : '') +
+          ' FROM User WHERE Id IN :chunk'
+      )
     );
 
     for (Id userId : chunk) {
       User u = usersById.get(userId);
       String username = (u == null) ? String.valueOf(userId) : u.Username;
+
+      if (skipVerified && u != null && u.get('HasUserVerifiedEmail') == true) {
+        alreadyVerifiedCount++;
+        continue;
+      }
 
       TEKCO_UserMailVerifyService.ActionOutcome outcome = (currentPhase ==
         Phase.VERIFY)
@@ -188,6 +215,12 @@ public with sharing class TEKCO_UserMailVerify_QBL implements Queueable {
         allUserIds.size() +
         ' user(s) processed successfully.'
     );
+    if (alreadyVerifiedCount > 0) {
+      lines.add(
+        alreadyVerifiedCount +
+        ' user(s) skipped: their address is already verified.'
+      );
+    }
     if (failureCount > 0) {
       lines.add(failureCount + ' failure(s):');
       lines.addAll(errors);

@@ -173,6 +173,12 @@ remove the suffix and tick _Generate new password and notify user immediately_
 in the same save. `scripts/apex/user-email/07-sandbox-set-password.apex` covers
 the case where you need a password without a mailbox first.
 
+**An already verified address is skipped by the verify button**, and reported
+as skipped rather than as a success. Asking someone to confirm what they have
+already confirmed is noise. The reset button skips nobody: a verified user is a
+legitimate target for a password reset, which is exactly why the screen can list
+verified users at all.
+
 **The running user is always excluded** from the list. The same screen resets
 passwords, and locking yourself out of an admin tool is not recoverable.
 
