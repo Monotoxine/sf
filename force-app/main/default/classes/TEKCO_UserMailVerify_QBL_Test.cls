@@ -1,8 +1,5 @@
-/**
- */
 @IsTest
 private class TEKCO_UserMailVerify_QBL_Test {
-  
   private static User buildUser(String alias, String email) {
     User u = Test_UserHelper.createMinimumAccessUser(alias, false);
     u.Email = email;
@@ -10,18 +7,29 @@ private class TEKCO_UserMailVerify_QBL_Test {
   }
 
   @IsTest
-  static void bothPhasesRunAndLeaveTheAddressAlone() {
+  static void everyPathRunsAndNoAddressIsRewritten() {
     User suffixed = buildUser('umvq1', 'q1@test.example.com.invalid');
     User clean = buildUser('umvq2', 'q2@test.example.com');
-    insert new List<User>{ suffixed, clean };
+    User third = buildUser('umvq4', 'q4@test.example.com');
+    insert new List<User>{ suffixed, clean, third };
 
-    List<Id> both = new List<Id>{ suffixed.Id, clean.Id };
+    List<Id> all = new List<Id>{ suffixed.Id, clean.Id, third.Id };
+
+    // An id that matches no user: the send fails, which is the only way to
+    // reach the failure counter, the error list and the failure block of the
+    // completion summary.
+    List<Id> missing = new List<Id>{
+      Id.valueOf('005' + String.valueOf(1).leftPad(12, '0'))
+    };
 
     Test.startTest();
+    // A chunk of one over three users leaves work pending, so execute builds
+    // the continuation link and calls chain. Chaining is a no-op under test,
+    // so nothing is queued and the single enqueue below stays available.
     TEKCO_UserMailVerify_QBL.forPhase(
         TEKCO_UserMailVerify_QBL.Phase.VERIFY,
-        both,
-        50
+        all,
+        1
       )
       .execute(null);
     TEKCO_UserMailVerify_QBL.forPhase(
@@ -30,11 +38,17 @@ private class TEKCO_UserMailVerify_QBL_Test {
         10
       )
       .execute(null);
+    TEKCO_UserMailVerify_QBL.forPhase(
+        TEKCO_UserMailVerify_QBL.Phase.VERIFY,
+        missing,
+        50
+      )
+      .execute(null);
     TEKCO_UserMailVerify_QBL.startVerification(new List<Id>{ clean.Id });
     Test.stopTest();
 
     Map<Id, User> reloaded = new Map<Id, User>(
-      [SELECT Id, Email FROM User WHERE Id IN :both]
+      [SELECT Id, Email FROM User WHERE Id IN :all]
     );
     Assert.areEqual(
       suffixed.Email,
