@@ -1,14 +1,19 @@
+/* No overflow here on purpose. lightning-datatable keeps its header row fixed
+   only when it owns the scrollbar, which it does once its container has a
+   definite height and does not scroll itself. The height comes from the
+   tableStyle getter, so a short list reserves no blank space. */
 .umv-table {
-  max-height: 30rem;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .umv-truncation {
   font-style: italic;
 }
 
+/* Wide enough for the brand picker to keep the 44rem that stopped brand names
+   truncating, plus the column holding Status and Address beside it. */
 .umv-filters {
-  max-width: 44rem;
+  max-width: 64rem;
 }
 
 .umv-search-row {
