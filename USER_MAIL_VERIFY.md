@@ -45,6 +45,20 @@ the tab.
 
 A run has one phase. It never rewrites an address.
 
+**Why a Queueable.** Three reasons. A run of 200 users has no business sitting
+inside the administrator's HTTP request, and asynchronous Apex gets sixty
+seconds of CPU instead of ten. `System.resetPassword` refuses more than ten
+calls per transaction, so anything past ten users needs several, and each
+chained link is a fresh transaction with its limits reset. And a queueable
+carries typed state from one link to the next through its constructor, the
+counters and the error list, which is what lets a whole run report once rather
+than once per chunk.
+
+The alternatives do not fit. `@future` takes primitives only, does not chain
+and returns no job id. `Database.Batchable` walks a query locator over many
+records, where the input here is an explicit list of at most 200 ids picked by
+hand, and the ten-reset cap would force a scope of ten anyway.
+
 ## Who can use it
 
 Access rests entirely on Salesforce configuration: **Apex class access** to
@@ -60,67 +74,28 @@ change to the permission model here.
 
 ## Fixed values
 
-`TEKCO_UserMailVerifyConstants` holds what the feature tunes. **One of these
-numbers is imposed by the platform, the rest are judgement calls**, and the
-difference is what matters when someone wants to change one.
+`TEKCO_UserMailVerifyConstants` holds what the feature tunes. One number is
+imposed by the platform, the rest are judgement calls, and that difference is
+what matters when someone wants to change one.
 
-| Constant             | Value                               | Origin                                            |
-| -------------------- | ----------------------------------- | ------------------------------------------------- |
-| `RESET_HARD_LIMIT`   | 10                                  | **imposed**: platform cap per transaction         |
-| `MAX_USERS_PER_RUN`  | 200                                 | chosen: guardrail against an accidental mass send |
-| `CHUNK_SIZE_VERIFY`  | 50                                  | chosen: CPU margin, no published cap on the send  |
-| `MAX_ROWS_DISPLAYED` | 500                                 | chosen: this is a picking list, not a report      |
-| `NOTIFICATION_TYPE`  | `TEKCO_UserMailVerify_Run_Complete` | fixed: names the notification type shipped here   |
+| Constant             | Value                               | Why this number                                                                                                                                                                               |
+| -------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RESET_HARD_LIMIT`   | 10                                  | **Imposed.** `System.resetPassword` refuses more than ten calls per transaction. Raising it makes every reset past the tenth fail mid-run, after mails have gone out.                         |
+| `MAX_USERS_PER_RUN`  | 200                                 | Blocking cap, refused server-side rather than greyed out. Covers a realistic Talend batch while keeping a misclick recoverable. Cannot be a _daily_ cap: nothing is persisted.                |
+| `CHUNK_SIZE_VERIFY`  | 50                                  | No published limit constrains `sendAsyncEmailConfirmation`. A margin against the sixty-second CPU budget, never measured. Run fifty users and read the job log to make it an informed number. |
+| `MAX_ROWS_DISPLAYED` | 500                                 | A list you pick from, not a report you read. Past a few hundred rows you filter rather than scroll. Truncation is signalled, not silent.                                                      |
+| `NOTIFICATION_TYPE`  | `TEKCO_UserMailVerify_Run_Complete` | Names the notification type this feature ships itself.                                                                                                                                        |
 
-**`RESET_HARD_LIMIT`, 10.** The only one nobody may touch. Salesforce refuses
-more than ten `System.resetPassword` calls in a single transaction, so the
-reset chunk is clamped to it rather than merely defaulted. Raising it would not
-buy speed, it would make every reset past the tenth fail at runtime, in the
-middle of a run, after mails have already gone out.
+Two more sit next to the code that needs them. `QUERY_CEILING`, 2000, in the
+selector, is the `LIMIT` on the candidate query, four times the display cap so
+the in-memory filters can discard three quarters of it and still fill the
+screen. `MAX_REPORTED_ERRORS`, 10, in the queueable, is how many failure
+messages fit the 750-character notification body; the failure _count_ is never
+capped and every failure reaches the debug log.
 
-**`MAX_USERS_PER_RUN`, 200.** The blocking cap, refused server-side rather than
-only greyed out in the screen. The number answers one question: how many users
-would a realistic batch of Talend-provisioned accounts contain, and where does
-a misclick stop being recoverable. Two hundred covers the first comfortably
-while keeping the blast radius of a wrong selection legible. It costs four
-chained transactions on the verify path and twenty on the reset path, both
-acceptable. It cannot be a _daily_ cap: nothing is persisted, so there is no
-way to know how many sends already happened today.
-
-**`CHUNK_SIZE_VERIFY`, 50.** Unlike the reset, no published limit constrains
-`sendAsyncEmailConfirmation`. What bounds a chunk is CPU time, sixty seconds in
-an asynchronous transaction, and the cost of one call has never been measured
-here. Fifty is a margin, not a computed optimum. It also keeps the blast radius
-small: a transaction killed by a governor limit stops the whole chain, and with
-fifty at most one chunk is lost. To make it an informed number, run fifty users
-and read the CPU time in the job log.
-
-**`MAX_ROWS_DISPLAYED`, 500.** The screen is a list you pick from, not a report
-you read. Past a few hundred rows nobody scrolls, they filter, which is why the
-brand, status and address filters exist. Exceeding the cap is signalled rather
-than silent, so the administrator knows to narrow rather than assuming the list
-is complete.
-
-Two further numbers live outside the class, next to the code that needs them.
-
-**`QUERY_CEILING`, 2000, in the selector.** The `LIMIT` on the candidate query,
-before frozen users, the running user and the in-memory status filter are
-subtracted. It sits at four times `MAX_ROWS_DISPLAYED` on purpose: those
-filters can discard three quarters of the candidates and the screen still
-fills.
-
-**`MAX_REPORTED_ERRORS`, 10, in the queueable.** How many failure messages are
-kept for the completion notification, whose body is truncated at 750
-characters. Ten lines of roughly seventy characters is what fits. The failure
-_count_ is never capped, every failure reaches the debug log, and the summary
-says how many more there are.
-
-These were held in a custom metadata type at first. That was over-engineering:
-none of them is expected to change, the reset chunk size cannot legally differ
-from the platform cap, and the notification type names a component this feature
-ships itself. Configuration for values nobody will edit only bought an extra
-SOQL query per transaction and a layer of indirection. Changing one is now a
-code change, reviewed and deployed like the rest.
+These were held in a custom metadata type at first, which bought an extra SOQL
+query per transaction to configure values nobody will edit. Changing one is now
+a code change.
 
 ## Email volume
 
