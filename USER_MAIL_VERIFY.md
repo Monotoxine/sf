@@ -185,11 +185,16 @@ address, an already verified user is a legitimate target for a reset, and the
 screen has to be able to show them. A Verified column reports the state per row,
 with `?` when the org exposes no signal.
 
-**The filters sit in two columns**, the brand picker on the left at seven
-twelfths and Status and Address stacked beside it at five. Stacked under the
-picker they pushed the table down the page while a wide strip to their right
-stayed empty. They collapse back to one column below the SLDS medium
-breakpoint.
+**The filters sit in two columns**, the brand picker on the left and Status and
+Address stacked beside it, half each. Stacked under the picker they pushed the
+table down the page while a wide strip to their right stayed empty. They
+collapse back to one column below the SLDS medium breakpoint.
+
+The right column is offset by one label row. The picker carries two rows of
+label, its group legend and then Available and Selected, where the comboboxes
+carry one, so without the offset Status lines up with the legend rather than
+with the top of the lists. The offset applies only once the columns sit side by
+side: stacked, it would add a gap for nothing.
 
 The picker is capped at six visible entries, since at full height it took as
 much room as the table it filters, and the block is 64rem wide so the picker

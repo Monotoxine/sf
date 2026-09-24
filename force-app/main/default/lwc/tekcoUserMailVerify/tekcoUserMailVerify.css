@@ -16,6 +16,18 @@
   max-width: 64rem;
 }
 
+/* The brand picker carries two rows of label, its group legend and then
+   Available and Selected, where this column carries one. Without the offset
+   the Status field lines up with the legend instead of with the top of the
+   lists. One SLDS label row is about 1.5rem; nudge it here if the theme
+   changes. Only once the columns sit side by side: stacked, it would add a
+   gap for nothing. */
+@media (min-width: 48em) {
+  .umv-filters-side {
+    margin-top: 1.5rem;
+  }
+}
+
 .umv-search-row {
   display: flex;
   justify-content: flex-end;

@@ -2,7 +2,7 @@
   <lightning-card title="User Mail Verify" icon-name="standard:email">
     <div class="slds-var-p-horizontal_medium slds-var-p-bottom_medium">
       <div class="umv-filters slds-grid slds-wrap slds-gutters">
-        <div class="slds-col slds-size_1-of-1 slds-medium-size_7-of-12">
+        <div class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12">
           <lightning-dual-listbox
             data-id="brands"
             name="brands"
@@ -16,7 +16,9 @@
           ></lightning-dual-listbox>
         </div>
 
-        <div class="slds-col slds-size_1-of-1 slds-medium-size_5-of-12">
+        <div
+          class="umv-filters-side slds-col slds-size_1-of-1 slds-medium-size_6-of-12"
+        >
           <lightning-combobox
             data-id="verification"
             name="verification"
