@@ -162,6 +162,14 @@ Not in this repository, expected to exist in the org:
 
 ## Design notes
 
+**The column header row stays fixed** while the rows scroll. `lightning-datatable`
+only does that when it owns the scrollbar, which it does once its container has a
+definite height and does not scroll itself. The wrapper therefore carries
+`overflow: hidden` and a height computed from the number of visible rows, capped
+at 30rem: a fixed height would reserve the full strip under a list of three
+users, and `max-height` with `overflow-y` on the wrapper is what made the header
+scroll away in the first place.
+
 **Frozen users** are resolved through `UserLogin` filtered on `IsFrozen = true`,
 never `IsFrozen = false`: a user with no `UserLogin` record is not frozen, and
 the negative filter would wrongly drop them.
@@ -177,11 +185,17 @@ address, an already verified user is a legitimate target for a reset, and the
 screen has to be able to show them. A Verified column reports the state per row,
 with `?` when the org exposes no signal.
 
-Brands and status are stacked in a column of their own, the picker capped at
-six visible entries: at full height it took as much room as the table it
-filters. The column is 44rem wide, a width set by the longest brand label
-rather than by the table, since a truncated name makes two brands
-indistinguishable.
+**The filters sit in two columns**, the brand picker on the left at seven
+twelfths and Status and Address stacked beside it at five. Stacked under the
+picker they pushed the table down the page while a wide strip to their right
+stayed empty. They collapse back to one column below the SLDS medium
+breakpoint.
+
+The picker is capped at six visible entries, since at full height it took as
+much room as the table it filters, and the block is 64rem wide so the picker
+keeps the 44rem that stopped brand labels truncating mid-word. A truncated name
+makes two brands indistinguishable in a list you pick from.
+
 The search box sits directly above the table instead, so it reads as belonging
 to the list it narrows rather than to the query that built it.
 
