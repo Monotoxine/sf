@@ -53,14 +53,9 @@ const COLUMNS = [
   }
 ];
 
-// SLDS defaults, in rem: a datatable row and its header are both about 2rem.
-// They size the scroll container, so being a little generous costs nothing
-// while being short would clip the last row.
 const ROW_HEIGHT = 2;
 const HEADER_HEIGHT = 2.5;
 
-// Below the floor the container is too short for the header plus one row;
-// above the ceiling scrolling is expected rather than a sign of a wrong height.
 const MIN_TABLE_HEIGHT = 8;
 const MAX_TABLE_HEIGHT = 30;
 
@@ -131,9 +126,6 @@ export default class TekcoUserMailVerify extends LightningElement {
     );
   }
 
-  // A definite height is what makes the datatable scroll internally and keep
-  // its header row fixed. Deriving it from the visible rows avoids reserving
-  // the full height under a list of three users.
   get tableStyle() {
     const needed =
       HEADER_HEIGHT + this.filteredRows.length * ROW_HEIGHT + ROW_HEIGHT / 2;
