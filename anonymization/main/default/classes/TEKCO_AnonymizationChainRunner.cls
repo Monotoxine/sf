@@ -13,14 +13,6 @@
  */
 public without sharing class TEKCO_AnonymizationChainRunner {
 
-    /**
-     * Runs the next step of the plan, or closes the run when the plan is empty.
-     *
-     * Never throws: a failure to chain restores the bypass and closes the audit log as Failed.
-     * Leaving the bypass raised would disable the org's automation for every later user.
-     *
-     * @return the AsyncApexJob Id of the batch that was started, null when the run ended here.
-     */
     public static Id startNext(TEKCO_AnonymizationRunContext ctx) {
         if (ctx == null) return null;
 
@@ -37,8 +29,6 @@ public without sharing class TEKCO_AnonymizationChainRunner {
                     );
                     return jobId;
                 }
-                // Step not runnable in this org (object absent, no config left): skip to the
-                // next one rather than ending the run early.
             }
 
             complete(ctx);
@@ -53,7 +43,6 @@ public without sharing class TEKCO_AnonymizationChainRunner {
         }
     }
 
-    /** @return the job Id when a batch was enqueued for this step, null when it was skipped. */
     private static Id startStep(String phase, String key, TEKCO_AnonymizationRunContext ctx) {
         if (phase == TEKCO_AnonymizationRunContext.PHASE_FIELD) {
             if (ctx.byId && ctx.recordIdsFor(key).isEmpty()) return null;
@@ -64,8 +53,6 @@ public without sharing class TEKCO_AnonymizationChainRunner {
         }
 
         if (phase == TEKCO_AnonymizationRunContext.PHASE_CD) {
-            // key is a field-config developer name: a ContentDocument step can be scoped to one
-            // record type, and only the config carries that.
             TEKCO_AnonymizationFieldConfig__mdt config = configByDevName(key);
             if (config == null || String.isBlank(config.TEKCO_ObjectApiName__c)) return null;
             if (ctx.byId && ctx.recordIdsFor(config.TEKCO_ObjectApiName__c).isEmpty()) return null;
@@ -87,7 +74,6 @@ public without sharing class TEKCO_AnonymizationChainRunner {
         return null;
     }
 
-    /** End of the plan: put the org's automation back, then write the final audit log. */
     private static void complete(TEKCO_AnonymizationRunContext ctx) {
         TEKCO_AnonymizationBypassService.restore(ctx.bypassSnapshot);
         TEKCO_AnonymizationAuditService.finalize(

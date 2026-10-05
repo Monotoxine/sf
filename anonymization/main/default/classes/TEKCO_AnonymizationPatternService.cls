@@ -26,30 +26,15 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
     private static final Integer ADDRESS_RANDOM_MAX    = 20;
     private static final Integer SSN_DEFAULT_LENGTH    = 15;
 
-    // ─── Mémoïsation du chemin chaud ─────────────────────────────────────────
-    //
-    // applyPattern() tourne une fois par champ configuré ET par enregistrement. Sur un objet
-    // portant 69 configurations actives, cela représentait une soixantaine de compilations de
-    // regex par enregistrement, soit plus de treize mille par chunk de 200 — pour des motifs
-    // constants pendant tout le run. Un batch Apex ne dispose que de 60 secondes de CPU par
-    // transaction, et cette dépense était sa principale consommation évitable.
-    //
-    // Ces statiques se réinitialisent à chaque transaction, donc aucune valeur ne peut survivre
-    // d'un chunk au suivant : la mémoïsation ne porte que sur des calculs purs.
-
-    /** Format accepté pour un identifiant externe : littéral constant, compilé une seule fois. */
     private static final System.Pattern EXTERNAL_ID_FORMAT =
         System.Pattern.compile('^[a-zA-Z0-9_\\-]+$');
 
-    /** Premier nombre d'une adresse. Constant lui aussi. */
     private static final System.Pattern LEADING_NUMBER =
         System.Pattern.compile('(\\d+)');
 
-    /** Regex venues de la CMDT, compilées une fois chacune. Clé = la regex elle-même. */
     private static Map<String, System.Pattern> compiledPatterns =
         new Map<String, System.Pattern>();
 
-    /** Suites SSN déjà construites, indexées par longueur — le résultat n'en dépend que. */
     private static Map<Integer, String> ssnSequenceByLength = new Map<Integer, String>();
 
     private static System.Pattern compiled(String regex) {
@@ -112,8 +97,6 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
                 return applyAddressStreetRandom(currentValue);
             }
             when 'KEEP' {
-                // Explicit no-op. Previously reached through the REGEX default by accident —
-                // a KEEP record gaining a stray regex value would silently start rewriting.
                 return currentValue;
             }
             when 'DELETE_CONTENT_DOCUMENT' {
@@ -248,8 +231,6 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
         String cached = ssnSequenceByLength.get(targetLength);
         if (cached != null) return cached;
 
-        // Le résultat ne dépend que de la longueur : construit une fois par longueur
-        // rencontrée, au lieu d'une boucle de concaténation par enregistrement.
         List<String> digits = new List<String>();
         for (Integer index = 0; index < targetLength; index++) {
             digits.add(String.valueOf(Math.mod(index, 9) + 1));
@@ -297,14 +278,11 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
             return currentValue;
         }
         Integer randomOffset = Integer.valueOf(Math.random() * ADDRESS_RANDOM_MAX) + 1;
-        // Le matcher a déjà localisé le nombre : le remplacer ici évite la seconde compilation
-        // que replaceFirst('\\d+', ...) déclenchait derrière.
         return currentValue.substring(0, numMatcher.start())
             + String.valueOf(streetNumber + randomOffset)
             + currentValue.substring(numMatcher.end());
     }
 
-    /** Patterns that deliberately key on the record Id — never divert them to a business key. */
     private static final String SFID_FIELD = 'Id';
 
     /**
@@ -323,8 +301,6 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
         String fromPattern = readExternalId(record, declared);
         if (String.isNotBlank(fromPattern)) return fromPattern;
 
-        // A pattern naming no field, or naming Id outright, must not drift onto a business
-        // identifier — that would change what it means.
         if (String.isBlank(declared) || SFID_FIELD.equalsIgnoreCase(declared)) return '';
 
         for (String fieldName : TEKCO_AnonymizationOrgConfigService.getExternalIdFieldsOn(

@@ -4,16 +4,6 @@
 public with sharing class TEKCO_AnonymizationByIdController {
 
     private static final String MODE_EXTERNAL_ID   = 'EXTERNAL_ID';
-
-    /**
-     * Ceiling on how many records one By ID run may resolve, parents and children together.
-     *
-     * The child resolution below is unbounded by nature: a handful of pasted parent IDs can pull
-     * in an arbitrary number of children, and every resolved Id is then carried in the batch's
-     * serialized state from chunk to chunk. Without a ceiling that is a silent scalability wall —
-     * the run simply fails somewhere in the middle. Above this, the user is asked to narrow the
-     * list, or to use the By Criteria tab, which streams through a QueryLocator instead.
-     */
     private static final Integer MAX_BY_ID_RECORDS = 50000;
 
     @AuraEnabled(cacheable=false)
@@ -133,9 +123,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
             throw new AuraHandledException('No IDs provided.');
         }
 
-        // Scope resolution is what makes this tab different: parse the list, resolve external
-        // IDs, walk the configured parent-to-child links, and bound the result. Everything after
-        // it is shared with the By Criteria tab and lives in TEKCO_AnonymizationLaunchService.
         List<String> parseErrors = new List<String>();
         Map<String, List<Id>> directIdsByObject;
         if (resolveMode == MODE_EXTERNAL_ID
@@ -207,11 +194,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
         return TEKCO_AnonymizationLaunchService.launch(request);
     }
 
-    /**
-     * Runs scoped by ID list. Same backward-compatible fallback as getAuditLogs(): a blank
-     * TEKCO_RunMode__c means the log predates the field, and only the 'BY_ID (...)' label put
-     * in the brand filter identified it.
-     */
     @AuraEnabled(cacheable=false)
     public static List<TEKCO_AnonymizationAuditLog__c> getAuditLogsByid() {
         TEKCO_AnonymizationGuard.assertCanAnonymize();
@@ -293,8 +275,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
         List<String> invalidOut
     ) {
         Map<String, List<Id>> result = new Map<String, List<Id>>();
-        // Both names are concatenated into dynamic SOQL below and come from client input —
-        // reject anything that is not a configured object with a real field on it.
         String canonicalObject = TEKCO_AnonymizationGuard.requireConfiguredObject(objectApiName);
         TEKCO_AnonymizationGuard.requireFieldOnObject(canonicalObject, fieldApiName);
         try {
@@ -376,7 +356,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
         return resolveChildIds(childObjectApiName, parentLookupField, parentIds, null);
     }
 
-    /** @param maxRows null = the whole child set (a run); a value = a bounded read (the preview). */
     private static List<Id> resolveChildIds(
         String childObjectApiName, String parentLookupField, List<Id> parentIds, Integer maxRows
     ) {
@@ -394,13 +373,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
         return childIds;
     }
 
-    /**
-     * Before/after sample of what a By ID run would write on one object, without any DML.
-     *
-     * The ID list is resolved exactly as startAnonymizationByIds() resolves it — same parsing,
-     * same external-ID mode, same parent-to-child hop — then only the first few resolved records
-     * are read. A 50 000-record list previews as cheaply as a five-record one.
-     */
     @AuraEnabled(cacheable=false)
     public static TEKCO_AnonymizationPreviewService.PreviewSampleDTO previewSampleByIds(
         List<String> rawIds,
@@ -436,11 +408,6 @@ public with sharing class TEKCO_AnonymizationByIdController {
         }
     }
 
-    /**
-     * Ids of objectApiName within the resolved scope: the pasted ids when it is a direct object,
-     * otherwise the children reached through the configured parent lookup. Bounded to the
-     * preview sample ceiling so the child query never fans out.
-     */
     private static List<Id> idsForPreview(
         Map<String, List<Id>> directIdsByObject, String objectApiName
     ) {

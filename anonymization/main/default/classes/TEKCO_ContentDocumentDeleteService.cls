@@ -2,18 +2,9 @@
  * @description Shared Phase 2 delete logic, called from TEKCO_ContentDocumentBatch. The two
  *              chains once had a batch each, carrying byte-identical copies of this in their
  *              execute() methods; extracting it here is what made merging them possible.
- *
- *              Deletes, in order: ServiceReport (must go before ContentDocument), then
- *              ContentDocument via ContentDocumentLink, then Attachment.
- *
- *              DML row limits: a single execute() chunk may resolve far more files than the
- *              10 000-row DML ceiling — one parent can own hundreds of documents. Rather than
- *              letting the chunk die with a LimitException, deletes stop at the remaining
- *              budget and the shortfall is reported so the run can be repeated for the rest.
  */
 public inherited sharing class TEKCO_ContentDocumentDeleteService {
 
-    /** Leave headroom so the caller can still write its audit log update. */
     private static final Integer DML_ROW_RESERVE = 200;
 
     public class DeleteOutcome {
@@ -39,7 +30,6 @@ public inherited sharing class TEKCO_ContentDocumentDeleteService {
             );
             deleteAll(serviceReports, 'ServiceReport', outcome);
         } catch (Exception e) {
-            // ServiceReport is not available in every org — nothing to do.
         }
     }
 
@@ -67,10 +57,6 @@ public inherited sharing class TEKCO_ContentDocumentDeleteService {
         );
     }
 
-    /**
-     * Deletes in slices sized to the remaining DML row budget. Anything that does not fit is
-     * reported rather than attempted, so the chunk completes instead of throwing.
-     */
     private static void deleteAll(List<SObject> records, String label, DeleteOutcome outcome) {
         if (records == null || records.isEmpty()) return;
 

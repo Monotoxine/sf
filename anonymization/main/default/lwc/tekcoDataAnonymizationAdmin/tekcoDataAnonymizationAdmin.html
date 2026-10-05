@@ -4,7 +4,7 @@
         <lightning-tabset>
 
         <!-- ════════════════════════════════════════════════════════════════════
-             TAB 1 — By Criteria (existing behaviour, untouched)
+             TAB 1 — By Criteria
              ════════════════════════════════════════════════════════════════════ -->
         <lightning-tab label="By Criteria">
 
@@ -454,7 +454,7 @@
         </lightning-tab>
 
         <!-- ════════════════════════════════════════════════════════════════════
-             TAB 2 — By ID (DataMig)
+             TAB 2 — By ID
              ════════════════════════════════════════════════════════════════════ -->
         <lightning-tab label="By ID (DataMig)">
             <div class="slds-p-around_medium">
@@ -830,7 +830,7 @@
 
         </lightning-tabset>
 
-        <!-- ── Confirmation modal — By Criteria (outside tabset so it overlays everything) ── -->
+        <!-- ── Confirmation modal — By Criteria ── -->
         <template if:true={showConfirmPanel}>
             <section
                 role="dialog"
@@ -887,7 +887,7 @@
             <div class="slds-backdrop slds-backdrop_open"></div>
         </template>
 
-        <!-- ── Confirmation modal — By ID (outside tabset so it overlays everything) ── -->
+        <!-- ── Confirmation modal — By ID ── -->
         <template if:true={showByIdConfirmPanel}>
             <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="byid-confirm-heading"
                 class="slds-modal slds-fade-in-open">

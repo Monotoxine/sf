@@ -21,12 +21,6 @@ import previewSampleByIds           from '@salesforce/apex/TEKCO_AnonymizationBy
 
 const AUDIT_POLL_INTERVAL_MS = 5000;
 
-/**
- * Extracts a human-readable message from anything a promise chain can reject with:
- * Apex AuraHandledException ({body: {message}}), body as an array, pageErrors, plain
- * Error objects, thrown strings. The JSON fallback guarantees an opaque 'Unknown error'
- * never reaches the user again.
- */
 function extractErrorMessage(err) {
     if (!err) return 'Unknown error';
     if (typeof err === 'string') return err;
@@ -48,30 +42,13 @@ function buildDeleteStatsLine(docs, hist) {
     return parts.length ? parts.join(' · ') + ' deleted' : null;
 }
 
-/**
- * The record types one rule covers.
- *
- * TEKCO_RecordTypeDeveloperName__c holds a COMMA-SEPARATED LIST — the populations the rule
- * applies to — so it can never be compared as a single value. Its Apex mirror is
- * TEKCO_AnonymizationConfigSelector.recordTypesOf(); this is the only place the string is split
- * on the client.
- *
- * Treating it as one value is exactly what emptied the Fields to Anonymize table: a rule reading
- * "ACCCO_IndividualPerson,ACCCO_Patient" matched no selected record type, so every merged
- * Account rule was filtered out and the object looked unconfigured.
- */
 function recordTypesOf(cfg) {
     if (!cfg || !cfg.recordTypeDeveloperName) return [];
     return cfg.recordTypeDeveloperName.split(',').map(v => v.trim()).filter(v => v.length > 0);
 }
 
-/** Records read per before/after sample. Apex caps it again server-side. */
 const SAMPLE_SIZE = 1;
 
-/**
- * Shapes a PreviewSampleDTO for rendering. Shared by both tabs: the two panels are the same
- * panel fed by two endpoints, so a change to the display happens once.
- */
 function mapSampleResult(result) {
     const rows = (result.rows || []).map((r, index) => ({
         ...r,
@@ -122,11 +99,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     @track isRunning        = false;
     @track errorMessage     = '';
     @track previewNote      = null;
-    /**
-     * One line naming the objects a brand-filtered run would process in full, because they
-     * carry no field to filter the selected brands on. Grouped rather than one warning per
-     * object: a notice repeated on every row stops being read.
-     */
     @track brandScopeNote   = null;
 
     @track showConfirmPanel    = false;
@@ -136,12 +108,10 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     _pendingDisabledHistoryFields = [];
     _auditTimer   = null;
 
-    // Configuration health
     @track configFindings   = [];
     @track configChecked    = false;
     @track isCheckingConfig = false;
 
-    // Before/after sample (By Criteria)
     @track sampleObjectOptions = [];
     @track sampleObject        = '';
     @track sampleRows          = [];
@@ -160,7 +130,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     @track byIdExternalIdFieldOptions = [];
     @track byIdDirectObjectOptions   = [];
     @track byIdResolveResult         = null;
-    @track byIdFieldConfigs          = [];      // Fields to Anonymize for resolved objects
+    @track byIdFieldConfigs          = [];      
     @track isByIdResolving           = false;
     @track isByIdRunning             = false;
     @track showByIdConfirmPanel      = false;
@@ -170,7 +140,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
     _byIdAuditTimer = null;
 
-    // Before/after sample (By ID)
     @track byIdSampleObjectOptions = [];
     @track byIdSampleObject        = '';
     @track byIdSampleRows          = [];
@@ -256,8 +225,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
                         ? `${count} record(s) (ContentDocumentLinks to delete)`
                         : `${count} record(s)`
             }));
-            // brandFilterApplied is false only when a brand was selected and the object has no
-            // way to honour it; it is undefined when no brand was selected at all.
             const unfilteredObjects = results
                 .filter(r => r.brandFilterApplied === false)
                 .map(r => r.objectApiName);
@@ -266,7 +233,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
                   + 'these objects carry no brand field, so every record will be processed. '
                   + 'The counts above already reflect that.'
                 : null;
-            // Only objects that hold field-level patterns and actually match can be sampled.
             this.sampleObjectOptions = results
                 .filter(r => !r.isContentDocOnly && r.count > 0)
                 .map(r => ({ label: r.objectApiName, value: r.objectApiName }));
@@ -294,7 +260,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
     handleBrandChange(event) {
         this.selectedBrands = event.detail.value;
-        // The note describes a specific brand selection; keeping it would misreport the new one.
         this.brandScopeNote = null;
     }
     handleObjectChange(event) {
@@ -318,12 +283,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     handleSelectAllObjects()      { this.selectedObjects = this.objectOptions.map(o => o.value); this.loadRecordTypes(this.selectedObjects); }
     handleSelectAllRecordTypes()  { this.selectedRecordTypes = this.recordTypeOptions.map(o => o.value); }
     handlePreview()               { this.loadFieldConfigs(); this.loadPreview(); }
-
-    /**
-     * Surfaces what the batches would merely "skip": an object or field that does not exist,
-     * a pattern type with no active record, a filter that will not parse. Each of those leaves
-     * a field un-anonymized today with no visible signal.
-     */
     handleCheckConfig() {
         this.isCheckingConfig = true;
         getConfigHealth()
@@ -358,11 +317,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         this.sampleWarnings = [];
     }
 
-    /**
-     * Reads a handful of records and shows what the run would write, without any DML.
-     * Field exclusions ticked in the table below are honoured, so what is shown is what the
-     * launch would actually do.
-     */
     handleShowSample() {
         if (!this.sampleObject) return;
         this.isLoadingSample = true;
@@ -456,13 +410,10 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             selectedRecordTypes:   this.selectedRecordTypes.length > 0 ? this.selectedRecordTypes : null,
             disabledHistoryFields: this._pendingDisabledHistoryFields.length > 0 ? this._pendingDisabledHistoryFields : null
         })
-        // Two-argument then(): the rejection handler must only see the Apex failure.
-        // A chained .catch would also swallow throws from the success handler (e.g. the
-        // Lightning container's toast instrumentation) and report a started run as failed.
         .then(
             auditLogId => {
                 this.isRunning = false;
-                this.startAuditPoll(); // before the toast, so a toast-layer throw cannot skip it
+                this.startAuditPoll();
                 this.showToast('Anonymization Started', `Audit log: ${auditLogId}`, 'success');
             },
             err => {
@@ -707,7 +658,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             excludedFields:  excludedFields.length  > 0 ? excludedFields  : null,
             noHistoryFields: noHistoryFields.length > 0 ? noHistoryFields : null
         })
-            // Same two-argument shape as handleConfirmLaunch — see the comment there.
             .then(
                 auditLogId => {
                     this.isByIdRunning = false;
@@ -859,22 +809,17 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
     get fieldConfigsFiltered() {
         let result = this.fieldConfigs || [];
-        // Pre-filter by the main RT selector when record types are selected
         if (this.selectedRecordTypes && this.selectedRecordTypes.length > 0) {
             const selectedSet = new Set(this.selectedRecordTypes);
-            // A rule stays as soon as ONE of the populations it covers is selected — the same
-            // intersection the launch service applies server-side.
             result = result.filter(c => {
                 const covered = recordTypesOf(c);
                 return covered.length === 0 || covered.some(rt => selectedSet.has(rt));
             });
         }
-        // Manual text filter
         if (this.fieldFilterText) {
             const q = this.fieldFilterText.toLowerCase();
             result = result.filter(c => c.fieldApiName.toLowerCase().includes(q));
         }
-        // Manual RT dropdown filter
         if (this.fieldFilterRT && this.fieldFilterRT !== '_all_') {
             const isBlank = this.fieldFilterRT === '_blank_';
             result = result.filter(c => isBlank

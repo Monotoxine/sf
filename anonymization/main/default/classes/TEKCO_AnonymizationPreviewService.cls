@@ -1,40 +1,10 @@
 /**
- * @description Before/after preview of what an anonymization run would write, on a bounded
- *              sample of records and with NO DML of any kind.
- *
- *              Why it exists: the existing preview only counts records. A misconfigured pattern
- *              (the ALH_EMAIL_PLUS_EXTERNALID case) produced a run reported as Success while the
- *              targeted emails were left intact — and the data was already destroyed elsewhere by
- *              the time anyone noticed. Showing the produced values before launching turns that
- *              class of bug into something visible in one click.
- *
- *              It reuses TEKCO_AnonymizationScopeQueryBuilder for the field selection and
- *              TEKCO_AnonymizationExecuteService.applyPatternsTo() for the transformation, so the
- *              preview cannot drift from the run: there is a single implementation of both.
- *
- *              Both chains are served: previewByCriteria() for the brand/object/record-type tab,
- *              previewByIds() for the ID list tab. Nothing here is org-specific — brand scoping
- *              goes through TEKCO_AnonymizationOrgConfigService like everywhere else, so TEKCO
- *              orgs and Portugal behave the same.
- *
- *              `without sharing`, deliberately and for the same reason the batches are: the run
- *              anonymizes org-wide regardless of the launching user's record access. A preview
- *              reading with sharing would hide rows the run is going to destroy — a preview that
- *              reassures about records it never looked at is worse than no preview. Access is
- *              gated by the TEKCO_AnonymizeData custom permission on the controller endpoints,
- *              and nothing here writes.
+ * @description 
  */
 public without sharing class TEKCO_AnonymizationPreviewService {
 
-    /** Hard ceiling on the sample, whatever the UI asks for: bounds heap, SOQL rows and CPU. */
     public static final Integer MAX_SAMPLE_SIZE = 20;
-    /**
-     * What a caller gets when it asks for nothing. One record is enough: the sample renders
-     * a row per configured field, so a single record already fills the table, and reading one
-     * case vertically is what the panel is for.
-     */
     private static final Integer DEFAULT_SAMPLE_SIZE = 1;
-    /** Values are for eyeballing, not for export — long text bodies are truncated. */
     private static final Integer MAX_VALUE_LENGTH = 120;
     private static final String  PATTERN_EMAIL_LOREM = 'EMAIL_MESSAGE_LOREM';
 
@@ -56,10 +26,6 @@ public without sharing class TEKCO_AnonymizationPreviewService {
         @AuraEnabled public List<String>  warnings          = new List<String>();
     }
 
-    /**
-     * Sample of the By Criteria scope: same brand condition, same record-type filter and same
-     * per-object additional filter the batch would use.
-     */
     public static PreviewSampleDTO previewByCriteria(
         String objectApiName,
         List<String> selectedBrands,
@@ -77,17 +43,11 @@ public without sharing class TEKCO_AnonymizationPreviewService {
         conditions.add(TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition(
             safeObject, selectedRecordTypes, configs
         ));
-        // The very condition the launch builds, from the same function: a sample describing a
-        // scope the run does not have would defeat the point of having a sample.
         conditions.add(TEKCO_AnonymizationScopeQueryBuilder.combineAdditionalFilters(configs));
 
         return runPreview(safeObject, configs, conditions, null, sampleSize);
     }
 
-    /**
-     * Sample of a By ID scope. Only the first MAX_SAMPLE_SIZE ids are ever bound, so a list of
-     * 50 000 records previews exactly as cheaply as a list of five.
-     */
     public static PreviewSampleDTO previewByIds(
         String objectApiName,
         List<Id> recordIds,
@@ -119,12 +79,6 @@ public without sharing class TEKCO_AnonymizationPreviewService {
         );
     }
 
-    // ---------------------------------------------------------------- internals
-
-    /**
-     * The single read-and-transform path. Queries at most `sampleSize` records, applies the
-     * patterns in memory and throws the modified SObjects away — no update, no delete, ever.
-     */
     private static PreviewSampleDTO runPreview(
         String objectApiName,
         List<TEKCO_AnonymizationFieldConfig__mdt> configs,
@@ -163,9 +117,6 @@ public without sharing class TEKCO_AnonymizationPreviewService {
             sample = Database.queryWithBinds(
                 soql,
                 binds == null ? new Map<String, Object>() : binds,
-                // SYSTEM_MODE like the batches: the preview must show what the run will do.
-                // Reading in USER_MODE could strip a field the run would still anonymize and
-                // turn the preview into a false reassurance.
                 AccessLevel.SYSTEM_MODE
             );
         } catch (Exception e) {
@@ -216,7 +167,6 @@ public without sharing class TEKCO_AnonymizationPreviewService {
         return result;
     }
 
-    /** A non-draft EmailMessage is not masked but deleted — say so rather than showing nothing. */
     private static PreviewRowDTO deletionRow(Id recordId) {
         PreviewRowDTO row = new PreviewRowDTO();
         row.recordId     = String.valueOf(recordId);
@@ -238,10 +188,6 @@ public without sharing class TEKCO_AnonymizationPreviewService {
         ];
     }
 
-    /**
-     * Applies the two narrowing choices the user makes in the UI, with the exact key format
-     * startAnonymization() uses so the preview reflects the launch, not a variant of it.
-     */
     private static List<TEKCO_AnonymizationFieldConfig__mdt> filterConfigs(
         List<TEKCO_AnonymizationFieldConfig__mdt> configs,
         List<String> selectedRecordTypes,

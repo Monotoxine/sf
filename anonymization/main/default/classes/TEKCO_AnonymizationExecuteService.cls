@@ -1,11 +1,5 @@
 /**
  * @description Shared field-anonymization logic for Phase 1 batches.
- *              TEKCO_AnonymizationFieldBatch applies the same record-level patterns whichever
- *              chain it serves — only the QueryLocator scope differs between them.
- *
- *              The transformation itself (applyPatternsTo) is separated from the DML so the
- *              preview can run it on a sample without writing anything. There is exactly one
- *              implementation: what the preview shows is what a run will do.
  */
 public inherited sharing class TEKCO_AnonymizationExecuteService {
 
@@ -19,19 +13,11 @@ public inherited sharing class TEKCO_AnonymizationExecuteService {
         public List<String> errors           = new List<String>();
     }
 
-    /** What applying the configured patterns did to one record. */
     public class RecordOutcome {
         public Boolean modified = false;
         public Boolean toDelete = false;
     }
 
-    /**
-     * Applies every applicable pattern to one record, in place.
-     *
-     * @param beforeOut when non-null, receives fieldApiName -> value as it was before the
-     *                  change, for each field actually modified. Pass null in batch runs:
-     *                  capture then costs nothing at all.
-     */
     public static RecordOutcome applyPatternsTo(
         SObject record,
         List<TEKCO_AnonymizationFieldConfig__mdt> fieldConfigs,
@@ -61,9 +47,6 @@ public inherited sharing class TEKCO_AnonymizationExecuteService {
                 continue;
             }
 
-            // One query reads the whole object, so each rule is matched against each record
-            // here. The rule covers a SET of record types now; a rule naming a single one
-            // behaves exactly as before.
             Set<String> ruleRecordTypes = TEKCO_AnonymizationConfigSelector.recordTypesOf(fc);
             if (!ruleRecordTypes.isEmpty()) {
                 Id recordTypeId = (Id) record.get('RecordTypeId');
@@ -102,7 +85,6 @@ public inherited sharing class TEKCO_AnonymizationExecuteService {
         List<SObject> recordsToDelete = new List<SObject>();
 
         for (SObject record : scope) {
-            // null beforeOut: no before/after capture, no heap cost in a run.
             RecordOutcome outcome = applyPatternsTo(
                 record, fieldConfigs, patternsByType, recordTypeDevNameById, null
             );

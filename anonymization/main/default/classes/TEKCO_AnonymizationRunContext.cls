@@ -1,34 +1,10 @@
 /**
- * @description State shared by every batch of one anonymization run, plus the plan of what is
- *              left to do.
- *
- *              Before this class each batch declared the same eight-odd values as its own fields
- *              and recopied them constructor to constructor across six classes. That is the direct
- *              cause of the recordsFailed counter that stopped accumulating: adding a counter
- *              meant editing six constructors and six finish() blocks, and forgetting one broke
- *              nothing visibly. Here a counter is added once.
- *
- *              Carried by Database.Stateful, so everything in it is serialized between chunks.
- *              Heap is neutral by construction: Apex passes maps and lists by reference, so this
- *              groups references that already existed instead of copying anything. It replaces
- *              remainingObjects / remainingContentDocConfigDevNames /
- *              remainingHistoryConfigDevNames with a single list of short step descriptors.
- *
- *              Serves both chains. By Criteria scopes on brands and filters; By ID scopes on
- *              recordIdsByObject. Same context, same steps, same counters.
+ * @description 
  */
 public class TEKCO_AnonymizationRunContext {
 
-    /** Same ceiling the batches applied individually, now enforced in one place. */
     public static final Integer MAX_ACCUMULATED_ERRORS = 200;
-    /** Per-message ceiling. */
     public static final Integer MAX_ERROR_MSG_LENGTH   = 200;
-    /**
-     * Ceiling on what one producer collects before handing its list over — the execute service
-     * and the two delete services each stop here. Distinct from MAX_ACCUMULATED_ERRORS, which
-     * bounds the whole run. This class owns the error contract in all three dimensions:
-     * message length, per-producer count, and run total.
-     */
     public static final Integer MAX_CAPTURED_ERRORS    = 50;
 
     public static final String PHASE_FIELD   = 'FIELD';
@@ -37,52 +13,19 @@ public class TEKCO_AnonymizationRunContext {
 
     private static final String STEP_SEPARATOR = ':';
 
-    // ─── Run identity ────────────────────────────────────────────────────────
 
     public Id      auditLogId;
-    /** true = the run was launched from an ID list, false = from brand/object criteria. */
     public Boolean byId = false;
     public TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot;
 
-    // ─── Scope ───────────────────────────────────────────────────────────────
-
-    /** By Criteria only. Empty = every brand. */
     public List<String> selectedBrands = new List<String>();
-    /** By Criteria only: per-object SOQL fragment declared on the field configs. */
     public Map<String, String> additionalFiltersByObject = new Map<String, String>();
 
-    /**
-     * The record types the user selected, or empty for "every record type".
-     *
-     * A SCOPE filter, exactly like selectedBrands: it decides which records a run reads, not
-     * which rules it keeps. It used to stop at the launch service, which only used it to drop
-     * rules covering none of the selected populations — so a rule covering
-     * "ACCCO_IndividualPerson,ACCCO_Patient" survived a selection of ACCCO_Patient alone and was
-     * then applied to both, while the preview count and the sample showed only Patients.
-     *
-     * A handful of strings: no weight on the Database.Stateful payload.
-     */
     public List<String> selectedRecordTypes = new List<String>();
-    /** By ID only: the records to touch, per object. Never used by the By Criteria chain. */
     public Map<String, List<Id>> recordIdsByObject = new Map<String, List<Id>>();
-
-    /**
-     * Field configs per object, as filtered by the controller — user exclusions and record-type
-     * selection already applied. Batches reload from these developer names rather than from
-     * everything active, which would resurrect the fields the user unchecked.
-     */
     public Map<String, List<String>> configDevNamesByObject = new Map<String, List<String>>();
-    /** Configs whose history must be purged, per object. */
     public Map<String, List<String>> historyConfigDevNamesByObject = new Map<String, List<String>>();
 
-    // ─── Plan ────────────────────────────────────────────────────────────────
-
-    /**
-     * What is left to run, in order, as 'PHASE:key' descriptors — 'FIELD:Account',
-     * 'CD:Case_Attachments', 'HISTORY:Account'. The key is an object API name for FIELD and
-     * HISTORY, a field-config developer name for CD (a ContentDocument step can be scoped to
-     * one record type, which only the config knows).
-     */
     public List<String> steps = new List<String>();
 
     // ─── Results ─────────────────────────────────────────────────────────────

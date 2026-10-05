@@ -111,7 +111,6 @@ public with sharing class TEKCO_AnonymizationController {
               AND TEKCO_RecordTypeDeveloperName__c != null
         ]) {
             Set<String> rts = rtsByObject.get(cfg.TEKCO_ObjectApiName__c.toLowerCase());
-            // A rule covers a LIST of record types; each one is offered once in the selector.
             if (rts != null) rts.addAll(TEKCO_AnonymizationConfigSelector.recordTypesOf(cfg));
         }
 
@@ -179,12 +178,7 @@ public with sharing class TEKCO_AnonymizationController {
 
         for (TEKCO_AnonymizationFieldConfig__mdt fieldConfig : fieldConfigRecords) {
             FieldConfigDTO fieldConfigDto                 = new FieldConfigDTO();
-            // The config key. The client echoes it back as excludedFields / disabledHistoryFields
-            // rather than rebuilding it — see TEKCO_AnonymizationConfigSelector.configKey().
             fieldConfigDto.developerName                  = fieldConfig.DeveloperName;
-            // Shown as the rule's identity in the field table. Two configs can be identical on
-            // object, field and record type — Address.Street is — and the label is what tells
-            // them apart, in the UI and in a Check Configuration finding alike.
             fieldConfigDto.label                          = fieldConfig.MasterLabel;
             fieldConfigDto.objectApiName                  = fieldConfig.TEKCO_ObjectApiName__c;
             fieldConfigDto.fieldApiName                   = fieldConfig.TEKCO_FieldApiName__c;
@@ -215,7 +209,6 @@ public with sharing class TEKCO_AnonymizationController {
     ) {
         TEKCO_AnonymizationGuard.assertCanAnonymize();
 
-        // Object names are concatenated into dynamic SOQL below — only configured names pass.
         List<String> objectsToCount = new List<String>();
         if (selectedObjects != null && !selectedObjects.isEmpty()) {
             for (String obj : selectedObjects) {
@@ -270,26 +263,18 @@ public with sharing class TEKCO_AnonymizationController {
 
             try {
                 List<String> conditions = new List<String>();
-                // Same condition builder as the batches, so preview and run cannot diverge.
                 String brandCondition = TEKCO_AnonymizationOrgConfigService.buildBrandCondition(
                     objectApiName, selectedBrands
                 );
                 if (brandCondition != null) {
                     conditions.add(brandCondition);
                 }
-                // Reuses the value just computed: no extra describe, no extra query. Reported so
-                // the UI can name the objects a brand-filtered run will process in full.
                 if (hasBrandSelection) {
                     dto.brandFilterApplied = brandCondition != null;
                 }
-                // Same function the run and the sample use, so the announced count and the
-                // records actually processed cannot describe different scopes.
                 conditions.add(TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition(
                     objectApiName, selectedRecordTypes, configsByObject.get(objectApiName)
                 ));
-                // The additional filter, which this count ignored entirely until now — it
-                // therefore announced more records than the run would touch on every filtered
-                // object. Same function as the launch and the sample.
                 conditions.add(TEKCO_AnonymizationScopeQueryBuilder.combineAdditionalFilters(
                     configsByObject.get(objectApiName)
                 ));
@@ -303,12 +288,6 @@ public with sharing class TEKCO_AnonymizationController {
         return results;
     }
 
-
-    /**
-     * Runs scoped by criteria. TEKCO_RunMode__c is blank on logs written before that field
-     * existed, so the mode falls back to the old discriminant — a LIKE on the brand-filter
-     * label, which is a display field and exactly why the mode became a field of its own.
-     */
     @AuraEnabled(cacheable=false)
     public static List<TEKCO_AnonymizationAuditLog__c> getAuditLogs() {
         TEKCO_AnonymizationGuard.assertCanAnonymize();
@@ -348,12 +327,9 @@ public with sharing class TEKCO_AnonymizationController {
         TEKCO_AnonymizationGuard.assertCanAnonymize();
         TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
 
-        // Scope resolution is what makes this tab different; everything after it is shared with
-        // the By ID tab and lives in TEKCO_AnonymizationLaunchService.
         if (selectedObjects == null || selectedObjects.isEmpty()) {
             selectedObjects = getObjectApiNames();
         } else {
-            // Object names end up in dynamic SOQL in the batches — only configured names pass.
             List<String> validated = new List<String>();
             for (String obj : selectedObjects) {
                 validated.add(TEKCO_AnonymizationGuard.requireConfiguredObject(obj));
@@ -383,15 +359,6 @@ public with sharing class TEKCO_AnonymizationController {
         return TEKCO_AnonymizationLaunchService.launch(request);
     }
 
-    /**
-     * Everything wrong with the configuration, before any run: objects that do not exist in this
-     * org, fields that do not exist on their object, pattern types with no active record, and
-     * additional filters that will not parse.
-     *
-     * These are all conditions the batches merely "skip" today, as a line in a capped error list
-     * discovered halfway through a run — while the field they were meant to protect keeps its
-     * PII with no visible signal.
-     */
     @AuraEnabled(cacheable=false)
     public static List<String> getConfigHealth() {
         TEKCO_AnonymizationGuard.assertCanAnonymize();
@@ -402,10 +369,6 @@ public with sharing class TEKCO_AnonymizationController {
         }
     }
 
-    /**
-     * Before/after sample of what a By Criteria run would write on one object, without any DML.
-     * Bounded to TEKCO_AnonymizationPreviewService.MAX_SAMPLE_SIZE records whatever is asked.
-     */
     @AuraEnabled(cacheable=false)
     public static TEKCO_AnonymizationPreviewService.PreviewSampleDTO previewSample(
         String objectApiName,
@@ -434,12 +397,6 @@ public with sharing class TEKCO_AnonymizationController {
         @AuraEnabled public String  objectApiName;
         @AuraEnabled public Integer count;
         @AuraEnabled public Boolean isContentDocOnly;
-        /**
-         * Whether the brand selection actually narrowed this object's scope.
-         * null when no brand was selected (nothing to apply); false when brands were selected
-         * but this object carries no way to filter on them — the run then processes the whole
-         * table, which the count already reflects but nothing else made visible.
-         */
         @AuraEnabled public Boolean brandFilterApplied;
     }
     
