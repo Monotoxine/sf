@@ -277,14 +277,31 @@ public with sharing class TEKCO_AnonymizationByIdController {
         Map<String, List<Id>> result = new Map<String, List<Id>>();
         String canonicalObject = TEKCO_AnonymizationGuard.requireConfiguredObject(objectApiName);
         TEKCO_AnonymizationGuard.requireFieldOnObject(canonicalObject, fieldApiName);
+        Set<String> values = new Set<String>();
+        for (String raw : rawValues) {
+            if (String.isNotBlank(raw)) values.add(raw.trim());
+        }
         try {
             List<SObject> records = Database.query(
-                'SELECT Id FROM ' + canonicalObject
-                + ' WHERE ' + fieldApiName + ' IN :rawValues'
+                'SELECT Id, ' + fieldApiName + ' FROM ' + canonicalObject
+                + ' WHERE ' + fieldApiName + ' IN :values'
             );
             List<Id> ids = new List<Id>();
-            for (SObject r : records) ids.add(r.Id);
+            Set<String> matched = new Set<String>();
+            for (SObject r : records) {
+                ids.add(r.Id);
+                matched.add(String.valueOf(r.get(fieldApiName)).toLowerCase());
+            }
             if (!ids.isEmpty()) result.put(canonicalObject, ids);
+            // A value matching no record is reported, not dropped: otherwise a typo in a pasted
+            // list shrinks the scope without anyone being told.
+            if (invalidOut != null) {
+                for (String value : values) {
+                    if (!matched.contains(value.toLowerCase())) {
+                        invalidOut.add(value + ' (no ' + canonicalObject + ' with this ' + fieldApiName + ')');
+                    }
+                }
+            }
         } catch (Exception e) {
             if (invalidOut != null) {
                 invalidOut.add(objectApiName + '.' + fieldApiName + ' — ' + e.getMessage());
