@@ -20,6 +20,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_DocumentsDeleted__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>TEKCO_AnonymizationAuditLog__c.TEKCO_EndTime__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -31,6 +36,11 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>TEKCO_AnonymizationAuditLog__c.TEKCO_FieldsAnonymized__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>TEKCO_AnonymizationAuditLog__c.TEKCO_HistoryRecordsDeleted__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
