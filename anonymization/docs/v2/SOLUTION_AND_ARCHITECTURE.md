@@ -148,7 +148,7 @@ meant to protect with its PII and no visible signal.
 `previewSample` reads **one record** by default — 20 is the hard ceiling, whatever the caller
 asks for — applies the patterns in memory and throws the result away — **no DML, ever**. It
 shares `applyPatternsTo()` with the run, so what it shows is what the run will do. One record
-already fills the table: the panel renders a row per configured field, so a single case read
+already fills the table: the panel renders a row per field the run would change, so a single case read
 vertically is the useful unit.
 
 It exists because of a real incident: a misconfigured pattern produced a run reported as

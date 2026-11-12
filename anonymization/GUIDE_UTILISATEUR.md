@@ -481,7 +481,7 @@ A pattern defines **how** a field value will be transformed.
 | `EMAIL_PLUS_SFID` | Generates an email with a `+` alias containing the Salesforce Id. e.g. `sf_sap+0035g00000XyZAA@airliquide.com` |
 | `EMAIL_PLUS_SFID_SUBDOMAIN` | Same as above with the sandbox org subdomain appended. |
 | `PHONE_MASK` | Masks the phone number while preserving its format. e.g. `+33123456789` → `+33100000000` |
-| `SSN_SEQUENTIAL` | Replaces the social security number with a unique sequential number of the same length. |
+| `SSN_SEQUENTIAL` | Replaces the social security number with the digit sequence `123456789…` at the same length. Every record gets the same value. e.g. `185017512345678` → `123456789123456` |
 | `ADDRESS_STREET_RANDOM` | Finds the first number in the address and adds a random offset (1–20). |
 | `LOREM_IPSUM` | Replaces text content with Lorem Ipsum. |
 | `CLEAR` | Empties the field (sets it to null if not already empty). |

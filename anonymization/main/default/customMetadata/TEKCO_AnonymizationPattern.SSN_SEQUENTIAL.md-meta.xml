@@ -8,7 +8,7 @@
     </values>
     <values>
         <field>TEKCO_Description__c</field>
-        <value xsi:type="xsd:string">Replace with a sequential fake Social Security Number of configurable length (e.g. &quot;000000000000001&quot;)</value>
+        <value xsi:type="xsd:string">Replace with the digit sequence 123456789… at the value length, or the configured length when empty (e.g. &quot;123456789123456&quot;). Every record gets the same value.</value>
     </values>
     <values>
         <field>TEKCO_ExternalIdField__c</field>

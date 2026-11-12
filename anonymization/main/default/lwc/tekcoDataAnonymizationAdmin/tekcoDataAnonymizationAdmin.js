@@ -231,7 +231,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             this.brandScopeNote = unfilteredObjects.length > 0
                 ? `Brand filter not applicable on: ${unfilteredObjects.join(', ')} — `
                   + 'these objects carry no brand field, so every record will be processed. '
-                  + 'The counts above already reflect that.'
+                  + 'The counts below already reflect that.'
                 : null;
             this.sampleObjectOptions = results
                 .filter(r => !r.isContentDocOnly && r.count > 0)

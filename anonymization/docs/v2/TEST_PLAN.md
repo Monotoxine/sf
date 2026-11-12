@@ -284,9 +284,12 @@ the targeted e-mails left intact.*
 
 **Steps**: after a preview, pick an object in **Object to sample**, click **Show sample**.
 
-**Expected**: a table of `Record · Field · Pattern · Before · After` for **one** record, one row
-per configured field. `Before` matches what Query Editor returns for that Id. Twenty is the
-server-side ceiling, not the value used.
+**Expected**: a summary such as `1 record(s) sampled · 1 would change`, then a table of
+`Record · Field · Pattern · Before · After` for **one** record, one row per field whose value
+would change — a field the run would leave as it is (already anonymized, or empty) is not
+listed. `Before` matches what Query Editor returns for that Id. Twenty is the server-side
+ceiling, not the value used. The sample takes the first record in scope; sample a record that
+still holds real values, or most rows will be missing.
 
 ## E2 — The sample writes nothing
 
@@ -614,7 +617,8 @@ restriction, not a permissions problem.
 semicolon-separated; a mix of the three with stray spaces; 15-character and 18-character forms;
 Ids of two different object types together.
 
-**Expected**: the live counter under the box matches what you pasted, in every format.
+**Expected**: the counter under the box (`N ID(s) detected`, updated when the box loses focus)
+matches what you pasted, in every format.
 
 ## I2 — Unusable values are reported, not swallowed
 

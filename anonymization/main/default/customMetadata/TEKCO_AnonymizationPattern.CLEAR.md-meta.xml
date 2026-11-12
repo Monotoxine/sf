@@ -8,7 +8,7 @@
     </values>
     <values>
         <field>TEKCO_Description__c</field>
-        <value xsi:type="xsd:string">Clears the filed value</value>
+        <value xsi:type="xsd:string">Clears the field value</value>
     </values>
     <values>
         <field>TEKCO_ExternalIdField__c</field>

@@ -259,7 +259,7 @@ filters, and loads the list of fields that would be modified.
 Pick an object in **Object to sample** and click **Show sample**.
 
 The tool reads **one record**, applies the patterns in memory, and shows a table of
-`Record · Field · Pattern · Before · After` — one row per configured field. **Nothing is
+`Record · Field · Pattern · Before · After` — one row per field the run would change. **Nothing is
 written — the sample performs no DML at all.** It runs the same `applyPatternsTo()` the batch
 runs, so what it shows is what the run will do.
 
