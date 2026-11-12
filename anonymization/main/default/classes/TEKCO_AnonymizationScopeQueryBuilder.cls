@@ -188,7 +188,11 @@ public inherited sharing class TEKCO_AnonymizationScopeQueryBuilder {
             conditions.add('RecordType.DeveloperName IN (' + recordTypeIn + ')');
         } else if (selectedRecordTypes != null && !selectedRecordTypes.isEmpty()
                 && recordTypeDevNames != null && recordTypeDevNames.isEmpty()) {
-            String selectedIn = escapedInClause(new Set<String>(selectedRecordTypes));
+            // Only the selected record types this object has: a selection of Account and Case
+            // record types must not empty the query on Prescription, which has none of them.
+            Set<String> onObject = recordTypesOn(objectApiName);
+            onObject.retainAll(new Set<String>(selectedRecordTypes));
+            String selectedIn = escapedInClause(onObject);
             if (selectedIn != null) {
                 conditions.add('RecordType.DeveloperName IN (' + selectedIn + ')');
             }
@@ -196,6 +200,15 @@ public inherited sharing class TEKCO_AnonymizationScopeQueryBuilder {
         conditions.add(additionalFilter);
 
         return 'SELECT Id FROM ' + objectApiName + whereClause(conditions);
+    }
+
+    private static Set<String> recordTypesOn(String objectApiName) {
+        Set<String> names = new Set<String>();
+        if (!TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, 'recordtypeid')) return names;
+        Schema.SObjectType sot = TEKCO_AnonymizationOrgConfigService.getSObjectType(objectApiName);
+        if (sot == null) return names;
+        names.addAll(sot.getDescribe().getRecordTypeInfosByDeveloperName().keySet());
+        return names;
     }
 
     public static String buildHistoryScopeQuery(

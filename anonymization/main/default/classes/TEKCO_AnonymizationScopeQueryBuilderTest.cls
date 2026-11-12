@@ -614,4 +614,22 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             soql,
             'Une regle couvrant tout l objet reste bornee par la selection : ' + soql);
     }
+
+    /**
+     * Un record type selectionne que l objet n a pas ne borne pas sa requete : sinon une selection
+     * de record types Account et Case vide la phase fichiers de Prescription ou ServiceAppointment.
+     */
+    @isTest
+    static void buildContentDocScopeQuery_ignoresSelectedRecordTypesTheObjectDoesNotHave() {
+        useNeutralOrgConfig();
+
+        String soql = TEKCO_AnonymizationScopeQueryBuilder.buildContentDocScopeQuery(
+            'Account', null, new Set<String>(),
+            new List<String>{ 'NoSuchRecordType_xyz' },
+            null
+        );
+
+        System.assertEquals('SELECT Id FROM Account', soql,
+            'Un record type absent de l objet ne filtre pas : ' + soql);
+    }
 }
