@@ -36,7 +36,7 @@
     </values>
     <values>
         <field>TEKCO_PatternType__c</field>
-        <value xsi:type="xsd:string">LOREM_IPSUM</value>
+        <value xsi:type="xsd:string">EMAIL_PLUS_SFID</value>
     </values>
     <values>
         <field>TEKCO_RecordTypeDeveloperName__c</field>
