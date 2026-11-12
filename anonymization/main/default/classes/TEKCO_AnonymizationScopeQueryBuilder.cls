@@ -178,7 +178,8 @@ public inherited sharing class TEKCO_AnonymizationScopeQueryBuilder {
             TEKCO_AnonymizationOrgConfigService.buildBrandCondition(objectApiName, selectedBrands)
         );
 
-        Set<String> effective = new Set<String>(recordTypeDevNames);
+        Set<String> effective = recordTypeDevNames == null
+            ? new Set<String>() : new Set<String>(recordTypeDevNames);
         if (selectedRecordTypes != null && !selectedRecordTypes.isEmpty() && !effective.isEmpty()) {
             effective.retainAll(new Set<String>(selectedRecordTypes));
         }

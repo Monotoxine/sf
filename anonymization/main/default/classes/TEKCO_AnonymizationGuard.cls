@@ -7,9 +7,17 @@ public inherited sharing class TEKCO_AnonymizationGuard {
     private static final Integer MAX_NAMED_CONFIGS = 3;
     private static final String KEY_SEPARATOR = '\u0001';
 
+    // AuraHandledException.getMessage() returns "Script-thrown exception" unless setMessage is
+    // called, and the scheduler logs that message when it refuses a run.
+    private static AuraHandledException rejection(String message) {
+        AuraHandledException e = new AuraHandledException(message);
+        e.setMessage(message);
+        return e;
+    }
+
     public static void assertCanAnonymize() {
         if (!FeatureManagement.checkPermission(ANONYMIZE_PERMISSION)) {
-            throw new AuraHandledException(
+            throw rejection(
                 'Permission denied: the "TEKCO Anonymize Data" custom permission is required.'
             );
         }
@@ -53,7 +61,7 @@ public inherited sharing class TEKCO_AnonymizationGuard {
 
     private static AuraHandledException refusal(TEKCO_AnonymizationAuditLog__c log) {
         String who = log.TEKCO_TriggeredBy__r != null ? log.TEKCO_TriggeredBy__r.Name : 'another user';
-        return new AuraHandledException(
+        return rejection(
             'An anonymization run is already in progress (' + log.Name + ', started by ' + who
             + ' on ' + String.valueOf(log.TEKCO_StartTime__c) + '). Two runs at once would leave '
             + 'the automation bypass in an inconsistent state. Wait for it to finish.'
@@ -83,12 +91,12 @@ public inherited sharing class TEKCO_AnonymizationGuard {
 
     public static String requireConfiguredObject(String objectApiName) {
         if (String.isBlank(objectApiName)) {
-            throw new AuraHandledException('Object API name is required.');
+            throw rejection('Object API name is required.');
         }
         String canonical =
             TEKCO_AnonymizationConfigSelector.configuredObjectsByLower().get(objectApiName.toLowerCase());
         if (canonical == null) {
-            throw new AuraHandledException(
+            throw rejection(
                 'Object is not configured for anonymization: ' + objectApiName
             );
         }
@@ -97,10 +105,10 @@ public inherited sharing class TEKCO_AnonymizationGuard {
 
     public static String requireFieldOnObject(String objectApiName, String fieldApiName) {
         if (String.isBlank(fieldApiName)) {
-            throw new AuraHandledException('Field API name is required.');
+            throw rejection('Field API name is required.');
         }
         if (!TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, fieldApiName)) {
-            throw new AuraHandledException(
+            throw rejection(
                 'Field does not exist on ' + objectApiName + ': ' + fieldApiName
             );
         }

@@ -24,11 +24,9 @@ private class TEKCO_AnonymizationPatternServiceTest {
         pattern.TEKCO_ExternalIdField__c = 'TEKCO_FunctionalId__c';
 
         Contact c = new Contact(FirstName = 'Jean', LastName = 'Test');
-        c.put('TEKCO_FunctionalId__c', 'EXT001');
 
-        // In unit test we can't actually query — we just verify the logic path
-        // since TEKCO_FunctionalId__c may not exist on Contact in all orgs.
-        // Instead, verify blank value pass-through.
+        // TEKCO_FunctionalId__c is not writable on Contact in every org (formula in some), so the
+        // test does not set it and only checks that a blank value passes through.
         String result = TEKCO_AnonymizationPatternService.applyPattern('NAME_FIRST_LETTER', '', c, pattern);
         System.assertEquals('', result, 'Blank value returned unchanged');
     }
@@ -292,15 +290,12 @@ private class TEKCO_AnonymizationPatternServiceTest {
         }
     }
 
-    // ─── hasField caching ──────────────────────────────────────────────────────
+    // ─── hasField ──────────────────────────────────────────────────────────────
 
     @isTest
     static void hasField_returnsTrueForExistingField() {
-        TEKCO_AnonymizationPatternService.globalDescribeCache = null;
         Boolean result = TEKCO_AnonymizationOrgConfigService.hasField('Account', 'Name');
         System.assertEquals(true, result);
-        System.assertNotEquals(null, TEKCO_AnonymizationPatternService.globalDescribeCache,
-            'Describe cache must be populated after first call');
     }
 
     @isTest

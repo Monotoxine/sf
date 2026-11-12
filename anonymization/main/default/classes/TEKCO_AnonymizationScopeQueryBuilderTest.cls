@@ -506,7 +506,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             accountConfigs('ACCCO_IndividualPerson,ACCCO_Patient')
         );
 
-        System.assertEquals("RecordType.DeveloperName IN ('ACCCO_Patient')", condition,
+        System.assertEquals('RecordType.DeveloperName IN (\'ACCCO_Patient\')', condition,
             'Seule la population selectionnee est lue : ' + condition);
     }
 
@@ -527,7 +527,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         useNeutralOrgConfig();
 
         System.assertEquals(
-            "RecordType.DeveloperName IN ('ACCCO_IndividualPerson', 'ACCCO_Patient')",
+            'RecordType.DeveloperName IN (\'ACCCO_IndividualPerson\', \'ACCCO_Patient\')',
             TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition(
                 'Account',
                 new List<String>{ 'ACCCO_Patient', 'ACCCO_IndividualPerson' },
@@ -559,7 +559,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         );
 
         System.assertEquals(
-            "SELECT Id FROM Account WHERE RecordType.DeveloperName IN ('ACCCO_Patient')",
+            'SELECT Id FROM Account WHERE RecordType.DeveloperName IN (\'ACCCO_Patient\')',
             soql,
             'La phase champ ne lit que la population selectionnee : ' + soql);
     }
@@ -576,7 +576,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             null
         );
 
-        System.assert(soql.contains("RecordType.DeveloperName IN ('ACCCO_Patient')"),
+        System.assert(soql.contains('RecordType.DeveloperName IN (\'ACCCO_Patient\')'),
             'Les lignes d historique suivent le meme perimetre : ' + soql);
     }
 
@@ -593,7 +593,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         );
 
         System.assertEquals(
-            "SELECT Id FROM Account WHERE RecordType.DeveloperName IN ('ACCCO_Patient')",
+            'SELECT Id FROM Account WHERE RecordType.DeveloperName IN (\'ACCCO_Patient\')',
             soql,
             'Les fichiers de la population non selectionnee ne sont pas supprimes : ' + soql);
     }
@@ -610,7 +610,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         );
 
         System.assertEquals(
-            "SELECT Id FROM Account WHERE RecordType.DeveloperName IN ('ACCCO_Patient')",
+            'SELECT Id FROM Account WHERE RecordType.DeveloperName IN (\'ACCCO_Patient\')',
             soql,
             'Une regle couvrant tout l objet reste bornee par la selection : ' + soql);
     }

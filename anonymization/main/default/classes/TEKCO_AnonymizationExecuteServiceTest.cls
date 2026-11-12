@@ -99,7 +99,7 @@ private class TEKCO_AnonymizationExecuteServiceTest {
 
         TEKCO_AnonymizationExecuteService.ExecuteResult result =
             TEKCO_AnonymizationExecuteService.executeFieldAnonymization(
-                new List<SObject>{ [SELECT Id, Phone FROM Account WHERE Id = :acc.Id] },
+                new List<SObject>{ [SELECT Id, Phone, RecordTypeId FROM Account WHERE Id = :acc.Id] },
                 new List<TEKCO_AnonymizationFieldConfig__mdt>{ fc },
                 patterns,
                 new Map<Id, String>()  // empty → no RT match possible
@@ -225,7 +225,7 @@ private class TEKCO_AnonymizationExecuteServiceTest {
             TEKCO_RecordTypeDeveloperName__c = 'SomeOtherRecordType'
         );
 
-        SObject record = [SELECT Id, Phone FROM Account WHERE Id = :acc.Id];
+        SObject record = [SELECT Id, Phone, RecordTypeId FROM Account WHERE Id = :acc.Id];
 
         TEKCO_AnonymizationExecuteService.RecordOutcome outcome =
             TEKCO_AnonymizationExecuteService.applyPatternsTo(
