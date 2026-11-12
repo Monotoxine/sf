@@ -2,7 +2,7 @@
 <!-- Anonymization tool, complete package for a STANDARD TEKCO org.
 
      WHAT IT DEPLOYS: every piece of anonymization metadata in this repository except the
-     TEKCO_AnonymizationFieldConfig records. Apex, the LWC, the four objects and all 39 of their
+     TEKCO_AnonymizationFieldConfig records. Apex, the LWC, the four objects and all 38 of their
      fields, the four layouts, the tab, the permission set, the custom permission, the 14 shared
      pattern records and the org config record.
 
@@ -106,7 +106,6 @@
         <members>TEKCO_AnonymizationAuditLog__c.TEKCO_DocumentsDeleted__c</members>
         <members>TEKCO_AnonymizationAuditLog__c.TEKCO_EndTime__c</members>
         <members>TEKCO_AnonymizationAuditLog__c.TEKCO_ErrorMessage__c</members>
-        <members>TEKCO_AnonymizationAuditLog__c.TEKCO_FieldsAnonymized__c</members>
         <members>TEKCO_AnonymizationAuditLog__c.TEKCO_HistoryRecordsDeleted__c</members>
         <members>TEKCO_AnonymizationAuditLog__c.TEKCO_JobId__c</members>
         <members>TEKCO_AnonymizationAuditLog__c.TEKCO_ObjectApiName__c</members>

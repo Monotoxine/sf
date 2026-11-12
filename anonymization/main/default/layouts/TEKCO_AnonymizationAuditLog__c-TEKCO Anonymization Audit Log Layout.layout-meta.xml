@@ -47,10 +47,6 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>TEKCO_FieldsAnonymized__c</field>
-            </layoutItems>
-            <layoutItems>
-                <behavior>Edit</behavior>
                 <field>TEKCO_RecordsFailed__c</field>
             </layoutItems>
             <layoutItems>
