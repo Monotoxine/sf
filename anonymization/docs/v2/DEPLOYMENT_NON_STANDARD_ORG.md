@@ -120,9 +120,9 @@ They must disappear in the same deployment that installs their replacements:
 
 ```bash
 sf project deploy start \
-    --manifest anonymization/manifest/package-architecture-Portugal.xml \
-    --post-destructive-changes anonymization/manifest/destructiveChanges-architecture.xml \
-    --dry-run --target-org <alias>
+    --manifest anonymization/manifest/package-architecture-v2-Portugal.xml \
+    --post-destructive-changes anonymization/manifest/destructiveChanges-architecture-v2.xml \
+    --ignore-warnings --dry-run --target-org <alias>
 ```
 
 | Deleted | Replaced by |

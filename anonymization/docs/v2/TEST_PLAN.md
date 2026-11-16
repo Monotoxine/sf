@@ -80,8 +80,8 @@ that no longer exists and confuse anyone reading the org.
 
 ```bash
 sf project deploy start --manifest anonymization/manifest/package-architecture-v2.xml \
-    --post-destructive-changes anonymization/manifest/destructiveChanges-architecture.xml \
-    --target-org <alias>
+    --post-destructive-changes anonymization/manifest/destructiveChanges-architecture-v2.xml \
+    --ignore-warnings --target-org <alias>
 ```
 
 Then **Setup → Apex Classes**, search `TEKCO_`.

@@ -10,7 +10,7 @@
      Cleanup of the obsolete Portugal_ALH org-config record in orgs that received it is a
      separate destructive step:
        sf project deploy start ~-manifest anonymization/manifest/package-review-fixes.xml
-           ~-post-destructive-changes anonymization/manifest/destructiveChanges-review-fixes.xml
+           ~-post-destructive-changes anonymization/manifest/destructiveChanges-architecture-v2.xml
            ~-target-org <alias>
      (replace ~- with double dashes; XML comments cannot contain them)
 -->

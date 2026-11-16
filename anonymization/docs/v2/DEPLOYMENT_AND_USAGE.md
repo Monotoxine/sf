@@ -80,50 +80,31 @@ sf project deploy start --manifest anonymization/manifest/package.xml --target-o
 permission, the permission set, the tab, and every Custom Metadata record. Read the manifest
 rather than a list in a document: a list here would go stale, and one already did.
 
-### 2.2 Delta deployment — an org already carrying the pre-merge version
+### 2.2 Upgrading an org that carries an earlier version
 
-The architectural work merged the By Criteria and By ID batch chains. **Five classes were
-deleted**, and they must disappear in the same deployment that installs their replacements:
-
-| Deleted | Replaced by |
-|---|---|
-| `TEKCO_AnonymizationBatch`, `TEKCO_AnonymizationByIdBatch` | `TEKCO_AnonymizationFieldBatch` |
-| `TEKCO_ContentDocumentByIdBatch` | `TEKCO_ContentDocumentBatch` |
-| `TEKCO_FieldHistoryByIdBatch` | `TEKCO_FieldHistoryBatch` |
-| `TEKCO_AnonymizationBatchUtils` | `TEKCO_AnonymizationGuard` + `TEKCO_AnonymizationConfigSelector` |
+`destructiveChanges-architecture-v2.xml` lists everything earlier versions installed that
+version 2 no longer has: the superseded batch classes, renamed or dropped fields
+(`TEKCO_FieldsAnonymized__c`, `TEKCO_ParentRecordTypeDeveloperName__c`, …), the field-config and
+pattern records that were renamed or replaced, and the first prototype's objects. Deploy it with
+the package, in one deployment:
 
 ```bash
 sf project deploy start \
-    --manifest anonymization/manifest/package-architecture.xml \
-    --post-destructive-changes anonymization/manifest/destructiveChanges-architecture.xml \
-    --dry-run --target-org <alias>
+    --manifest anonymization/manifest/package-architecture-v2.xml \
+    --post-destructive-changes anonymization/manifest/destructiveChanges-architecture-v2.xml \
+    --ignore-warnings --dry-run --target-org <alias>
 ```
 
 Drop `--dry-run` once it passes.
 
+> **`--ignore-warnings` is required.** No org carries every earlier version, and a component the
+> org does not have otherwise fails the whole deployment. With the flag it is skipped.
+
 > **`--post-destructive-changes`, not `--pre-`.** The replacements must exist before the old
-> classes go, or the deployment fails on classes that still reference them.
+> components go, or the deployment fails on classes that still reference them.
 
-### 2.3 Deploying the record-type consolidation
-
-A field no longer needs one configuration per record type:
-`TEKCO_RecordTypeDeveloperName__c` holds a comma-separated list. The TEKCO set was merged
-accordingly — 26 pairs of `IndividualP_X` + `Patient_X` became one `Account_X` — which means 52
-records must disappear as the 26 replacements arrive:
-
-```bash
-sf project deploy start --manifest anonymization/manifest/package.xml \
-    --post-destructive-changes anonymization/manifest/destructiveChanges-recordtype-consolidation.xml \
-    --dry-run --target-org <alias>
-```
-
-> **Deploy the Apex first, or in the same transaction.** A version that reads
-> `TEKCO_RecordTypeDeveloperName__c` as a single name would match nothing against
-> `ACCCO_IndividualPerson,ACCCO_Patient` and would silently anonymize no Account field at all.
-> `package.xml` carries both the classes and the records, so a single deployment is safe.
-
-> The Portugal org is not concerned: its 21 `ALH_*` configurations were left untouched, and
-> `package-Portugal.xml` does not change.
+> **Check that no run is in flight first** (see the query at the top of the manifest): redeploying
+> a class a chained run points at kills that run.
 
 ---
 

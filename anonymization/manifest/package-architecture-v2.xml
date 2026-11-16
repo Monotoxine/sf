@@ -13,9 +13,6 @@
      Setup. A config naming an object, field or record type the org does not have is skipped at run
      time, leaving that field with its PII: run Check Configuration after deploying.
 
-     DO NOT deploy destructiveChanges-recordtype-consolidation.xml with these configs: it deletes
-     the per-record-type configs this set is made of.
-
      Members are generated from the repository tree, so nothing on disk is missed. Re-generate
      rather than hand-editing when files are added.
 
@@ -26,12 +23,12 @@
        SELECT Id, Status, ApexClass.Name, CreatedDate FROM AsyncApexJob
        WHERE Status IN ('Queued','Processing','Preparing','Holding') AND ApexClass.Name LIKE 'TEKCO_%'
 
-     UPGRADING FROM THE PRE-MERGE VERSION: the chain merge deleted five classes. They must go in
-     the same deployment that installs their replacements, as a POST-destructive change:
+     UPGRADING AN ORG THAT CARRIES AN EARLIER VERSION: deploy with the destructive companion,
+     which removes everything earlier versions installed that this one no longer has:
 
        sf project deploy start ~-manifest <this file>
-           ~-post-destructive-changes anonymization/manifest/destructiveChanges-architecture.xml
-           ~-dry-run ~-target-org <alias>
+           ~-post-destructive-changes anonymization/manifest/destructiveChanges-architecture-v2.xml
+           ~-ignore-warnings ~-dry-run ~-target-org <alias>
      (replace ~- with double dashes; XML comments cannot contain them)
 
      NOT IN THIS MANIFEST, DELIBERATELY:
