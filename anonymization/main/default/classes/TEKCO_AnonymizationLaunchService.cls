@@ -106,7 +106,7 @@ public with sharing class TEKCO_AnonymizationLaunchService {
         }
 
         if (fieldObjects.isEmpty() && contentDocConfigs.isEmpty()) {
-            throw new AuraHandledException(request.nothingToDoMessage);
+            throw TEKCO_AnonymizationGuard.rejection(request.nothingToDoMessage);
         }
 
         TEKCO_AnonymizationBypassService.BypassSnapshot bypassSnapshot =

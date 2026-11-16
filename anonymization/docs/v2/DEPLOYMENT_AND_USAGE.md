@@ -423,8 +423,14 @@ straight afterwards.
 System.schedule('TEKCO Anonymization', '0 0 2 * * ?', new TEKCO_AnonymizationScheduler());
 ```
 
-Scope: **every configured object, every brand** — what the interface does when nothing is
-narrowed. A narrower scope is a human decision and belongs in the interface.
+Scope: **every configured object, every brand, every record type** — what the interface does
+when nothing is narrowed. To try a schedule on test records first, narrow it (record types,
+objects, brands; null or empty means every one):
+
+```apex
+System.schedule('TEKCO Anonymization test', '0 0 2 * * ?', new TEKCO_AnonymizationScheduler(
+    new List<String>{ 'ACCCO_Patient' }, new List<String>{ 'Account' }, null));
+```
 
 No guard is bypassed: the sandbox check, the custom permission of the scheduling user, and the
 concurrency refusal all still apply. A scheduled run is a run like any other.
@@ -433,8 +439,16 @@ concurrency refusal all still apply. A scheduled run is a run like any other.
 > against a configuration that has been verified interactively at least once, and re-verify it
 > after any change to the field configs or patterns.
 
-A refusal — production org, missing permission, another run in flight — is written to the debug
-log, not to the audit log: the audit log only exists once a run actually starts.
+A refusal — production org, missing permission, another run in flight — is written to the audit
+log with status **Refused** and the reason, and shows in Recent Runs.
+
+**Schedule it once.** Two schedules firing at the same instant both start before either has
+written its Running audit log, so the concurrency check lets both through, and two runs at once
+can leave the automation bypass in the wrong state. The scheduler guards against it: before
+launching, each scheduled run locks the org-wide `TEKCO_BypassSettings__c` row, so a second one
+waits until the first has committed its Running log, then is refused by the concurrency check and
+records a Refused log naming the run in progress. Check Setup → Scheduled Jobs for duplicates
+anyway. Launches from the interface do not take this lock.
 
 ---
 

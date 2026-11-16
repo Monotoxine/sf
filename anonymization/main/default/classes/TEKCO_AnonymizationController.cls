@@ -334,7 +334,7 @@ public with sharing class TEKCO_AnonymizationController {
             selectedObjects = validated;
         }
         if (selectedObjects.isEmpty()) {
-            throw new AuraHandledException(
+            throw TEKCO_AnonymizationGuard.rejection(
                 'No active field configurations found. Check TEKCO_AnonymizationFieldConfig__mdt records.'
             );
         }

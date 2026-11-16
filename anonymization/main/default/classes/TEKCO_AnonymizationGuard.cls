@@ -7,9 +7,19 @@ public inherited sharing class TEKCO_AnonymizationGuard {
     private static final Integer MAX_NAMED_CONFIGS = 3;
     private static final String KEY_SEPARATOR = '\u0001';
 
-    // AuraHandledException.getMessage() returns "Script-thrown exception" unless setMessage is
-    // called, and the scheduler logs that message when it refuses a run.
-    private static AuraHandledException rejection(String message) {
+    public class RefusalException extends Exception {}
+
+    /**
+     * The exception a refusal is thrown as. The interface needs an AuraHandledException to show
+     * the message, but a scheduled job cannot throw one at all: the platform fails the job on the
+     * spot, before the scheduler can catch it and log the refusal. So a scheduled job gets a
+     * plain RefusalException instead. getMessage() of an AuraHandledException returns
+     * "Script-thrown exception" unless setMessage is called.
+     */
+    public static Exception rejection(String message) {
+        if (Request.getCurrent().getQuiddity() == Quiddity.SCHEDULED) {
+            return new RefusalException(message);
+        }
         AuraHandledException e = new AuraHandledException(message);
         e.setMessage(message);
         return e;
@@ -59,7 +69,7 @@ public inherited sharing class TEKCO_AnonymizationGuard {
         'Holding', 'Queued', 'Preparing', 'Processing'
     };
 
-    private static AuraHandledException refusal(TEKCO_AnonymizationAuditLog__c log) {
+    private static Exception refusal(TEKCO_AnonymizationAuditLog__c log) {
         String who = log.TEKCO_TriggeredBy__r != null ? log.TEKCO_TriggeredBy__r.Name : 'another user';
         return rejection(
             'An anonymization run is already in progress (' + log.Name + ', started by ' + who

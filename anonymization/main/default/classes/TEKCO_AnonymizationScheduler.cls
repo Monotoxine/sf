@@ -47,6 +47,17 @@ public with sharing class TEKCO_AnonymizationScheduler implements Schedulable {
     }
 
     public void execute(SchedulableContext context) {
+        // Two schedules firing for the same instant both start before either has written its
+        // Running audit log, so the concurrency check lets both through. Locking one shared row
+        // first makes the second wait until the first has committed its Running log; the
+        // concurrency check then refuses it like any other overlapping run.
+        try {
+            lockAgainstSameTimeSchedules();
+        } catch (Exception e) {
+            recordRefusal('another scheduled run held the lock (' + e.getMessage() + ')');
+            return;
+        }
+
         // From the interface, a launch that throws is rolled back whole. Here the exception is
         // caught, so without the savepoint an audit log the launch had already opened would
         // stay on Running and block the next runs.
@@ -62,6 +73,20 @@ public with sharing class TEKCO_AnonymizationScheduler implements Schedulable {
         } catch (Exception e) {
             Database.rollback(beforeLaunch);
             recordRefusal(e.getMessage());
+        }
+    }
+
+    // The org-wide bypass settings row: every TEKCO org has one, and every scheduled run reads it
+    // first. Held until this transaction commits; a lock not obtained within ten seconds throws.
+    private static void lockAgainstSameTimeSchedules() {
+        List<TEKCO_BypassSettings__c> orgDefault = [
+            SELECT Id FROM TEKCO_BypassSettings__c
+            WHERE SetupOwnerId = :UserInfo.getOrganizationId()
+            LIMIT 1 FOR UPDATE
+        ];
+        if (orgDefault.isEmpty()) {
+            System.debug(LoggingLevel.WARN, 'TEKCO_AnonymizationScheduler: no org-wide '
+                + 'TEKCO_BypassSettings__c row to lock; same-time schedules are not serialized.');
         }
     }
 
