@@ -25,8 +25,7 @@ private class TEKCO_AnonymizationPatternServiceTest {
 
         Contact c = new Contact(FirstName = 'Jean', LastName = 'Test');
 
-        // TEKCO_FunctionalId__c is not writable on Contact in every org (formula in some), so the
-        // test does not set it and only checks that a blank value passes through.
+        // TEKCO_FunctionalId__c is not writable in every org.
         String result = TEKCO_AnonymizationPatternService.applyPattern('NAME_FIRST_LETTER', '', c, pattern);
         System.assertEquals('', result, 'Blank value returned unchanged');
     }

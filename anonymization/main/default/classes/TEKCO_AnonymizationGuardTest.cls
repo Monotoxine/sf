@@ -396,7 +396,7 @@ private class TEKCO_AnonymizationGuardTest {
         ).size(), 'Deux lookups valides ne produisent rien');
     }
 
-    /** Un lookup qui existe mais pointe ailleurs ne ramene pas les enfants du parent voulu. */
+    /** Un lookup qui pointe ailleurs est signale. */
     @isTest
     static void validateParentLookups_lookupToAnotherObject_isReported() {
         List<String> warnings = TEKCO_AnonymizationGuard.validateParentLookups(

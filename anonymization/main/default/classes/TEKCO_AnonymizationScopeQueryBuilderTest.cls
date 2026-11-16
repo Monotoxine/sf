@@ -480,10 +480,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         };
     }
 
-    /**
-     * Aucune selection, toutes les regles bornees : un enregistrement d un autre record type ne
-     * peut pas changer, il n est donc pas lu (ni son historique supprime).
-     */
+    /** Sans selection, seuls les record types des regles sont lus. */
     @isTest
     static void recordTypeCondition_noSelection_readsOnlyTheRecordTypesTheRulesCover() {
         useNeutralOrgConfig();
@@ -498,7 +495,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition('Account', new List<String>(), configs));
     }
 
-    /** Une seule regle sans record type couvre tout l objet : aucune condition, comme avant. */
+    /** Une regle sans record type garde tout l objet. */
     @isTest
     static void recordTypeCondition_noSelection_oneUnscopedRuleKeepsTheWholeObject() {
         useNeutralOrgConfig();
@@ -510,7 +507,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition('Account', null, configs));
     }
 
-    /** Sans selection non plus, un objet sans record type n est jamais filtre dessus. */
+    /** Objet sans record type : aucune condition. */
     @isTest
     static void recordTypeCondition_noSelection_objectWithoutRecordTypes_addsNothing() {
         useNeutralOrgConfig();
@@ -647,10 +644,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             'Une regle couvrant tout l objet reste bornee par la selection : ' + soql);
     }
 
-    /**
-     * Un record type selectionne que l objet n a pas ne borne pas sa requete : sinon une selection
-     * de record types Account et Case vide la phase fichiers de Prescription ou ServiceAppointment.
-     */
+    /** Un record type absent de l objet ne filtre pas sa requete. */
     @isTest
     static void buildContentDocScopeQuery_ignoresSelectedRecordTypesTheObjectDoesNotHave() {
         useNeutralOrgConfig();

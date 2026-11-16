@@ -9,13 +9,7 @@ public inherited sharing class TEKCO_AnonymizationGuard {
 
     public class RefusalException extends Exception {}
 
-    /**
-     * The exception a refusal is thrown as. The interface needs an AuraHandledException to show
-     * the message, but a scheduled job cannot throw one at all: the platform fails the job on the
-     * spot, before the scheduler can catch it and log the refusal. So a scheduled job gets a
-     * plain RefusalException instead. getMessage() of an AuraHandledException returns
-     * "Script-thrown exception" unless setMessage is called.
-     */
+    /** Refusal exception: AuraHandledException for the interface, RefusalException in a scheduled job. */
     public static Exception rejection(String message) {
         if (Request.getCurrent().getQuiddity() == Quiddity.SCHEDULED) {
             return new RefusalException(message);
@@ -200,11 +194,7 @@ public inherited sharing class TEKCO_AnonymizationGuard {
         return warnings;
     }
 
-    /**
-     * The By ID tab reaches a child object through TEKCO_ParentLookupFieldApiName__c. A lookup
-     * that does not exist on the child, or does not lead to the parent object, resolves no child
-     * at all, and the run reports success without touching them.
-     */
+    /** Reports parent lookups that By ID cannot follow to the parent object. */
     @TestVisible
     private static List<String> validateParentLookups(
         List<TEKCO_AnonymizationFieldConfig__mdt> configs
@@ -265,8 +255,7 @@ public inherited sharing class TEKCO_AnonymizationGuard {
         return warnings;
     }
 
-    // Follows a lookup path such as "AccountId" or "Parent.AccountId" through the describe and
-    // tells whether its last field references the parent object.
+    /** True when a lookup path such as "Parent.AccountId" ends on the parent object. */
     private static Boolean leadsTo(String objectApiName, String path, String parentObject) {
         Set<String> currentObjects = new Set<String>{ objectApiName };
         List<String> segments = path.split('\\.');

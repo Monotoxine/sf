@@ -1,9 +1,4 @@
-/**
- * Le scheduler avale volontairement toute exception : un Schedulable qui lève ne laisse rien
- * qu'un administrateur puisse relire. Un refus est donc écrit dans le journal d'audit, statut
- * Refused, pour apparaître dans Recent Runs. Ces tests vérifient qu'il se planifie, s'exécute
- * sans jamais faire échouer le job, et qu'un refus laisse une trace lisible et rien d'autre.
- */
+/** Le scheduler ne fait jamais échouer le job ; un refus est journalisé en Refused. */
 @isTest
 private class TEKCO_AnonymizationSchedulerTest {
 
@@ -18,10 +13,7 @@ private class TEKCO_AnonymizationSchedulerTest {
         System.assert(true, 'Le scheduler ne doit jamais propager d exception');
     }
 
-    /**
-     * Sur une org de production le lancement est refusé : aucun run ouvert, mais une ligne
-     * Refused qui dit pourquoi, au lieu d'une simple ligne de debug que personne ne lit.
-     */
+    /** Production : aucun run ouvert, une ligne Refused. */
     @isTest
     static void scheduler_onProduction_isRefusedAndLogged() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = false;
@@ -46,7 +38,7 @@ private class TEKCO_AnonymizationSchedulerTest {
         System.assertNotEquals(null, refused[0].TEKCO_EndTime__c, 'Un refus est clos d emblée');
     }
 
-    /** Un run déjà en cours : le scheduler est refusé, et le run en cours n'est pas touché. */
+    /** Run en cours : refusé, le run en cours n'est pas touché. */
     @isTest
     static void scheduler_whileARunIsInProgress_isRefusedAndLogged() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
@@ -69,7 +61,7 @@ private class TEKCO_AnonymizationSchedulerTest {
         ], 'Le scheduler refusé laisse une ligne Refused');
     }
 
-    /** La portée restreinte est portée par le job et reprise dans la ligne d'audit. */
+    /** La portée restreinte est reprise dans la ligne d'audit. */
     @isTest
     static void scheduler_narrowedScope_isCarriedToTheAuditLog() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = false;

@@ -293,8 +293,7 @@ public with sharing class TEKCO_AnonymizationByIdController {
                 matched.add(String.valueOf(r.get(fieldApiName)).toLowerCase());
             }
             if (!ids.isEmpty()) result.put(canonicalObject, ids);
-            // A value matching no record is reported, not dropped: otherwise a typo in a pasted
-            // list shrinks the scope without anyone being told.
+            // Unmatched values are reported, not dropped.
             if (invalidOut != null) {
                 for (String value : values) {
                     if (!matched.contains(value.toLowerCase())) {
