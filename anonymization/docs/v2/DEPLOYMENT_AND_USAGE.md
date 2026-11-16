@@ -615,6 +615,12 @@ Resolves the full scope without starting anything:
 | **Resolved children** | Objects reached through parent-child configuration, with counts and source (e.g. `via Account.AccountId`) |
 | **Skipped IDs** | Values that could not be parsed, or whose type has no configuration |
 
+> **Children are found from Accounts only.** Every child rule in the shipped configuration names
+> `Account` as its parent. Paste Contact, Case or User IDs and those records are anonymized, but
+> nothing below them is: pasting Case IDs leaves their EmailMessages untouched, because
+> `Case_EmailMessage` reaches emails from the Account (`Parent.AccountId`), not from the Case.
+> To start from Accounts' children, paste the Account IDs. See section 15.
+
 The **before/after sample** works here too, on the resolved records. **No data is modified at
 this step.**
 
@@ -651,6 +657,18 @@ Counters stay exact. Identities do not, beyond the cap described in section 11.
 Nothing enumerates the PII the configuration does *not* cover. Task, Event and Chatter feeds,
 for instance, are absent unless someone adds them. *Check Configuration* validates what is
 configured; it cannot know what is missing.
+
+### By ID follows one parent path per child object
+
+Children are resolved from the parent each child rule names, and a child object keeps **one**
+path: the first rule's parent and lookup. Today every child rule names `Account`, so By ID finds
+children only from Account IDs, and the External ID mode offers only objects with a rule of their
+own (no parent).
+
+Starting from another object needs two changes: child rules naming that parent (EmailMessage via
+`ParentId` from Case, for instance), and By ID following every parent path of a child object, not
+the first one. Until then, a rule with a second parent on an already-configured child is ignored
+in By ID, and nothing reports it.
 
 ### Asset Files cannot be deleted
 
