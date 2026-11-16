@@ -275,6 +275,20 @@ carries the same filter, or when a ticked rule carries none. **It must never gro
 
 ---
 
+## D6 — A brand with no country selects nothing
+
+**Intent**: on an object that carries `TEKCO_Country__c` but no `TEKCO_Brand__c`, the brand is
+mapped to countries. A brand with no country row must not drop the brand filter — it used to,
+and the run then anonymized every country's records.
+
+**Steps**: pick a brand that has no row in the brand-to-country mapping. Select it, with an object
+keyed on `TEKCO_Country__c`. **Preview**.
+
+**Expected**: 0 records for that object. Then pick a brand that has a mapping: the count is the
+records of its countries only.
+
+---
+
 # Group E — Before/after sample
 
 *New in v2. It exists because a misconfigured pattern once produced a run reported `Success` with
@@ -548,6 +562,27 @@ is untouched** — same values, and its `LastModifiedDate` unchanged.
 **Then check the two agree**: the count shown by *Preview Scope* for that selection should match
 the **Processed** column of the audit log, give or take records that were already anonymized.
 
+## G10 — The audit log refreshes on its own
+
+**Intent**: the log list polls while a run is `Running`. It used to stop on the first tick, so
+the badge stayed on `Running` until the page was refreshed.
+
+**Steps**: launch a run that lasts a few minutes, from each tab in turn. Do not refresh the page.
+
+**Expected**: the badge moves from `Running` to `Success` (or `Partial`) on its own, within about
+one poll interval of the run ending.
+
+## G11 — Draft and sent emails on a Case
+
+**Intent**: `EMAIL_MESSAGE_LOREM` masks a draft email and deletes a sent one. No unit test
+covers it: it needs a Case with real EmailMessages.
+
+**Steps**: on a Case inside the run's scope, create two EmailMessages — one with Status `Draft`,
+one sent. Note their Ids. Run the `Case_EmailMessage` config.
+
+**Expected**: the draft still exists and its `TextBody` is the lorem ipsum text. The sent email
+is deleted. The counters include both.
+
 ---
 
 # Group H — History and files
@@ -731,6 +766,19 @@ past five minutes, try again: allowed.
 
 **Clean up both forged logs afterwards.**
 
+## J6 — A later step still blocks
+
+**Intent**: each step of the chain records its own job on the audit log. The guard used to see
+only the first batch's job, so once that batch finished, a second run could start while later
+steps were still running, and leave the bypass raised for good.
+
+**Steps**: launch a run over several objects, with history or files, so it has several steps.
+In Setup → Apex Jobs, wait until the **first** batch is `Completed` while a later one is still
+`Processing`. Try to launch from a second tab.
+
+**Expected**: refused, as in J1. On the audit log, `TEKCO_JobId__c` holds the job that is
+running now, not the first one.
+
 ---
 
 # Group K — Failure paths
@@ -789,6 +837,30 @@ launch.
 **Expected**: a "nothing to do" message. **No audit log is created, and the bypass is never
 raised** — it is only raised after that check passes.
 
+## K6 — A chunk that throws is reported
+
+**Intent**: a chunk that throws an uncaught exception (a CPU or other limit) is rolled back, so
+its records keep their values. The run used to say `Success`. Each batch now reads the job's
+`NumberOfErrors` and reports it.
+
+**Steps**: create a temporary trigger that exceeds the CPU limit for one record, for example on
+Contact:
+
+```apex
+trigger TEKCO_TempChunkFail on Contact (before update) {
+    for (Contact c : Trigger.new) {
+        if (c.LastName == 'CHUNKFAIL') { while (true) {} }
+    }
+}
+```
+
+Set one in-scope Contact's last name to `CHUNKFAIL`. Run a By Criteria run on Contact.
+
+**Expected**: the run ends `Partial`. The audit log names Contact and says how many chunks were
+rolled back. The other chunks are anonymized; the bypass is restored.
+
+**Delete the trigger afterwards.**
+
 ---
 
 # Group L — Scheduling
@@ -828,14 +900,14 @@ leaves nothing else to read.
 | A — Deployment | A1–A3 | | |
 | B — Access | B1–B2 | | |
 | C — Configuration check | C1–C6 | | |
-| D — Scope and preview | D1, D1b, D2, D2b, D3–D5 | | |
+| D — Scope and preview | D1, D1b, D2, D2b, D3–D6 | | |
 | E — Before/after sample | E1–E4 | | |
 | F — Field selection | F1–F6 | | |
-| G — By Criteria run | G1–G9 | | |
+| G — By Criteria run | G1–G11 | | |
 | H — History and files | H1–H5 | | |
 | I — By ID | I1–I7 | | |
-| J — One run at a time | J1–J5 | | |
-| K — Failure paths | K1–K5 | | |
+| J — One run at a time | J1–J6 | | |
+| K — Failure paths | K1–K6 | | |
 | L — Scheduling | L1–L2 | | |
 
 ## If you can only run six
