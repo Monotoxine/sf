@@ -108,10 +108,7 @@ private class TEKCO_AnonymizationRunContextTest {
         System.assertEquals(1, ctx.recordIdsFor('Account').size(), 'By ID scope kept');
     }
 
-    /**
-     * The context crosses chunk boundaries through Database.Stateful, so it has to survive a
-     * serialization round trip with its plan and counters intact.
-     */
+    /** The context must survive a serialization round trip with its plan and counters. */
     @isTest
     static void context_survivesSerialization() {
         TEKCO_AnonymizationRunContext ctx = new TEKCO_AnonymizationRunContext();
@@ -129,8 +126,6 @@ private class TEKCO_AnonymizationRunContextTest {
         System.assertEquals('FIELD:Account', restored.popStep(), 'The plan is preserved');
     }
 
-    // ─── cap (relocated from TEKCO_AnonymizationBatchUtilsTest) ──────────────────────
-
     @isTest
     static void cap_truncatesLongStrings() {
         String long400 = 'x'.repeat(400);
@@ -144,15 +139,6 @@ private class TEKCO_AnonymizationRunContextTest {
         System.assertEquals(null, TEKCO_AnonymizationRunContext.cap(null), 'Null passes through');
     }
 
-    // ─── toDevNames ────────────────────────────────────────────────────────────
-
-    // ─── selectedRecordTypes : la selection doit atteindre les requetes ──────────
-
-    /**
-     * Elle s arretait au service de lancement, ou elle ne servait qu a ecarter des regles. Une
-     * regle couvrant deux populations survivait donc a la selection d une seule, puis etait
-     * appliquee aux deux.
-     */
     @isTest
     static void selectedRecordTypes_travelWithTheContext() {
         TEKCO_AnonymizationRunContext ctx = new TEKCO_AnonymizationRunContext();

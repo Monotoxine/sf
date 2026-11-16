@@ -1,6 +1,3 @@
-/**
- * @description 
- */
 public with sharing class TEKCO_AnonymizationLaunchService {
 
     private static final String PATTERN_DELETE_CONTENT_DOCUMENT = 'DELETE_CONTENT_DOCUMENT';

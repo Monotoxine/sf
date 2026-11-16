@@ -12,7 +12,6 @@ private class TEKCO_AnonymizationBypassServiceTest {
 
     @isTest
     static void activate_whenNoBypassObjectConfigured_isNoOp() {
-        // Portugal-like org: no bypass setting named — the tool must not touch anything.
         TEKCO_AnonymizationOrgConfigService.setConfigForTest(configWithBypassObject(null));
 
         Test.startTest();
@@ -45,18 +44,13 @@ private class TEKCO_AnonymizationBypassServiceTest {
 
     @isTest
     static void restore_nullSnapshot_doesNotThrow() {
-        // Passing null must be a no-op
         Test.startTest();
         TEKCO_AnonymizationBypassService.restore(null);
         Test.stopTest();
         System.assert(true, 'No exception thrown for null snapshot');
     }
 
-    /**
-     * Runs against the org's real config. Where the bypass setting exists the flags are
-     * raised then put back; where it does not, both calls are inert. Either way the pair
-     * must complete without error.
-     */
+    /** Runs against the org's real config: raising then restoring must not throw. */
     @isTest
     static void activateAndRestore_roundTrip() {
         TEKCO_AnonymizationOrgConfigService.resetCache();

@@ -1,6 +1,3 @@
-/**
- * @description 
- */
 public inherited sharing class TEKCO_AnonymizationGuard {
 
     private static final String ANONYMIZE_PERMISSION = 'TEKCO_AnonymizeData';

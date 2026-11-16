@@ -1,5 +1,4 @@
 /**
- * @author
  * @description Applies anonymization patterns defined in TEKCO_AnonymizationPattern__mdt.
  *              Routes to the correct algorithm based on the pattern type.
  *
@@ -111,11 +110,7 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
         }
     }
 
-    /**
-     * @description NAME_FIRST_LETTER: first letter of value concatenated with a resolved identifier.
-     *              Fallback chain: ExternalId field → TEKCO_FunctionalId__c → Salesforce record Id.
-     *              Example: "Jean" + "EXT001" → "JEXT001"
-     */
+    /** NAME_FIRST_LETTER: first letter + external ID, functional ID or Salesforce Id. */
     private static String applyNameFirstLetter(
         String currentValue,
         SObject record,
@@ -126,12 +121,7 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
         return firstLetter + resolveNameIdentifier(record, pattern);
     }
 
-    /**
-     * @description Resolves the identifier to append for NAME_FIRST_LETTER.
-     *              1. TEKCO_ExternalIdField__c value (if configured and non-blank)
-     *              2. Org-configured functional ID field (e.g. TEKCO_FunctionalId__c or ALH_FunctionalId__c)
-     *              3. Salesforce record Id as last resort
-     */
+    /** Identifier for NAME_FIRST_LETTER: external ID, then functional ID, then Salesforce Id. */
     private static String resolveNameIdentifier(SObject record, TEKCO_AnonymizationPattern__mdt pattern) {
         String externalId = getExternalId(record, pattern);
         if (String.isNotBlank(externalId)) return externalId;
@@ -149,14 +139,7 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
         return getSalesforceId(record);
     }
 
-    /**
-     * @description EMAIL_PLUS_EXTERNALID / EMAIL_PLUS_EXTERNALID_SUBDOMAIN:
-     *              Inserts ExternalId as a plus-alias. The SUBDOMAIN variant also appends
-     *              a org-derived suffix after the domain.
-     *              Example: "sf_sap@airliquide.com" + "EXT001" → "sf_sap+EXT001@airliquide.com"
-     *              With subdomain (org = "airliquidehhc-fr--mmedlej.sandbox.my.salesforce.com"):
-     *                → "sf_sap+EXT001@airliquide.com.fr.mmedlej"
-     */
+    /** EMAIL_PLUS_EXTERNALID(_SUBDOMAIN): inserts the external ID as a plus-alias. */
     private static String applyEmailPlusExternalId(
         String currentValue,
         SObject record,
@@ -186,10 +169,6 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
         return localPart + '+' + externalId + domain;
     }
 
-    /**
-     * Derived from orgSubdomain, itself constant for the transaction — so this is computed once
-     * instead of once per record. parseOrgSuffix() splits on '--', which compiles a regex.
-     */
     private static String cachedOrgSuffix;
 
     private static String orgSuffix() {
@@ -197,10 +176,7 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
         return cachedOrgSuffix;
     }
 
-    /**
-     * @description Parses the org subdomain into a short "country.sandbox" suffix.
-     *              Falls back to the raw subdomain if the expected format is not found.
-     */
+    /** Parses the org subdomain into a short "country.sandbox" suffix. */
     private static String parseOrgSuffix(String subdomain) {
         if (String.isBlank(subdomain)) return subdomain;
         if (subdomain.contains('--')) {
@@ -215,13 +191,7 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
         return subdomain;
     }
 
-    /**
-     * @description SSN_SEQUENTIAL: generates sequential digits cycling 1–9.
-     *              Length is taken from the actual value so the anonymized SSN is the same
-     *              length as the original. Falls back to TEKCO_SsnLength__c, then to the
-     *              default constant, so the field is never left blank.
-     *              Example: "1234567890123" (13 chars) → "1234567891234" (13 chars)
-     */
+    /** SSN_SEQUENTIAL: digits cycling 1–9, same length as the original value. */
     private static String applySsnSequential(String currentValue, TEKCO_AnonymizationPattern__mdt pattern) {
         Integer targetLength = String.isNotBlank(currentValue)
             ? currentValue.trim().length()
@@ -240,11 +210,7 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
         return result;
     }
 
-    /**
-     * @description REGEX: applies a configurable find/replace regex to the field value.
-     *              If TEKCO_RegexFind__c is blank, replaces the entire value with TEKCO_RegexReplace__c.
-     *              If the regex is invalid, returns the original value unchanged.
-     */
+    /** REGEX: configurable find/replace; the value is unchanged if the regex is invalid. */
     private static String applyRegex(String currentValue, TEKCO_AnonymizationPattern__mdt pattern) {
         String replacement = pattern.TEKCO_RegexReplace__c != null ? pattern.TEKCO_RegexReplace__c : '';
         if (String.isBlank(pattern.TEKCO_RegexFind__c) && String.isBlank(replacement)) {
@@ -260,13 +226,7 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
         }
     }
 
-       /**
-     * @description ADDRESS_STREET_RANDOM: finds the first numeric sequence anywhere in the string
-     *              and adds a random value between 1 and 20 to it.
-     *              Example: "123 Rue de la Paix"  → "137 Rue de la Paix"
-     *              Example: "Allée 12 des Fleurs" → "Allée 26 des Fleurs"
-     *              If no number is found, returns value unchanged.
-     */
+    /** ADDRESS_STREET_RANDOM: adds 1 to 20 to the first number in the value. */
     private static String applyAddressStreetRandom(String currentValue) {
         if (String.isBlank(currentValue)) return currentValue;
         Matcher numMatcher = LEADING_NUMBER.matcher(currentValue);
@@ -285,15 +245,7 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
 
     private static final String SFID_FIELD = 'Id';
 
-    /**
-     * The pattern's own field first, then whatever the org declares in
-     * TEKCO_AnonymizationOrgConfig__mdt.TEKCO_ExternalIdFields__c.
-     *
-     * The field named on a pattern record belongs to the standard TEKCO schema
-     * (TEKCO_ExternalId__c) and simply does not exist in every org — Portugal keys on
-     * ALH_ExternalSystemID__c. Without this fallback the identifier silently degrades to the
-     * Salesforce Id in those orgs.
-     */
+    /** External ID from the pattern's field, then from the org config's external ID fields. */
     private static String getExternalId(SObject record, TEKCO_AnonymizationPattern__mdt pattern) {
         if (record == null) return '';
         String declared = pattern.TEKCO_ExternalIdField__c;
@@ -311,11 +263,7 @@ public inherited sharing class TEKCO_AnonymizationPatternService {
         return '';
     }
 
-    /**
-     * Reads one candidate field and validates it. Rejects base64, BOM chars, slashes, equals —
-     * anything unsafe in a name or email field. Callers fall back to the functional ID, then
-     * the Salesforce record Id, when this returns ''.
-     */
+    /** Reads one candidate external ID field; returns '' when blank or unsafe. */
     private static String readExternalId(SObject record, String fieldApiName) {
         if (String.isBlank(fieldApiName)) return '';
         try {

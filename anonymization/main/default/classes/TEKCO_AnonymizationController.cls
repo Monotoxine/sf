@@ -288,7 +288,6 @@ public with sharing class TEKCO_AnonymizationController {
     @AuraEnabled(cacheable=false)
     public static List<TEKCO_AnonymizationAuditLog__c> getAuditLogs() {
         TEKCO_AnonymizationGuard.assertCanAnonymize();
-        // BY_ID runs have their own tab and their own listing (getAuditLogsByid).
         return [
             SELECT
                 Name,

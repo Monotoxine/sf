@@ -1,16 +1,6 @@
 /**
- * Covers the Phase 1 batch lifecycle: start() resilience, the terminal branch in finish(), the
- * accumulated-counter contract carried by the run context, and the production guard.
- *
- * TEKCO_AnonymizationFieldBatch now serves both chains, so the By ID scope is exercised here
- * too — the split classes had no test of that path at any level.
- *
- * Two constraints shape what can be asserted here:
- *  - Custom Metadata cannot be inserted in a test, and the batch loads its configs from CMDT by
- *    developer name. Field selection and transformation are therefore asserted directly, without
- *    a batch, in TEKCO_AnonymizationScopeQueryBuilderTest and TEKCO_AnonymizationExecuteServiceTest.
- *  - Only one Database.executeBatch may run per test, so the chaining branches are exercised by
- *    leaving the step list empty and asserting the terminal branch.
+ * Covers the Phase 1 batch lifecycle: start() resilience, the terminal branch in finish(),
+ * the counters carried by the run context, the By ID scope and the production guard.
  */
 @isTest
 private class TEKCO_AnonymizationBatchTest {
@@ -26,7 +16,6 @@ private class TEKCO_AnonymizationBatchTest {
         return log;
     }
 
-    /** A context with no step left: the batch under test is the last link of the chain. */
     private static TEKCO_AnonymizationRunContext contextFor(
         Id auditLogId, Integer accProcessed, Integer accFailed
     ) {
@@ -37,8 +26,6 @@ private class TEKCO_AnonymizationBatchTest {
         ctx.addFailed(accFailed);
         return ctx;
     }
-
-    // ─── Lifecycle ─────────────────────────────────────────────────────────────
 
     @isTest
     static void batch_completesAndFinalizesAuditLog() {
@@ -63,10 +50,6 @@ private class TEKCO_AnonymizationBatchTest {
         System.assertNotEquals(null, result.TEKCO_EndTime__c, 'End time stamped on finalize');
     }
 
-    /**
-     * The counters live on the context now, which is what stops them being forgotten by one
-     * link of the chain — the bug that made multi-object runs report only the last object.
-     */
     @isTest
     static void batch_carriesAccumulatedCountersIntoAuditLog() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
@@ -94,8 +77,6 @@ private class TEKCO_AnonymizationBatchTest {
         );
     }
 
-    // ─── start() resilience ────────────────────────────────────────────────────
-
     @isTest
     static void batch_unknownObject_completesWithoutThrowing() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
@@ -114,7 +95,6 @@ private class TEKCO_AnonymizationBatchTest {
             'Missing object is skipped via the empty locator, not left hanging');
     }
 
-    /** Developer names that match no CMDT record: nothing to apply, the run still terminates. */
     @isTest
     static void batch_unknownConfigDevNames_completeWithoutThrowing() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
@@ -135,12 +115,6 @@ private class TEKCO_AnonymizationBatchTest {
             'An empty config set skips the object and still reaches finish()');
     }
 
-    // ─── By ID scope ───────────────────────────────────────────────────────────
-
-    /**
-     * The same class serves both chains; only ctx.byId and the bound scope differ. A By ID run
-     * must reach its terminal branch exactly like a By Criteria one.
-     */
     @isTest
     static void batch_byIdScope_completesAndFinalizesAuditLog() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
@@ -165,10 +139,6 @@ private class TEKCO_AnonymizationBatchTest {
         System.assertNotEquals(null, result.TEKCO_EndTime__c, 'End time stamped on finalize');
     }
 
-    /**
-     * The runner skips a By ID step whose object resolved to no record, rather than starting a
-     * batch that would read nothing — and the chain must still terminate.
-     */
     @isTest
     static void chainRunner_byIdStepWithoutRecords_isSkippedAndRunStillFinalizes() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
@@ -191,8 +161,6 @@ private class TEKCO_AnonymizationBatchTest {
             'Skipping the last step still closes the run instead of leaving it Running');
     }
 
-    // ─── Production guard ──────────────────────────────────────────────────────
-
     @isTest
     static void batch_onProduction_closesLogAsFailed() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = false;
@@ -214,13 +182,6 @@ private class TEKCO_AnonymizationBatchTest {
             'Reason recorded: ' + result.TEKCO_ErrorMessage__c);
     }
 
-    // ─── Chain termination ─────────────────────────────────────────────────────
-
-    /**
-     * With no step left, the runner must restore the bypass and finalize the log rather than
-     * leave it Running. This is the single terminal path that used to be repeated in six
-     * finish() blocks.
-     */
     @isTest
     static void chainRunner_withNoStepLeft_finalizesTheRun() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;

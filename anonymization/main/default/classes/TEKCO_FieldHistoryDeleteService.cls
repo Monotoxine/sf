@@ -1,7 +1,5 @@
 /**
- * @description Shared Phase 3 delete logic, called from TEKCO_FieldHistoryBatch. The two chains
- *              once had a batch each, carrying byte-identical copies of this in their execute()
- *              methods; extracting it here is what made merging them possible.
+ * @description Phase 3 delete logic, called from TEKCO_FieldHistoryBatch.
  */
 public inherited sharing class TEKCO_FieldHistoryDeleteService {
 

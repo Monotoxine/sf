@@ -1,6 +1,3 @@
-/**
- * @description 
- */
 public without sharing class TEKCO_AnonymizationPreviewService {
 
     public static final Integer MAX_SAMPLE_SIZE = 20;

@@ -3,12 +3,8 @@
 
         <lightning-tabset>
 
-        <!-- ════════════════════════════════════════════════════════════════════
-             TAB 1 — By Criteria
-             ════════════════════════════════════════════════════════════════════ -->
         <lightning-tab label="By Criteria">
 
-        <!-- Permission warning -->
         <template if:true={permissionWarning}>
             <div class="slds-notify slds-notify_alert slds-theme_error slds-m-around_medium" role="alert">
                 <lightning-icon icon-name="utility:error" size="small" class="slds-m-right_x-small"></lightning-icon>
@@ -18,10 +14,8 @@
 
         <div class="slds-p-around_medium">
 
-            <!-- ── Filters ──────────────────────────────────────────────── -->
             <div class="slds-grid slds-gutters slds-m-bottom_medium slds-wrap">
 
-                <!-- Brand multi-select -->
                 <div class="slds-col slds-size_1-of-3">
                     <div class="slds-form-element">
                         <div class="slds-grid slds-grid_align-spread">
@@ -45,7 +39,6 @@
                     </div>
                 </div>
 
-                <!-- Object multi-select -->
                 <div class="slds-col slds-size_1-of-3">
                     <div class="slds-form-element">
                         <div class="slds-grid slds-grid_align-spread">
@@ -69,7 +62,6 @@
                     </div>
                 </div>
 
-                <!-- Record Type multi-select (visible only when RT-specific configs exist) -->
                 <div class="slds-col slds-size_1-of-3">
                     <template if:true={hasRecordTypeOptions}>
                         <div class="slds-form-element">
@@ -107,7 +99,6 @@
                 </div>
             </div>
 
-            <!-- ── Configuration health ──────────────────────────────────── -->
             <div class="slds-m-bottom_medium">
                 <lightning-button
                     label="Check Configuration"
@@ -139,7 +130,6 @@
                 </div>
             </template>
 
-            <!-- Preview button -->
             <div class="slds-m-bottom_medium">
                 <lightning-button
                     label="Preview Scope"
@@ -148,7 +138,6 @@
                 </lightning-button>
             </div>
 
-            <!-- ── Preview panel ─────────────────────────────────────────── -->
             <template if:true={isLoadingPreview}>
                 <lightning-spinner alternative-text="Loading preview..." size="small"></lightning-spinner>
             </template>
@@ -185,8 +174,6 @@
                 </div>
             </template>
 
-
-            <!-- ── Before/after sample ───────────────────────────────────── -->
             <template if:true={hasSampleObjects}>
                 <div class="slds-box slds-m-bottom_medium">
                     <h3 class="slds-text-heading_small slds-m-bottom_x-small">Sample values (before / after)</h3>
@@ -258,7 +245,6 @@
                 </div>
             </template>
 
-            <!-- ── Field config table ────────────────────────────────────── -->
             <template if:true={isLoading}>
                 <lightning-spinner alternative-text="Loading..." size="small"></lightning-spinner>
             </template>
@@ -370,7 +356,6 @@
                 </div>
             </template>
 
-            <!-- ── Error ─────────────────────────────────────────────────── -->
             <template if:true={errorMessage}>
                 <div class="slds-notify slds-notify_alert slds-theme_error slds-m-bottom_medium" role="alert">
                     <lightning-icon icon-name="utility:error" size="small" class="slds-m-right_x-small"></lightning-icon>
@@ -378,7 +363,6 @@
                 </div>
             </template>
 
-            <!-- ── Launch button ─────────────────────────────────────────── -->
             <div class="slds-m-bottom_large">
                 <lightning-button
                     label={startLabel}
@@ -396,7 +380,6 @@
                 </template>
             </div>
 
-            <!-- ── Audit log ─────────────────────────────────────────────── -->
             <div class="slds-m-top_large">
                 <div class="slds-grid slds-grid_align-spread slds-m-bottom_small">
                     <h3 class="slds-text-heading_small">Recent Runs</h3>
@@ -453,13 +436,9 @@
 
         </lightning-tab>
 
-        <!-- ════════════════════════════════════════════════════════════════════
-             TAB 2 — By ID
-             ════════════════════════════════════════════════════════════════════ -->
         <lightning-tab label="By ID (DataMig)">
             <div class="slds-p-around_medium">
 
-                <!-- Permission warning -->
                 <template if:true={permissionWarning}>
                     <div class="slds-notify slds-notify_alert slds-theme_error slds-m-bottom_medium" role="alert">
                         <lightning-icon icon-name="utility:error" size="small" class="slds-m-right_x-small"></lightning-icon>
@@ -467,7 +446,6 @@
                     </div>
                 </template>
 
-                <!-- Resolve mode selector -->
                 <div class="slds-grid slds-gutters slds-m-bottom_medium">
                     <div class="slds-col slds-size_1-of-3">
                         <lightning-combobox
@@ -478,7 +456,6 @@
                         </lightning-combobox>
                     </div>
 
-                    <!-- External ID selectors — visible only in EXTERNAL_ID mode -->
                     <template if:true={isExternalIdMode}>
                         <div class="slds-col slds-size_1-of-3">
                             <lightning-combobox
@@ -502,7 +479,6 @@
                     </template>
                 </div>
 
-                <!-- ID input -->
                 <div class="slds-form-element slds-m-bottom_medium">
                     <label class="slds-form-element__label" for="byid-input">
                         Record IDs / External IDs
@@ -523,7 +499,6 @@
                     <p class="slds-form-element__help slds-m-top_xx-small">{byIdParsedCountLabel}</p>
                 </div>
 
-                <!-- Resolve button -->
                 <div class="slds-m-bottom_medium">
                     <lightning-button
                         label="Preview Scope"
@@ -536,7 +511,6 @@
                     </template>
                 </div>
 
-                <!-- Resolve result -->
                 <template if:true={hasByIdResolveResult}>
                     <div class="slds-box slds-theme_shade slds-m-bottom_medium">
                         <h3 class="slds-text-heading_small slds-m-bottom_small">Scope Preview</h3>
@@ -584,8 +558,6 @@
                     </div>
                 </template>
 
-
-                <!-- ── Before/after sample ───────────────────────────────── -->
                 <template if:true={hasByIdSampleObjects}>
                     <div class="slds-box slds-m-bottom_medium">
                         <h3 class="slds-text-heading_small slds-m-bottom_x-small">Sample values (before / after)</h3>
@@ -657,7 +629,6 @@
                     </div>
                 </template>
 
-                <!-- Fields to Anonymize table (shown after resolve) -->
                 <template if:true={hasByIdFieldConfigs}>
                     <div class="slds-m-bottom_medium">
                         <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_small">
@@ -755,7 +726,6 @@
                     </div>
                 </template>
 
-                <!-- Error -->
                 <template if:true={byIdErrorMessage}>
                     <div class="slds-notify slds-notify_alert slds-theme_error slds-m-bottom_medium" role="alert">
                         <lightning-icon icon-name="utility:error" size="small" class="slds-m-right_x-small"></lightning-icon>
@@ -763,7 +733,6 @@
                     </div>
                 </template>
 
-                <!-- Launch button -->
                 <div class="slds-m-bottom_large">
                     <lightning-button
                         label={byIdLaunchLabel}
@@ -777,7 +746,6 @@
                     </template>
                 </div>
 
-                <!-- Audit log — BY_ID runs only -->
                 <div class="slds-m-top_large">
                     <div class="slds-grid slds-grid_align-spread slds-m-bottom_small">
                         <h3 class="slds-text-heading_small">Recent Runs</h3>
@@ -830,7 +798,6 @@
 
         </lightning-tabset>
 
-        <!-- ── Confirmation modal — By Criteria ── -->
         <template if:true={showConfirmPanel}>
             <section
                 role="dialog"
@@ -887,7 +854,6 @@
             <div class="slds-backdrop slds-backdrop_open"></div>
         </template>
 
-        <!-- ── Confirmation modal — By ID ── -->
         <template if:true={showByIdConfirmPanel}>
             <section role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="byid-confirm-heading"
                 class="slds-modal slds-fade-in-open">

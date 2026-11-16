@@ -1,10 +1,4 @@
-/**
- * Covers the Custom Metadata selector. Only the input-guard paths are assertable here: CMDT
- * cannot be inserted in a test, so what the queries return depends on the org's own
- * configuration and is exercised end to end instead.
- *
- * Split out of TEKCO_AnonymizationBatchUtilsTest along with the class it covers.
- */
+/** Covers the input guards of the Custom Metadata selector. */
 @isTest
 private class TEKCO_AnonymizationConfigSelectorTest {
 
@@ -27,8 +21,6 @@ private class TEKCO_AnonymizationConfigSelectorTest {
         System.assertEquals(0, TEKCO_AnonymizationConfigSelector.toDevNames(null).size());
     }
 
-    // ─── loadFieldConfigsByDevNames ────────────────────────────────────────────
-
     @isTest
     static void loadFieldConfigsByDevNames_emptyInput_shortCircuits() {
         System.assertEquals(
@@ -43,15 +35,6 @@ private class TEKCO_AnonymizationConfigSelectorTest {
         );
     }
 
-    // ─── validatePatternTypes ──────────────────────────────────────────────────
-
-    // ─── configKey : l'identite d'une config ─────────────────────────────────────
-
-    /**
-     * La cle voyage vers le LWC sur le DTO et revient telle quelle dans excludedFields. Le
-     * DeveloperName est unique par construction : c'est ce qui remplace l'ancien
-     * Objet.Champ.RecordType, construit des deux cotes et surtout capable d'entrer en collision.
-     */
     @isTest
     static void configKey_isTheDeveloperName() {
         TEKCO_AnonymizationFieldConfig__mdt config = new TEKCO_AnonymizationFieldConfig__mdt(
@@ -65,11 +48,6 @@ private class TEKCO_AnonymizationConfigSelectorTest {
             'La cle est le DeveloperName, pas une chaine composee');
     }
 
-    /**
-     * Le cas qui a motive le changement. IndividualP_Address et Patient_Address visent le meme
-     * objet et le meme champ sans record type, et ne different que par leur filtre : l'ancienne
-     * cle valait 'Address.Street.' pour les deux, donc decocher l'une decochait l'autre.
-     */
     @isTest
     static void configKey_twoConfigsOnTheSameFieldDoNotCollide() {
         TEKCO_AnonymizationFieldConfig__mdt individual = new TEKCO_AnonymizationFieldConfig__mdt(
@@ -97,12 +75,6 @@ private class TEKCO_AnonymizationConfigSelectorTest {
             'Aucune exception sur une config nulle');
     }
 
-    // ─── recordTypesOf : la liste des populations couvertes ──────────────────────
-
-    /**
-     * RETROCOMPATIBILITE. Les 98 configs livrees sont toutes mono-valuees : une valeur unique
-     * doit produire exactement l ancien comportement, un ensemble d un seul element.
-     */
     @isTest
     static void recordTypesOf_singleValue_behavesAsBefore() {
         Set<String> recordTypes = TEKCO_AnonymizationConfigSelector.recordTypesOf(
@@ -128,7 +100,7 @@ private class TEKCO_AnonymizationConfigSelectorTest {
         System.assert(recordTypes.contains('ACCCO_Patient'));
     }
 
-    /** Une liste saisie a la main dans Setup porte des espaces : ils ne doivent rien casser. */
+    /** A list typed by hand in Setup carries spaces: they must not break anything. */
     @isTest
     static void recordTypesOf_toleratesSpacesAndEmptySegments() {
         Set<String> recordTypes = TEKCO_AnonymizationConfigSelector.recordTypesOf(
@@ -142,7 +114,6 @@ private class TEKCO_AnonymizationConfigSelectorTest {
             'Valeurs detourees');
     }
 
-    /** Vide = toutes les populations, exactement comme avant. */
     @isTest
     static void recordTypesOf_blankOrNull_returnsEmpty() {
         System.assertEquals(0, TEKCO_AnonymizationConfigSelector.recordTypesOf(

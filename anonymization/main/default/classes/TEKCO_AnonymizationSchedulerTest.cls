@@ -1,4 +1,4 @@
-/** Le scheduler ne fait jamais échouer le job ; un refus est journalisé en Refused. */
+/** The scheduler never fails the job; a refusal is logged as Refused. */
 @isTest
 private class TEKCO_AnonymizationSchedulerTest {
 
@@ -13,7 +13,7 @@ private class TEKCO_AnonymizationSchedulerTest {
         System.assert(true, 'Le scheduler ne doit jamais propager d exception');
     }
 
-    /** Production : aucun run ouvert, une ligne Refused. */
+    /** Production: no run opened, one Refused row. */
     @isTest
     static void scheduler_onProduction_isRefusedAndLogged() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = false;
@@ -38,7 +38,7 @@ private class TEKCO_AnonymizationSchedulerTest {
         System.assertNotEquals(null, refused[0].TEKCO_EndTime__c, 'Un refus est clos d emblée');
     }
 
-    /** Run en cours : refusé, le run en cours n'est pas touché. */
+    /** Run in progress: refused, the running run is left untouched. */
     @isTest
     static void scheduler_whileARunIsInProgress_isRefusedAndLogged() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
@@ -61,7 +61,7 @@ private class TEKCO_AnonymizationSchedulerTest {
         ], 'Le scheduler refusé laisse une ligne Refused');
     }
 
-    /** La portée restreinte est reprise dans la ligne d'audit. */
+    /** The narrowed scope is recorded on the audit row. */
     @isTest
     static void scheduler_narrowedScope_isCarriedToTheAuditLog() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = false;

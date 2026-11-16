@@ -1,12 +1,6 @@
 @isTest
 private class TEKCO_FieldHistoryDeleteServiceTest {
 
-    /**
-     * Note: history objects (AccountHistory etc.) are read-only — Apex cannot insert them,
-     * so a true end-to-end delete cannot be exercised in a test context. These cover the
-     * counting and error-capture contract using records the test can actually create.
-     */
-
     @isTest
     static void deleteHistoryRecords_deletesAndCounts() {
         List<Account> accounts = new List<Account>{
@@ -26,7 +20,6 @@ private class TEKCO_FieldHistoryDeleteServiceTest {
 
     @isTest
     static void deleteHistoryRecords_capturesFailures() {
-        // Already-deleted records fail on a second delete, exercising the error path.
         List<Account> accounts = new List<Account>{
             new Account(Name = 'Gone1'), new Account(Name = 'Gone2')
         };

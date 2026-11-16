@@ -1,11 +1,4 @@
-/**
- * Covers what the launch service owns now that both tabs delegate to it: refusing an empty
- * scope before anything is touched, and opening a run correctly when there is work.
- *
- * Custom Metadata cannot be inserted in a test, so the config-dependent paths are exercised
- * against whatever the org actually declares, and the assertions are written to hold on any
- * org — TEKCO or Portugal.
- */
+/** Covers the launch service: refusing an empty scope, and opening a run when there is work. */
 @isTest
 private class TEKCO_AnonymizationLaunchServiceTest {
 
@@ -47,11 +40,6 @@ private class TEKCO_AnonymizationLaunchServiceTest {
             'disabledHistoryFieldKeys initialised');
     }
 
-    /**
-     * An object with no configuration resolves to no work. The launch must be refused, and —
-     * this is the part that matters — refused BEFORE the bypass is raised, so no audit log is
-     * opened and the org's automation is never left disabled with nothing to switch it back.
-     */
     @isTest
     static void launch_withNothingToDo_throwsAndOpensNoRun() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
@@ -74,10 +62,6 @@ private class TEKCO_AnonymizationLaunchServiceTest {
             'No audit log opened for a run that never started');
     }
 
-    /**
-     * A real scope opens the run: audit log created, run mode recorded, chain handed over.
-     * Only one Database.executeBatch may run per test, which this consumes.
-     */
     @isTest
     static void launch_withConfiguredObject_opensRunAndRecordsMode() {
         String objectApiName = anyConfiguredObject();
@@ -134,10 +118,6 @@ private class TEKCO_AnonymizationLaunchServiceTest {
         System.assertEquals('BY_ID', log.TEKCO_RunMode__c, 'Mode taken from the request');
     }
 
-    /**
-     * A record-type selection that matches nothing still leaves the configs with no record type
-     * of their own — those apply to every record type and must survive the filter.
-     */
     @isTest
     static void launch_recordTypeFilter_keepsUnscopedConfigs() {
         String objectApiName = anyConfiguredObject();
@@ -165,7 +145,4 @@ private class TEKCO_AnonymizationLaunchServiceTest {
             'Configs with no record type of their own survive any record-type selection');
     }
 
-    // combineFilters a demenage dans TEKCO_AnonymizationScopeQueryBuilder, ou l apercu
-    // avant/apres et le compte de perimetre l appellent aussi : ses tests sont desormais dans
-    // TEKCO_AnonymizationScopeQueryBuilderTest.
 }

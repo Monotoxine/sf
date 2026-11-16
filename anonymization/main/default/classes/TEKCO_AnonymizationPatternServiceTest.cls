@@ -1,8 +1,6 @@
 @isTest
 private class TEKCO_AnonymizationPatternServiceTest {
 
-    // ─── Helpers ───────────────────────────────────────────────────────────────
-
     private static TEKCO_AnonymizationPattern__mdt activePattern(String type) {
         return new TEKCO_AnonymizationPattern__mdt(
             DeveloperName    = type,
@@ -16,8 +14,6 @@ private class TEKCO_AnonymizationPatternServiceTest {
         return c;
     }
 
-    // ─── NAME_FIRST_LETTER ─────────────────────────────────────────────────────
-
     @isTest
     static void nameFirstLetter_usesExternalId() {
         TEKCO_AnonymizationPattern__mdt pattern = activePattern('NAME_FIRST_LETTER');
@@ -25,7 +21,6 @@ private class TEKCO_AnonymizationPatternServiceTest {
 
         Contact c = new Contact(FirstName = 'Jean', LastName = 'Test');
 
-        // TEKCO_FunctionalId__c is not writable in every org.
         String result = TEKCO_AnonymizationPatternService.applyPattern('NAME_FIRST_LETTER', '', c, pattern);
         System.assertEquals('', result, 'Blank value returned unchanged');
     }
@@ -37,7 +32,6 @@ private class TEKCO_AnonymizationPatternServiceTest {
 
         TEKCO_AnonymizationPattern__mdt pattern = activePattern('NAME_FIRST_LETTER');
 
-        // Using a Contact created in memory — external ID field blank → falls to SfId
         Account acc = new Account(Name = 'Test');
         insert acc;
 
@@ -47,13 +41,10 @@ private class TEKCO_AnonymizationPatternServiceTest {
         System.assert(result.startsWith('J'), 'First letter must be uppercased: ' + result);
     }
 
-    // ─── NAME_FIRST_LETTER_SFID ────────────────────────────────────────────────
-
     @isTest
     static void nameFirstLetterSfid_usesSalesforceIdDirectly() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
         TEKCO_AnonymizationPattern__mdt pattern = activePattern('NAME_FIRST_LETTER_SFID');
-        // External ID configured — SFID variant must ignore it
         pattern.TEKCO_ExternalIdField__c = 'TEKCO_FunctionalId__c';
 
         Account acc = new Account(Name = 'Test');
@@ -65,8 +56,6 @@ private class TEKCO_AnonymizationPatternServiceTest {
         System.assertEquals('M' + acc.Id, result,
             'NAME_FIRST_LETTER_SFID must use Salesforce record Id, got: ' + result);
     }
-
-    // ─── EMAIL patterns ────────────────────────────────────────────────────────
 
     @isTest
     static void emailPlusExternalId_insertsIdAsAlias() {
@@ -85,16 +74,10 @@ private class TEKCO_AnonymizationPatternServiceTest {
         System.assert(result.contains('@example.com'), 'Domain must be preserved: ' + result);
     }
 
-    // ─── External ID resolution via OrgConfig ──────────────────────────────────
-    //
-    // AccountNumber stands in for the org's own external ID field: it is a standard
-    // Account field, so these tests behave identically in every org.
-
     private static void useOrgExternalIdField(String fieldApiName) {
         TEKCO_AnonymizationOrgConfigService.OrgConfig cfg =
             new TEKCO_AnonymizationOrgConfigService.OrgConfig();
         cfg.functionalIdField = 'TEKCO_FunctionalId__c';
-        // bypassObjectApiName left blank: no bypass — irrelevant to these tests.
         cfg.externalIdFields  = fieldApiName;
         TEKCO_AnonymizationOrgConfigService.setConfigForTest(cfg);
     }
@@ -109,8 +92,6 @@ private class TEKCO_AnonymizationPatternServiceTest {
 
         TEKCO_AnonymizationPattern__mdt pattern = activePattern('EMAIL_PLUS_EXTERNALID');
         pattern.TEKCO_BaseEmail__c        = 'anon@example.com';
-        // Standard TEKCO field, absent from orgs that key on their own — this is the case
-        // the fallback exists for.
         pattern.TEKCO_ExternalIdField__c  = 'TEKCO_NoSuchExternalId__c';
 
         String result = TEKCO_AnonymizationPatternService.applyPattern(
@@ -177,7 +158,6 @@ private class TEKCO_AnonymizationPatternServiceTest {
 
         TEKCO_AnonymizationPattern__mdt pattern = activePattern('EMAIL_PLUS_SFID');
         pattern.TEKCO_BaseEmail__c = 'anon@example.com';
-        // No external ID field declared at all — deliberate, so no fallback.
 
         String result = TEKCO_AnonymizationPatternService.applyPattern(
             'EMAIL_PLUS_SFID', 'original@example.com', acc, pattern
@@ -186,8 +166,6 @@ private class TEKCO_AnonymizationPatternServiceTest {
         System.assert(!result.contains('EXT12345'),
             'A pattern naming no external ID field must not pick one up: ' + result);
     }
-
-    // ─── SSN_SEQUENTIAL ────────────────────────────────────────────────────────
 
     @isTest
     static void ssnSequential_matchesOriginalLength() {
@@ -199,8 +177,6 @@ private class TEKCO_AnonymizationPatternServiceTest {
         System.assertEquals(original.length(), result.length(), 'SSN length preserved');
         System.assert(result.isNumeric(), 'SSN must be numeric');
     }
-
-    // ─── REGEX ─────────────────────────────────────────────────────────────────
 
     @isTest
     static void regex_replacesDigitsWithZero() {
@@ -250,29 +226,20 @@ private class TEKCO_AnonymizationPatternServiceTest {
         System.assertEquals('abc', result, 'Null replacement must delete matches');
     }
 
-    // ─── KEEP ──────────────────────────────────────────────────────────────────
-
     @isTest
     static void keep_returnsCurrentValue() {
         TEKCO_AnonymizationPattern__mdt pattern = activePattern('KEEP');
         String result = TEKCO_AnonymizationPatternService.applyPattern(
             'KEEP', 'unchanged', new Account(), pattern
         );
-        // KEEP falls into when else → returns currentValue
         System.assertEquals('unchanged', result);
     }
-
-    // ─── assertIsSandbox caching ───────────────────────────────────────────────
 
     @isTest
     static void assertIsSandbox_cachedAfterFirstCall() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = null;
-        // In test context, org.IsSandbox may be true or false depending on the org.
-        // We just verify that a second call does NOT issue another SOQL (cache hit).
-        // We inject the cached value to avoid needing a real sandbox.
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
 
-        // Should not throw
         TEKCO_AnonymizationOrgConfigService.assertIsSandbox();
         System.assertEquals(true, TEKCO_AnonymizationOrgConfigService.isSandboxCached, 'Cache populated');
     }
@@ -288,8 +255,6 @@ private class TEKCO_AnonymizationPatternServiceTest {
             System.assert(e.getMessage().contains('ABORT'), 'Exception message must say ABORT');
         }
     }
-
-    // ─── hasField ──────────────────────────────────────────────────────────────
 
     @isTest
     static void hasField_returnsTrueForExistingField() {
@@ -316,8 +281,6 @@ private class TEKCO_AnonymizationPatternServiceTest {
         System.assertEquals(false, TEKCO_AnonymizationOrgConfigService.hasField(null, null));
     }
 
-    // ─── Mémoïsation : le cache ne doit jamais mélanger deux entrées ─────────────
-
     private static TEKCO_AnonymizationPattern__mdt regexPattern(String find, String replace) {
         return new TEKCO_AnonymizationPattern__mdt(
             DeveloperName         = 'REGEX',
@@ -328,13 +291,6 @@ private class TEKCO_AnonymizationPatternServiceTest {
         );
     }
 
-    /**
-     * applyRegex() compile désormais une fois par regex et garde le résultat dans une map. Deux
-     * regex différentes appliquées à la même valeur doivent produire deux résultats différents :
-     * si le cache était indexé par erreur sur autre chose que la regex, la seconde réutiliserait
-     * la compilation de la première et masquerait silencieusement des données avec le mauvais
-     * motif.
-     */
     @isTest
     static void applyRegex_twoDifferentPatterns_doNotShareTheirCompilation() {
         String value = 'abc123';
@@ -350,7 +306,6 @@ private class TEKCO_AnonymizationPatternServiceTest {
         System.assertEquals('xxx123', lettersMasked, 'La seconde a bien sa propre compilation');
     }
 
-    /** Le même motif réutilisé doit rester correct au second appel. */
     @isTest
     static void applyRegex_samePatternTwice_isStable() {
         TEKCO_AnonymizationPattern__mdt pattern = regexPattern('\\d', '0');
@@ -362,10 +317,6 @@ private class TEKCO_AnonymizationPatternServiceTest {
         System.assertEquals(first, second, 'Second appel : lecture du cache, meme resultat');
     }
 
-    /**
-     * La suite SSN est mémoïsée par longueur. Deux longueurs différentes ne doivent pas se
-     * renvoyer l'une l'autre.
-     */
     @isTest
     static void applySsnSequential_twoLengths_doNotShareTheirCache() {
         TEKCO_AnonymizationPattern__mdt ssn = new TEKCO_AnonymizationPattern__mdt(

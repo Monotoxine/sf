@@ -1,11 +1,7 @@
 @isTest
 private class TEKCO_AnonymizationPreviewServiceTest {
 
-    /**
-     * First object that actually carries an active field-level configuration in THIS org.
-     * The suite runs on TEKCO orgs and on Portugal, whose configurations differ, so the tests
-     * assert behaviour rather than a particular object being present.
-     */
+    /** First object carrying an active field-level config in this org, or null. */
     private static String anyConfiguredObject() {
         for (TEKCO_AnonymizationFieldConfig__mdt fc : [
             SELECT TEKCO_ObjectApiName__c
@@ -62,10 +58,6 @@ private class TEKCO_AnonymizationPreviewServiceTest {
         System.assertEquals(false, result.warnings.isEmpty(), 'The empty scope is explained');
     }
 
-    /**
-     * The point of the whole feature: a preview must never write. Whatever the org configuration,
-     * the call completes with zero DML statements consumed.
-     */
     @isTest
     static void previewByCriteria_performsNoDml() {
         String objectApiName = anyConfiguredObject();
@@ -103,10 +95,6 @@ private class TEKCO_AnonymizationPreviewServiceTest {
             'A caller asking for 10 000 records still gets at most MAX_SAMPLE_SIZE');
     }
 
-    /**
-     * Excluding every configured field leaves nothing to apply — the preview must say so
-     * instead of silently showing an empty table.
-     */
     @isTest
     static void previewByCriteria_allFieldsExcludedIsExplained() {
         String objectApiName = anyConfiguredObject();

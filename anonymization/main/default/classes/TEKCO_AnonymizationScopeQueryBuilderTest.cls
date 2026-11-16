@@ -62,10 +62,6 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             'A missing field must never reach the SELECT clause');
     }
 
-    /**
-     * ContentDocument deletion is handled by its own batch in BOTH chains. Carrying those configs
-     * into the field phase used to happen on the By Criteria side only.
-     */
     @isTest
     static void buildFieldSelection_skipsContentDocumentConfigs() {
         useNeutralOrgConfig();
@@ -162,8 +158,6 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         );
     }
 
-    // ─── Scope queries ────────────────────────────────────────────────────────
-
     /** Picklist-mode org (no brand object): brand scoping lands on TEKCO_Brand__c. */
     private static void usePicklistBrandOrgConfig() {
         TEKCO_AnonymizationOrgConfigService.OrgConfig cfg =
@@ -207,10 +201,6 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             'The per-object additional filter is applied on its own');
     }
 
-    /**
-     * An org whose objects carry no brand field at all must produce an unfiltered query rather
-     * than a broken one — this is the Portugal-without-brand-lookup case.
-     */
     @isTest
     static void buildFieldScopeQuery_dropsBrandScopeWhenTheObjectCannotCarryIt() {
         useBrandObjectOrgConfig();   // Account has no ALH_Brand__c lookup in this org
@@ -223,10 +213,6 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             'An impossible brand condition is dropped, never guessed');
     }
 
-    /**
-     * EmailMessage carries no brand field of its own. When the brand condition cannot be built
-     * for it, the scope goes through the parent Case — only if that org has the field.
-     */
     @isTest
     static void buildFieldScopeQuery_emailMessageFallsBackToTheParentCaseWhenAvailable() {
         usePicklistBrandOrgConfig();
@@ -271,7 +257,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             'A quote in a record type name is escaped, not injected: ' + soql);
     }
 
-    /** Retrocompatibilite : une regle mono-valuee produit exactement une valeur dans le IN. */
+    /** A single-valued rule produces exactly one value in the IN. */
     @isTest
     static void buildContentDocScopeQuery_oneRecordType_behavesAsBefore() {
         useNeutralOrgConfig();
@@ -311,8 +297,6 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         );
     }
 
-    // ─── combineAdditionalFilters : le perimetre d un objet ──────────────────────
-
     private static TEKCO_AnonymizationFieldConfig__mdt withFilter(String filter) {
         return new TEKCO_AnonymizationFieldConfig__mdt(
             TEKCO_ObjectApiName__c    = 'Address',
@@ -321,10 +305,6 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         );
     }
 
-    /**
-     * Le cas Address : deux regles, deux filtres exclusifs. L ancienne version n en gardait qu un,
-     * au hasard de l ordre de la requete, et une des deux populations n etait jamais anonymisee.
-     */
     @isTest
     static void combineAdditionalFilters_twoFilters_areBothApplied() {
         String filter = TEKCO_AnonymizationScopeQueryBuilder.combineAdditionalFilters(
@@ -337,11 +317,6 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             'Les deux termes, tries, englobes');
     }
 
-    /**
-     * whereClause() joint les conditions avec AND, et AND lie plus fort que OR en SOQL. Sans
-     * parentheses englobantes, "marque AND (A) OR (B)" se lit "(marque AND A) OR B" et attrape
-     * des enregistrements hors du filtre de marque.
-     */
     @isTest
     static void combineAdditionalFilters_singleFilter_isParenthesisedToo() {
         System.assertEquals(
@@ -352,10 +327,6 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             'Un filtre unique est englobe : il peut contenir son propre OR');
     }
 
-    /**
-     * Une regle retenue sans filtre s applique a tous les enregistrements de l objet :
-     * restreindre la requete lui retirerait des enregistrements qu elle doit anonymiser.
-     */
     @isTest
     static void combineAdditionalFilters_anUnfilteredRuleLiftsTheRestriction() {
         System.assertEquals(null,
@@ -367,7 +338,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             'Aucun filtre : l objet est lu en entier');
     }
 
-    /** Decocher une regle retire son terme du OR — un OR ampute ne peut que retrecir. */
+    /** Unticking a rule removes its term from the OR. */
     @isTest
     static void combineAdditionalFilters_droppingARuleNarrows() {
         String both = TEKCO_AnonymizationScopeQueryBuilder.combineAdditionalFilters(
@@ -407,10 +378,6 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         );
     }
 
-    /**
-     * Zero targeted fields would emit 'Field IN ()', which is invalid SOQL. Returning null lets
-     * both chains skip cleanly — the By Criteria batch used to report a parse error here.
-     */
     @isTest
     static void buildHistoryScopeQuery_withoutFieldsReturnsNull() {
         useNeutralOrgConfig();
@@ -441,9 +408,6 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         );
     }
 
-    // ─── History object naming (relocated from TEKCO_AnonymizationBatchUtilsTest) ────
-
-
     @isTest
     static void computeHistoryObjectName_customObject() {
         String result = TEKCO_AnonymizationScopeQueryBuilder.historyObjectNameFor('MyObj__c');
@@ -466,10 +430,6 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         System.assertEquals('AccountId', TEKCO_AnonymizationScopeQueryBuilder.historyParentIdFieldFor('Account'));
     }
 
-    // ─── cap ───────────────────────────────────────────────────────────────────
-
-    // ─── recordTypeCondition : la selection de l utilisateur borne le RUN ────────
-
     private static List<TEKCO_AnonymizationFieldConfig__mdt> accountConfigs(String recordTypes) {
         return new List<TEKCO_AnonymizationFieldConfig__mdt>{
             new TEKCO_AnonymizationFieldConfig__mdt(
@@ -480,7 +440,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         };
     }
 
-    /** Sans selection, seuls les record types des regles sont lus. */
+    /** With no selection, only the rules' record types are read. */
     @isTest
     static void recordTypeCondition_noSelection_readsOnlyTheRecordTypesTheRulesCover() {
         useNeutralOrgConfig();
@@ -495,7 +455,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition('Account', new List<String>(), configs));
     }
 
-    /** Une regle sans record type garde tout l objet. */
+    /** A rule with no record type keeps the whole object. */
     @isTest
     static void recordTypeCondition_noSelection_oneUnscopedRuleKeepsTheWholeObject() {
         useNeutralOrgConfig();
@@ -507,7 +467,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition('Account', null, configs));
     }
 
-    /** Objet sans record type : aucune condition. */
+    /** Object with no record type: no condition. */
     @isTest
     static void recordTypeCondition_noSelection_objectWithoutRecordTypes_addsNothing() {
         useNeutralOrgConfig();
@@ -520,11 +480,6 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             }));
     }
 
-    /**
-     * LE CAS QUI MOTIVE TOUT. Une regle couvre deux populations, l utilisateur n en selectionne
-     * qu une : la requete ne doit lire que celle-la. Sans cette condition, la regle etait
-     * appliquee aux deux et l autre population etait anonymisee sans que rien ne le dise.
-     */
     @isTest
     static void recordTypeCondition_narrowsARuleCoveringSeveralPopulations() {
         useNeutralOrgConfig();
@@ -539,7 +494,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             'Seule la population selectionnee est lue : ' + condition);
     }
 
-    /** Un record type declare par un AUTRE objet ne doit pas filtrer celui-ci. */
+    /** A record type declared by another object must not filter this one. */
     @isTest
     static void recordTypeCondition_ignoresRecordTypesTheObjectDoesNotDeclare() {
         useNeutralOrgConfig();
@@ -575,7 +530,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             new List<TEKCO_AnonymizationFieldConfig__mdt>()));
     }
 
-    /** La condition entre bien dans la requete de la phase champ. */
+    /** The condition reaches the field-phase query. */
     @isTest
     static void buildFieldScopeQuery_appliesTheRecordTypeSelection() {
         useNeutralOrgConfig();
@@ -593,7 +548,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             'La phase champ ne lit que la population selectionnee : ' + soql);
     }
 
-    /** Et dans celle de la phase historique, via la sous-requete sur le parent. */
+    /** And the history-phase query, through the subquery on the parent. */
     @isTest
     static void buildHistoryScopeQuery_appliesTheRecordTypeSelection() {
         useNeutralOrgConfig();
@@ -609,7 +564,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             'Les lignes d historique suivent le meme perimetre : ' + soql);
     }
 
-    /** La phase fichiers croise la couverture de la regle et la selection. */
+    /** The file phase intersects the rule's coverage with the selection. */
     @isTest
     static void buildContentDocScopeQuery_intersectsRuleCoverageWithTheSelection() {
         useNeutralOrgConfig();
@@ -627,7 +582,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             'Les fichiers de la population non selectionnee ne sont pas supprimes : ' + soql);
     }
 
-    /** Regle sans record type, run restreint : la selection borne quand meme la requete. */
+    /** Rule with no record type, narrowed run: the selection still bounds the query. */
     @isTest
     static void buildContentDocScopeQuery_unscopedRuleIsStillBoundedByTheSelection() {
         useNeutralOrgConfig();
@@ -644,7 +599,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             'Une regle couvrant tout l objet reste bornee par la selection : ' + soql);
     }
 
-    /** Un record type absent de l objet ne filtre pas sa requete. */
+    /** A record type absent from the object does not filter its query. */
     @isTest
     static void buildContentDocScopeQuery_ignoresSelectedRecordTypesTheObjectDoesNotHave() {
         useNeutralOrgConfig();

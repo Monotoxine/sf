@@ -1,7 +1,5 @@
 /**
- * @description Deletes the field-history rows of the configured fields on one object. Serves
- *              both chains: a run scoped by criteria and a run scoped by an explicit ID list
- *              differ only in how the parent records are selected.
+ * @description Deletes the field-history rows of the configured fields on one object, for both chains.
  */
 public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchable<SObject>, Database.Stateful {
 

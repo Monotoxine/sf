@@ -1,15 +1,5 @@
 /**
- * @description Single owner of "what runs next" for an anonymization run.
- *
- *              Each batch used to name its own successors, and each chain had its own twin of
- *              every batch — six classes naming one another. Adding a phase meant editing four
- *              classes; changing a constructor meant re-checking six call sites, which is exactly
- *              how a rollback once left the chain compiling against a stale API.
- *
- *              Now every finish() is the same two lines: fold the chunk's results into the
- *              context, then call startNext(). The step list lives in the context, the wiring
- *              lives here, and terminating the run — restoring the bypass, finalizing the audit
- *              log — happens in one place instead of six.
+ * @description Decides which batch runs next, and ends the run (bypass restore, audit log).
  */
 public without sharing class TEKCO_AnonymizationChainRunner {
 

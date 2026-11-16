@@ -96,7 +96,6 @@ private class TEKCO_AnonymizationAuditServiceTest {
 
     @isTest
     static void persist_nullLogId_isNoOp() {
-        // Must not throw — batches call this with a null id when no audit log was created.
         Test.startTest();
         TEKCO_AnonymizationAuditService.finalize(null, 1, 0, 0, 0, new List<String>());
         TEKCO_AnonymizationAuditService.markRunning(null, 1, 0, new List<String>());

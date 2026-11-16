@@ -1,7 +1,5 @@
 /**
- * @description Shared Phase 2 delete logic, called from TEKCO_ContentDocumentBatch. The two
- *              chains once had a batch each, carrying byte-identical copies of this in their
- *              execute() methods; extracting it here is what made merging them possible.
+ * @description Phase 2 delete logic, called from TEKCO_ContentDocumentBatch.
  */
 public inherited sharing class TEKCO_ContentDocumentDeleteService {
 

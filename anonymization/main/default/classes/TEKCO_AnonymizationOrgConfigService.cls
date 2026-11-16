@@ -1,7 +1,6 @@
 /**
- * @description Loads the TEKCO_AnonymizationOrgConfig__mdt record matching the current org's domain.
- *              Falls back to a default "TEKCO mode" config when no record matches,
- *              so existing orgs need no CMDT record
+ * @description Loads the TEKCO_AnonymizationOrgConfig__mdt record matching the current org's domain,
+ *              or a default TEKCO config when none matches.
  */
 public inherited sharing class TEKCO_AnonymizationOrgConfigService {
 
@@ -108,8 +107,6 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
         }
     }
 
-    // ─── Describe utilities ──────────────────────────────────────────────────
-
     private static Map<String, Schema.DescribeSObjectResult> describeCache =
         new Map<String, Schema.DescribeSObjectResult>();
 
@@ -166,8 +163,6 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
         externalIdFieldsCache.put(objectApiName, result);
         return result;
     }
-
-    // ─── Brand / country resolution ──────────────────────────────────────────
 
     @TestVisible
     private static final String COUNTRY_BRAND_OBJECT        = 'TEKCO_CountryBrandSetting__mdt';

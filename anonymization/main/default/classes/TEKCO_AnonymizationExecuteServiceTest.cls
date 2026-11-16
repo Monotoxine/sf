@@ -11,8 +11,6 @@ private class TEKCO_AnonymizationExecuteServiceTest {
         );
     }
 
-    // ─── Field update ──────────────────────────────────────────────────────────
-
     @isTest
     static void execute_updatesFieldWhenPatternChangesValue() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
@@ -79,8 +77,6 @@ private class TEKCO_AnonymizationExecuteServiceTest {
         System.assertEquals(0, result.recordsProcessed, 'Inactive pattern → record not updated');
     }
 
-    // ─── Record type filtering ─────────────────────────────────────────────────
-
     @isTest
     static void execute_skipsRecordWhenRecordTypeMismatch() {
         Account acc = new Account(Name = 'Test', Phone = '0612345678');
@@ -108,20 +104,11 @@ private class TEKCO_AnonymizationExecuteServiceTest {
         System.assertEquals(0, result.recordsProcessed, 'RT mismatch → record skipped');
     }
 
-    // ─── EMAIL_MESSAGE_LOREM ───────────────────────────────────────────────────
-
     @isTest
     static void execute_emailMessageLorem_draftAppliesLoremText() {
-        // EmailMessage can only be tested via Case > EmailMessage
-        // We simulate the status='5' branch via a mock SObject
-        // Using Account as a stand-in with a put() approach is not possible for EmailMessage
-        // → This is documented as a manual test requirement (requires Case + EmailMessage setup)
-        // Verify at minimum the LOREM_TEXT constant is accessible
         System.assertNotEquals(null, TEKCO_AnonymizationPatternService.LOREM_TEXT);
         System.assert(TEKCO_AnonymizationPatternService.LOREM_TEXT.length() > 0);
     }
-
-    // ─── Empty scope ───────────────────────────────────────────────────────────
 
     @isTest
     static void execute_emptyScope_returnsZeroCounts() {
@@ -138,12 +125,6 @@ private class TEKCO_AnonymizationExecuteServiceTest {
         System.assert(result.errors.isEmpty());
     }
 
-    // ─── applyPatternsTo: the transformation without the DML ───────────────────
-
-    /**
-     * The preview relies on this method returning the same result as a run while writing
-     * nothing. If these two ever diverge, the preview becomes a lie.
-     */
     @isTest
     static void applyPatternsTo_capturesBeforeValuesAndLeavesTheDatabaseUntouched() {
         Account acc = new Account(Name = 'Jean Dupont', Phone = '0612345678');
@@ -196,7 +177,6 @@ private class TEKCO_AnonymizationExecuteServiceTest {
 
         SObject record = [SELECT Id, Phone FROM Account WHERE Id = :acc.Id];
 
-        // null capture map: what every batch run passes, so capture costs nothing there.
         TEKCO_AnonymizationExecuteService.RecordOutcome outcome =
             TEKCO_AnonymizationExecuteService.applyPatternsTo(
                 record,
@@ -243,12 +223,6 @@ private class TEKCO_AnonymizationExecuteServiceTest {
         System.assertEquals('0611111111', (String) record.get('Phone'), 'The value is untouched');
     }
 
-    // ─── Couverture par record type : une regle porte une LISTE de populations ───────────
-
-    /**
-     * RETROCOMPATIBILITE. Une regle mono-valuee doit se comporter exactement comme avant :
-     * elle s applique a sa population et a aucune autre.
-     */
     @isTest
     static void recordTypeScoping_singleValue_stillExcludesOtherPopulations() {
         TEKCO_AnonymizationFieldConfig__mdt rule = new TEKCO_AnonymizationFieldConfig__mdt(
@@ -260,7 +234,6 @@ private class TEKCO_AnonymizationExecuteServiceTest {
         System.assert(!covered.contains('Prescriber'), 'Et aucune autre');
     }
 
-    /** Une regle multi-population couvre chacune de ses valeurs, et rien d autre. */
     @isTest
     static void recordTypeScoping_listCoversEachValueAndNoOther() {
         Set<String> covered = TEKCO_AnonymizationConfigSelector.recordTypesOf(
@@ -275,7 +248,6 @@ private class TEKCO_AnonymizationExecuteServiceTest {
             'Hospital n est pas couvert : ALH_FiscalNumber__c ne doit pas toucher un Patient');
     }
 
-    /** Vide = toutes les populations, donc aucun test de record type a l execution. */
     @isTest
     static void recordTypeScoping_blankAppliesEverywhere() {
         System.assertEquals(false, TEKCO_AnonymizationConfigSelector.isRecordTypeScoped(

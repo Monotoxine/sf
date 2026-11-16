@@ -1,10 +1,4 @@
-/**
- * Covers every gate the tool applies before it reads or destroys anything: the custom
- * permission, the object and field names that reach dynamic SOQL, the pattern types that would
- * otherwise be skipped in silence, and the sandbox check in the form a batch start() survives.
- *
- * Split out of TEKCO_AnonymizationBatchUtilsTest along with the class it covers.
- */
+/** Covers the gates the tool applies before it reads or destroys anything. */
 @isTest
 private class TEKCO_AnonymizationGuardTest {
 
@@ -68,8 +62,6 @@ private class TEKCO_AnonymizationGuardTest {
             TEKCO_AnonymizationGuard.validatePatternTypes(null).size());
     }
 
-    // ─── requireConfiguredObject / requireFieldOnObject ────────────────────────
-
     @isTest
     static void requireConfiguredObject_rejectsBlank() {
         try {
@@ -82,7 +74,6 @@ private class TEKCO_AnonymizationGuardTest {
 
     @isTest
     static void requireConfiguredObject_rejectsUnconfiguredName() {
-        // Independent of which CMDT records the org holds: this name is never configured.
         try {
             TEKCO_AnonymizationGuard.requireConfiguredObject('Not_A_Real_Object_ZZZ__c');
             System.assert(false, 'Unconfigured object should throw');
@@ -120,15 +111,10 @@ private class TEKCO_AnonymizationGuardTest {
         }
     }
 
-    // ─── assertCanAnonymize ────────────────────────────────────────────────────
-
     @isTest
     static void assertCanAnonymize_throwsWithoutCustomPermission() {
-        // The running test user has no custom permission assigned by default.
         try {
             TEKCO_AnonymizationGuard.assertCanAnonymize();
-            // If the org grants it broadly this will not throw — either outcome is valid,
-            // the point is that the gate is reachable and does not error unexpectedly.
             System.assert(true, 'Permission present in this org');
         } catch (Exception e) {
             System.assert(
@@ -137,8 +123,6 @@ private class TEKCO_AnonymizationGuardTest {
             );
         }
     }
-
-    // ─── assertSandboxOrClose ──────────────────────────────────────────────────
 
     @isTest
     static void assertSandboxOrClose_returnsTrueInSandbox() {
@@ -176,8 +160,6 @@ private class TEKCO_AnonymizationGuardTest {
             'Reason recorded: ' + result.TEKCO_ErrorMessage__c);
     }
 
-    // ─── Garde contre les runs simultanés ────────────────────────────────────────
-
     private static TEKCO_AnonymizationAuditLog__c runningLog(Datetime startedAt, String jobId) {
         TEKCO_AnonymizationAuditLog__c log = new TEKCO_AnonymizationAuditLog__c(
             TEKCO_TriggeredBy__c = UserInfo.getUserId(),
@@ -198,7 +180,7 @@ private class TEKCO_AnonymizationGuardTest {
         System.assert(true, 'Aucun run en cours : le lancement passe');
     }
 
-    /** Un log tout juste inséré, dont le batch n'a pas encore démarré, compte comme vivant. */
+    /** A log just inserted, whose batch has not started yet, counts as live. */
     @isTest
     static void assertNoRunInProgress_withFreshUnstartedLog_refuses() {
         runningLog(Datetime.now(), null);
@@ -216,10 +198,6 @@ private class TEKCO_AnonymizationGuardTest {
             'Un lancement en cours doit bloquer le suivant : deux runs corrompent le snapshot du bypass');
     }
 
-    /**
-     * LE cas qui compte : un log resté sur Running parce que son job est mort sans jamais
-     * atteindre finish(). Sans la fenêtre de grâce, il condamnerait l'outil définitivement.
-     */
     @isTest
     static void assertNoRunInProgress_withStaleUnstartedLog_allows() {
         runningLog(Datetime.now().addHours(-3), null);
@@ -231,7 +209,7 @@ private class TEKCO_AnonymizationGuardTest {
         System.assert(true, 'Un log périmé ne doit jamais verrouiller l\'outil');
     }
 
-    /** Un job id qui ne correspond à aucun AsyncApexJob : le log est périmé. */
+    /** A job id matching no AsyncApexJob: the log is stale. */
     @isTest
     static void assertNoRunInProgress_withUnknownJobId_allows() {
         runningLog(Datetime.now(), '707000000000000AAA');
@@ -243,7 +221,7 @@ private class TEKCO_AnonymizationGuardTest {
         System.assert(true, 'Job introuvable = run terminé ou disparu, on laisse passer');
     }
 
-    /** Un job id illisible ne doit pas faire exploser la garde. */
+    /** An unreadable job id must not break the guard. */
     @isTest
     static void assertNoRunInProgress_withUnparseableJobId_doesNotThrowUnexpectedly() {
         runningLog(Datetime.now().addHours(-3), 'pas-un-identifiant');
@@ -254,8 +232,6 @@ private class TEKCO_AnonymizationGuardTest {
 
         System.assert(true, 'Un job id illisible est traité comme absent, pas comme une erreur');
     }
-
-    // ─── Validations de configuration ────────────────────────────────────────────
 
     private static TEKCO_AnonymizationFieldConfig__mdt filterConfig(
         String devName, String label, String objectApiName, String filter
@@ -283,10 +259,6 @@ private class TEKCO_AnonymizationGuardTest {
             'L objet reste dans le message : ' + warnings[0]);
     }
 
-    /**
-     * Contact porte cinq configs partageant un filtre, User six. Une seule requête, un seul
-     * avertissement, mais qui nomme les configs concernées — c est tout l intérêt du changement.
-     */
     @isTest
     static void validateAdditionalFilters_sharedFilter_namesThemTogether() {
         List<String> warnings = TEKCO_AnonymizationGuard.validateAdditionalFilters(
@@ -345,10 +317,6 @@ private class TEKCO_AnonymizationGuardTest {
             'Une config sans filtre n est pas contrôlée');
     }
 
-    /**
-     * Le contrôle tourne sur la configuration réelle de l org et ne doit jamais lever, quelle
-     * qu elle soit — c est un diagnostic, pas une garde.
-     */
     @isTest
     static void validateConfiguration_returnsFindingsWithoutThrowing() {
         Test.startTest();
@@ -357,8 +325,6 @@ private class TEKCO_AnonymizationGuardTest {
 
         System.assertNotEquals(null, findings, 'Une liste est toujours renvoyée');
     }
-
-    // ─── validateParentLookups : le chemin By ID vers les enfants ─────────────────────────
 
     private static TEKCO_AnonymizationFieldConfig__mdt childRule(
         String devName, String objectApiName, String parentObject, String lookup
@@ -372,7 +338,6 @@ private class TEKCO_AnonymizationGuardTest {
         );
     }
 
-    /** Le cas reel : EmailMessage n a pas d AccountId, By ID ne trouvait aucun email. */
     @isTest
     static void validateParentLookups_lookupMissingOnTheChild_isReported() {
         List<String> warnings = TEKCO_AnonymizationGuard.validateParentLookups(
@@ -385,7 +350,6 @@ private class TEKCO_AnonymizationGuardTest {
         System.assert(warnings[0].contains('Case_EmailMessage'), 'Le message nomme la config : ' + warnings[0]);
     }
 
-    /** Le chemin par relation qui corrige ce cas est accepte. */
     @isTest
     static void validateParentLookups_relationshipPathToTheParent_isSilent() {
         System.assertEquals(0, TEKCO_AnonymizationGuard.validateParentLookups(
@@ -396,7 +360,7 @@ private class TEKCO_AnonymizationGuardTest {
         ).size(), 'Deux lookups valides ne produisent rien');
     }
 
-    /** Un lookup qui pointe ailleurs est signale. */
+    /** A lookup pointing elsewhere is reported. */
     @isTest
     static void validateParentLookups_lookupToAnotherObject_isReported() {
         List<String> warnings = TEKCO_AnonymizationGuard.validateParentLookups(
@@ -426,8 +390,6 @@ private class TEKCO_AnonymizationGuardTest {
         ).size(), 'Une config sans parent n est pas controlee');
     }
 
-    // ─── validateFilterDiscrimination : la forme que le moteur ne sait pas honorer ────────
-
     private static TEKCO_AnonymizationFieldConfig__mdt filterRule(
         String objectApiName, String fieldApiName, String pattern, String filter
     ) {
@@ -440,11 +402,6 @@ private class TEKCO_AnonymizationGuardTest {
         );
     }
 
-    /**
-     * Le cas Address, qui ne doit PAS etre signale : deux filtres, mais le meme champ et le meme
-     * pattern derriere chacun. Appliquer l une ou l autre regle a l une ou l autre population
-     * donne le meme resultat.
-     */
     @isTest
     static void validateFilterDiscrimination_sameEffectBehindBothFilters_isSilent() {
         List<String> findings = TEKCO_AnonymizationGuard.validateFilterDiscrimination(
@@ -458,10 +415,6 @@ private class TEKCO_AnonymizationGuardTest {
             'Meme effet derriere les deux filtres : rien a signaler — ' + findings);
     }
 
-    /**
-     * Deux filtres qui font des choses differentes : le moteur lit leur union et ne sait pas,
-     * enregistrement par enregistrement, lequel des deux l a ramene.
-     */
     @isTest
     static void validateFilterDiscrimination_differentEffects_areReported() {
         List<String> findings = TEKCO_AnonymizationGuard.validateFilterDiscrimination(

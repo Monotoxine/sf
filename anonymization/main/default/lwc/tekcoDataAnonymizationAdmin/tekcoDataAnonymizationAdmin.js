@@ -78,7 +78,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
     hasPermission = hasAnonymizePermission;
 
-    // ── By Criteria state ─────────────────────────────────────────────────────
     @track selectedBrands      = [];
     @track selectedObjects     = [];
     @track selectedRecordTypes = [];
@@ -119,7 +118,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     @track sampleWarnings      = [];
     @track isLoadingSample     = false;
 
-    // ── By ID tab state ───────────────────────────────────────────────────────
     @track byIdFieldFilterText = '';
     @track byIdFieldFilterRT   = '_all_';
 
@@ -160,8 +158,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         this.stopAuditPoll();
         this.stopByIdAuditPoll();
     }
-
-    // ── By Criteria loaders ───────────────────────────────────────────────────
 
     loadBrands() {
         getBrands()
@@ -256,8 +252,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             .catch(() => {});
     }
 
-    // ── By Criteria handlers ──────────────────────────────────────────────────
-
     handleBrandChange(event) {
         this.selectedBrands = event.detail.value;
         this.brandScopeNote = null;
@@ -295,8 +289,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
                 this.isCheckingConfig = false;
             });
     }
-
-    // ── Before/after sample (By Criteria) ─────────────────────────────────────
 
     resetSample() {
         const available = new Set(this.sampleObjectOptions.map(o => o.value));
@@ -435,8 +427,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         if (this._auditTimer) { clearInterval(this._auditTimer); this._auditTimer = null; }
     }
 
-    // ── By ID handlers ────────────────────────────────────────────────────────
-
     handleByIdResolveModeChange(event) {
         this.byIdResolveMode           = event.detail.value;
         this.byIdTargetObject          = '';
@@ -523,8 +513,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             })
             .catch(() => { this.byIdFieldConfigs = []; });
     }
-
-    // ── Before/after sample (By ID) ───────────────────────────────────────────
 
     _refreshByIdSampleOptions(resolveResult) {
         this.byIdSampleObjectOptions = [
@@ -713,8 +701,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             .filter(s => s.length > 0 && !seen.has(s) && seen.add(s));
     }
 
-    // ── By ID getters ─────────────────────────────────────────────────────────
-
     get resolveModeOptions()        { return RESOLVE_MODE_OPTIONS; }
     get isExternalIdMode()          { return this.byIdResolveMode === 'EXTERNAL_ID'; }
     get byIdObjectOptions()         { return this.byIdDirectObjectOptions; }
@@ -787,8 +773,6 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         });
         return Object.values(groupMap);
     }
-
-    // ── By Criteria getters ───────────────────────────────────────────────────
 
     get hasFieldConfigs()      { return this.fieldConfigs.length > 0; }
     get hasConfigFindings()    { return this.configFindings.length > 0; }

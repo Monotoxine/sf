@@ -1,6 +1,3 @@
-/**
- * @description 
- */
 public class TEKCO_AnonymizationRunContext {
 
     public static final Integer MAX_ACCUMULATED_ERRORS = 200;
@@ -28,15 +25,11 @@ public class TEKCO_AnonymizationRunContext {
 
     public List<String> steps = new List<String>();
 
-    // ─── Results ─────────────────────────────────────────────────────────────
-
     public Integer recordsProcessed      = 0;
     public Integer recordsFailed         = 0;
     public Integer documentsDeleted      = 0;
     public Integer historyRecordsDeleted = 0;
     public List<String> errors           = new List<String>();
-
-    // ─── Plan handling ───────────────────────────────────────────────────────
 
     public void addStep(String phase, String key) {
         if (String.isBlank(phase) || String.isBlank(key)) return;
@@ -61,8 +54,6 @@ public class TEKCO_AnonymizationRunContext {
         return step == null ? null : step.substringAfter(STEP_SEPARATOR);
     }
 
-    // ─── Accumulation ────────────────────────────────────────────────────────
-
     public void addProcessed(Integer count) {
         if (count != null) recordsProcessed += count;
     }
@@ -79,10 +70,7 @@ public class TEKCO_AnonymizationRunContext {
         if (count != null) historyRecordsDeleted += count;
     }
 
-    /**
-     * Truncates one message to MAX_ERROR_MSG_LENGTH. Public because the error producers —
-     * the execute service and the two delete services — cap before handing their lists over.
-     */
+    /** Truncates one message to MAX_ERROR_MSG_LENGTH. */
     public static String cap(String message) {
         return (message != null && message.length() > MAX_ERROR_MSG_LENGTH)
             ? message.substring(0, MAX_ERROR_MSG_LENGTH)
@@ -97,8 +85,6 @@ public class TEKCO_AnonymizationRunContext {
             errors.add(cap(message));
         }
     }
-
-    // ─── Scope lookups ───────────────────────────────────────────────────────
 
     public List<String> configDevNamesFor(String objectApiName) {
         List<String> devNames = configDevNamesByObject.get(objectApiName);

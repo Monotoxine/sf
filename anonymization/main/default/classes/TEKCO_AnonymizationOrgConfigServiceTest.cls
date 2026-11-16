@@ -3,7 +3,6 @@ private class TEKCO_AnonymizationOrgConfigServiceTest {
 
     private static final String UNKNOWN_OBJECT = 'TEKCO_NoSuchObject__c';
 
-    /** Config in "TEKCO mode": brands come from the mapping CMDT, not from a brand object. */
     private static TEKCO_AnonymizationOrgConfigService.OrgConfig tekcoModeConfig() {
         TEKCO_AnonymizationOrgConfigService.OrgConfig cfg =
             new TEKCO_AnonymizationOrgConfigService.OrgConfig();
@@ -18,8 +17,6 @@ private class TEKCO_AnonymizationOrgConfigServiceTest {
 
         TEKCO_AnonymizationOrgConfigService.OrgConfig cfg = TEKCO_AnonymizationOrgConfigService.getConfig();
 
-        // Either matched a CMDT record (org-specific) or fell back to defaults.
-        // In both cases the config must be non-null and have at minimum a functionalIdField.
         System.assertNotEquals(null, cfg, 'Config must never be null');
         System.assertNotEquals(null, cfg.functionalIdField, 'Functional ID field must be set');
     }
@@ -36,7 +33,6 @@ private class TEKCO_AnonymizationOrgConfigServiceTest {
     static void resetCache_clearsCache() {
         TEKCO_AnonymizationOrgConfigService.getConfig(); // populate
         TEKCO_AnonymizationOrgConfigService.resetCache();
-        // If cache was cleared, a new call re-runs the SOQL without throwing
         TEKCO_AnonymizationOrgConfigService.OrgConfig cfg = TEKCO_AnonymizationOrgConfigService.getConfig();
         System.assertNotEquals(null, cfg);
     }
@@ -66,8 +62,6 @@ private class TEKCO_AnonymizationOrgConfigServiceTest {
         cfg.brandObjectApiName = 'ALH_Brand__c';
         System.assertEquals(true, cfg.usesBrandObject());
     }
-
-    // ─── Describe utilities ──────────────────────────────────────────────────
 
     @isTest
     static void hasObject_trueForExistingObject_falseForAbsentOne() {
@@ -102,8 +96,6 @@ private class TEKCO_AnonymizationOrgConfigServiceTest {
             'A field on an absent object must be reported missing, not throw');
         System.assertEquals(false, TEKCO_AnonymizationOrgConfigService.hasField('Account', 'TEKCO_NoSuchField__c'));
     }
-
-    // ─── External ID fields ──────────────────────────────────────────────────
 
     private static void useExternalIdFields(String configured) {
         TEKCO_AnonymizationOrgConfigService.OrgConfig cfg = tekcoModeConfig();
@@ -144,8 +136,6 @@ private class TEKCO_AnonymizationOrgConfigServiceTest {
             'An absent object yields no field rather than throwing');
     }
 
-    // ─── buildBrandCondition ─────────────────────────────────────────────────
-
     @isTest
     static void buildBrandCondition_nullForEmptyBrandSelection() {
         TEKCO_AnonymizationOrgConfigService.setConfigForTest(tekcoModeConfig());
@@ -155,13 +145,6 @@ private class TEKCO_AnonymizationOrgConfigServiceTest {
             TEKCO_AnonymizationOrgConfigService.buildBrandCondition('Account', new List<String>()));
     }
 
-    /**
-     * The regression this guards: probing hasField() with the relationship name (__r) always
-     * misses, because field maps only contain __c names — so the brand-object branch silently
-     * never matched and brand-filtered runs processed the whole table. AccountId/Account stand
-     * in for a real lookup: 'Account__r' probes as 'account__c', absent on Account, while the
-     * traversal form is preserved in the emitted condition when the field does exist.
-     */
     @isTest
     static void buildBrandCondition_brandObjectMode_probesFieldWithCForm() {
         TEKCO_AnonymizationOrgConfigService.OrgConfig cfg = tekcoModeConfig();
@@ -195,11 +178,6 @@ private class TEKCO_AnonymizationOrgConfigServiceTest {
         }
     }
 
-    /**
-     * The semantics the preview's brandFilterApplied flag reports: an object with no way to
-     * honour the selection yields no condition, so the run reads the whole table. The UI names
-     * those objects from this null — if it ever became a condition, the notice would be wrong.
-     */
     @isTest
     static void buildBrandCondition_nullWhenObjectCarriesNoBrandField() {
         TEKCO_AnonymizationOrgConfigService.setConfigForTest(tekcoModeConfig());
@@ -219,8 +197,6 @@ private class TEKCO_AnonymizationOrgConfigServiceTest {
             'Values must be quoted, escaped and comma-joined'
         );
     }
-
-    // ─── Brand / country resolution ──────────────────────────────────────────
 
     @isTest
     static void getCountriesForBrands_returnsEmptyForBlankInput() {
@@ -243,11 +219,6 @@ private class TEKCO_AnonymizationOrgConfigServiceTest {
         );
     }
 
-    /**
-     * In TEKCO mode the mapping CMDT is reached dynamically. Orgs that do not own it
-     * (Portugal) must get an empty list instead of a runtime failure; orgs that do own it
-     * simply find no match for a bogus brand.
-     */
     @isTest
     static void getCountriesForBrands_tekcoModeSurvivesAbsentMappingObject() {
         TEKCO_AnonymizationOrgConfigService.setConfigForTest(tekcoModeConfig());
@@ -260,11 +231,6 @@ private class TEKCO_AnonymizationOrgConfigServiceTest {
         System.assertEquals(0, countries.size(), 'A bogus brand maps to no country');
     }
 
-    /**
-     * The mapping CMDT is now referenced by name, so the compiler no longer validates it.
-     * Where the object does exist, assert its fields still match the constants — this is
-     * what replaces the lost compile-time check.
-     */
     @isTest
     static void countryBrandConstants_matchTheObjectWhereItExists() {
         String mappingObject = TEKCO_AnonymizationOrgConfigService.COUNTRY_BRAND_OBJECT;

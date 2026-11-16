@@ -1,8 +1,5 @@
 /**
- * @description Deletes the ContentDocuments linked to a set of parent records. Serves both
- *              chains: a run scoped by criteria and a run scoped by an explicit ID list differ
- *              only in which parents they read.
- *
+ * @description Deletes the ContentDocuments linked to a set of parent records, for both chains.
  */
 public without sharing class TEKCO_ContentDocumentBatch implements Database.Batchable<SObject>, Database.Stateful {
 

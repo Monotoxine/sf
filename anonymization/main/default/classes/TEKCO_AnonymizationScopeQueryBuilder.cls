@@ -1,6 +1,3 @@
-/**
- * @description 
- */
 public inherited sharing class TEKCO_AnonymizationScopeQueryBuilder {
 
     private static final String PATTERN_EMAIL_LOREM   = 'EMAIL_MESSAGE_LOREM';
@@ -138,7 +135,6 @@ public inherited sharing class TEKCO_AnonymizationScopeQueryBuilder {
             declared.addAll(covered);
         }
         if (selectedRecordTypes == null || selectedRecordTypes.isEmpty()) {
-            // No selection: read only the record types the rules cover.
             if (!everyRuleScoped) return null;
             String declaredIn = escapedInClause(declared);
             return declaredIn == null ? null : 'RecordType.DeveloperName IN (' + declaredIn + ')';
@@ -196,7 +192,6 @@ public inherited sharing class TEKCO_AnonymizationScopeQueryBuilder {
             conditions.add('RecordType.DeveloperName IN (' + recordTypeIn + ')');
         } else if (selectedRecordTypes != null && !selectedRecordTypes.isEmpty()
                 && recordTypeDevNames != null && recordTypeDevNames.isEmpty()) {
-            // Only the selected record types this object has.
             Set<String> onObject = recordTypesOn(objectApiName);
             onObject.retainAll(new Set<String>(selectedRecordTypes));
             String selectedIn = escapedInClause(onObject);

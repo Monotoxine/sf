@@ -1,26 +1,5 @@
 /**
- * @description Launches a By Criteria run on a schedule, for wiring the tool into a
- *              post-sandbox-refresh routine rather than clicking through the interface.
- *
- *              Scope: everything by default; the second constructor narrows it.
- *
- *              None of the guards are bypassed. The sandbox check, the custom permission of the
- *              scheduling user and the concurrency check all still apply — a scheduled run is a
- *              run like any other.
- *
- *              A refused run is logged with status Refused.
- *
- *              Every night at 2am, everything:
- *                System.schedule(
- *                    'TEKCO Anonymization',
- *                    '0 0 2 * * ?',
- *                    new TEKCO_AnonymizationScheduler()
- *                );
- *
- *              Narrowed (record types, objects, brands — null or empty means every one):
- *                new TEKCO_AnonymizationScheduler(
- *                    new List<String>{ 'ACCCO_Patient' }, new List<String>{ 'Account' }, null
- *                )
+ * @description Launches a By Criteria run on a schedule; the second constructor narrows its scope.
  */
 public with sharing class TEKCO_AnonymizationScheduler implements Schedulable {
 
@@ -43,7 +22,6 @@ public with sharing class TEKCO_AnonymizationScheduler implements Schedulable {
     }
 
     public void execute(SchedulableContext context) {
-        // Serializes schedules firing at the same instant.
         try {
             lockAgainstSameTimeSchedules();
         } catch (Exception e) {
@@ -51,7 +29,6 @@ public with sharing class TEKCO_AnonymizationScheduler implements Schedulable {
             return;
         }
 
-        // Rolls back a half-done launch, as the interface does.
         Savepoint beforeLaunch = Database.setSavepoint();
         try {
             TEKCO_AnonymizationController.startAnonymization(
