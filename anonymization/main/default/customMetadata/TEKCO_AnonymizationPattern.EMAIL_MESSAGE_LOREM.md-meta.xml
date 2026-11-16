@@ -8,7 +8,7 @@
     </values>
     <values>
         <field>TEKCO_Description__c</field>
-        <value xsi:type="xsd:string">Replace EmailMessage body/subject/addresses linked to anonymized records with Lorem Ipsum — handled by a dedicated batch</value>
+        <value xsi:type="xsd:string">Draft EmailMessage: the configured field gets Lorem Ipsum. Sent EmailMessage: the record is deleted</value>
     </values>
     <values>
         <field>TEKCO_ExternalIdField__c</field>

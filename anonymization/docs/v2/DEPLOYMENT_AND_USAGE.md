@@ -456,7 +456,7 @@ Behaviour is driven entirely by Custom Metadata, from **Setup → Custom Metadat
 | `LOREM_IPSUM` | Replaces the whole value with Lorem Ipsum. |
 | `CLEAR` | Empties the field. |
 | `ZERO_MASK` | Regex-driven masking. |
-| `EMAIL_MESSAGE_LOREM` | EmailMessage: Draft records get Lorem body, non-Draft records are deleted. |
+| `EMAIL_MESSAGE_LOREM` | EmailMessage: on a Draft, the configured field (`TextBody`) gets Lorem Ipsum; a non-Draft record is deleted. See the limits in section 15. |
 | `DELETE_CONTENT_DOCUMENT` | Deletes the record's files. Handled by the file phase; no field change. |
 | `KEEP` | Explicit no-op. Needs no pattern record. |
 
@@ -669,6 +669,17 @@ Starting from another object needs two changes: child rules naming that parent (
 `ParentId` from Case, for instance), and By ID following every parent path of a child object, not
 the first one. Until then, a rule with a second parent on an already-configured child is ignored
 in By ID, and nothing reports it.
+
+### Emails: what `EMAIL_MESSAGE_LOREM` leaves behind
+
+- **A sent email's attachments stay.** The email is deleted in the field phase. Its
+  ContentDocumentLinks go with it, but the files themselves stay in their owner's Files, with
+  their content, linked to no record. The file phase runs later and no longer finds them.
+- **A draft keeps everything but the configured field.** Only `TextBody`, the field
+  `Case_EmailMessage` names, is masked. `HtmlBody`, `Subject` and the addresses
+  (`FromAddress`, `ToAddress`, `CcAddress`, `BccAddress`) keep their values.
+
+Both are accepted as they are for now.
 
 ### Asset Files cannot be deleted
 
