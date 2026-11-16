@@ -480,15 +480,47 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         };
     }
 
-    /** Retrocompatibilite : aucune selection, aucune condition, perimetre inchange. */
+    /**
+     * Aucune selection, toutes les regles bornees : un enregistrement d un autre record type ne
+     * peut pas changer, il n est donc pas lu (ni son historique supprime).
+     */
     @isTest
-    static void recordTypeCondition_noSelection_addsNothing() {
+    static void recordTypeCondition_noSelection_readsOnlyTheRecordTypesTheRulesCover() {
+        useNeutralOrgConfig();
+
+        List<TEKCO_AnonymizationFieldConfig__mdt> configs = accountConfigs('ACCCO_Patient');
+        configs.addAll(accountConfigs('ACCCO_IndividualPerson'));
+
+        String expected = 'RecordType.DeveloperName IN (\'ACCCO_IndividualPerson\', \'ACCCO_Patient\')';
+        System.assertEquals(expected,
+            TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition('Account', null, configs));
+        System.assertEquals(expected,
+            TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition('Account', new List<String>(), configs));
+    }
+
+    /** Une seule regle sans record type couvre tout l objet : aucune condition, comme avant. */
+    @isTest
+    static void recordTypeCondition_noSelection_oneUnscopedRuleKeepsTheWholeObject() {
+        useNeutralOrgConfig();
+
+        List<TEKCO_AnonymizationFieldConfig__mdt> configs = accountConfigs('ACCCO_Patient');
+        configs.addAll(accountConfigs(null));
+
+        System.assertEquals(null,
+            TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition('Account', null, configs));
+    }
+
+    /** Sans selection non plus, un objet sans record type n est jamais filtre dessus. */
+    @isTest
+    static void recordTypeCondition_noSelection_objectWithoutRecordTypes_addsNothing() {
         useNeutralOrgConfig();
 
         System.assertEquals(null, TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition(
-            'Account', null, accountConfigs('ACCCO_Patient')));
-        System.assertEquals(null, TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition(
-            'Account', new List<String>(), accountConfigs('ACCCO_Patient')));
+            'Pricebook2', null, new List<TEKCO_AnonymizationFieldConfig__mdt>{
+                new TEKCO_AnonymizationFieldConfig__mdt(
+                    TEKCO_ObjectApiName__c = 'Pricebook2', TEKCO_FieldApiName__c = 'Description',
+                    TEKCO_RecordTypeDeveloperName__c = 'Anything')
+            }));
     }
 
     /**

@@ -128,12 +128,22 @@ public inherited sharing class TEKCO_AnonymizationScopeQueryBuilder {
         List<String> selectedRecordTypes,
         List<TEKCO_AnonymizationFieldConfig__mdt> configs
     ) {
-        if (selectedRecordTypes == null || selectedRecordTypes.isEmpty()) return null;
         if (!TEKCO_AnonymizationOrgConfigService.hasField(objectApiName, 'recordtypeid')) return null;
         if (configs == null || configs.isEmpty()) return null;
         Set<String> declared = new Set<String>();
+        Boolean everyRuleScoped = true;
         for (TEKCO_AnonymizationFieldConfig__mdt fc : configs) {
-            declared.addAll(TEKCO_AnonymizationConfigSelector.recordTypesOf(fc));
+            Set<String> covered = TEKCO_AnonymizationConfigSelector.recordTypesOf(fc);
+            if (covered.isEmpty()) everyRuleScoped = false;
+            declared.addAll(covered);
+        }
+        if (selectedRecordTypes == null || selectedRecordTypes.isEmpty()) {
+            // No selection: when every rule names its record types, records of any other type
+            // can never change, so they are not read. One rule covering the whole object keeps
+            // the whole object in scope.
+            if (!everyRuleScoped) return null;
+            String declaredIn = escapedInClause(declared);
+            return declaredIn == null ? null : 'RecordType.DeveloperName IN (' + declaredIn + ')';
         }
         Set<String> kept = new Set<String>();
         for (String rt : selectedRecordTypes) {

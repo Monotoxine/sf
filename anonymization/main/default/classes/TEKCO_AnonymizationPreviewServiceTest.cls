@@ -114,7 +114,7 @@ private class TEKCO_AnonymizationPreviewServiceTest {
 
         List<String> allKeys = new List<String>();
         for (TEKCO_AnonymizationFieldConfig__mdt fc : [
-            SELECT TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c, TEKCO_RecordTypeDeveloperName__c
+            SELECT DeveloperName, TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c, TEKCO_RecordTypeDeveloperName__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
             WHERE TEKCO_IsActive__c = true AND TEKCO_ObjectApiName__c = :objectApiName
         ]) {
