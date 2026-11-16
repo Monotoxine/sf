@@ -190,6 +190,104 @@ public inherited sharing class TEKCO_AnonymizationGuard {
         return warnings;
     }
 
+    /**
+     * The By ID tab reaches a child object through TEKCO_ParentLookupFieldApiName__c. A lookup
+     * that does not exist on the child, or does not lead to the parent object, resolves no child
+     * at all, and the run reports success without touching them.
+     */
+    @TestVisible
+    private static List<String> validateParentLookups(
+        List<TEKCO_AnonymizationFieldConfig__mdt> configs
+    ) {
+        List<String> warnings = new List<String>();
+        if (configs == null || configs.isEmpty()) return warnings;
+
+        Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>> configsByLookup =
+            new Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>>();
+        for (TEKCO_AnonymizationFieldConfig__mdt config : configs) {
+            if (config == null || String.isBlank(config.TEKCO_ObjectApiName__c)) continue;
+            Boolean hasParent = String.isNotBlank(config.TEKCO_ParentObjectApiName__c);
+            Boolean hasLookup = String.isNotBlank(config.TEKCO_ParentLookupFieldApiName__c);
+            if (!hasParent && !hasLookup) continue;
+            if (hasParent != hasLookup) {
+                warnings.add(TEKCO_AnonymizationRunContext.cap(
+                    'Config warning: ' + describe(new List<TEKCO_AnonymizationFieldConfig__mdt>{ config })
+                    + ' sets only one of TEKCO_ParentObjectApiName__c and '
+                    + 'TEKCO_ParentLookupFieldApiName__c, so By ID never reaches its records.'
+                ));
+                continue;
+            }
+            String key = config.TEKCO_ObjectApiName__c + KEY_SEPARATOR
+                + config.TEKCO_ParentLookupFieldApiName__c + KEY_SEPARATOR
+                + config.TEKCO_ParentObjectApiName__c;
+            if (!configsByLookup.containsKey(key)) {
+                configsByLookup.put(key, new List<TEKCO_AnonymizationFieldConfig__mdt>());
+            }
+            configsByLookup.get(key).add(config);
+        }
+
+        for (List<TEKCO_AnonymizationFieldConfig__mdt> sharing : configsByLookup.values()) {
+            String objectApiName = sharing[0].TEKCO_ObjectApiName__c;
+            String lookup        = sharing[0].TEKCO_ParentLookupFieldApiName__c;
+            String parent        = sharing[0].TEKCO_ParentObjectApiName__c;
+            if (!TEKCO_AnonymizationOrgConfigService.hasObject(objectApiName)) continue;
+
+            String problem;
+            if (!TEKCO_AnonymizationOrgConfigService.hasObject(parent)) {
+                problem = 'its parent object ' + parent + ' does not exist';
+            } else {
+                try {
+                    Database.query('SELECT Id FROM ' + objectApiName + ' WHERE ' + lookup + ' = null LIMIT 0');
+                    if (!leadsTo(objectApiName, lookup, parent)) {
+                        problem = objectApiName + '.' + lookup + ' does not point to ' + parent;
+                    }
+                } catch (Exception e) {
+                    problem = objectApiName + '.' + lookup + ' is not a valid lookup: ' + e.getMessage();
+                }
+            }
+            if (problem != null) {
+                warnings.add(TEKCO_AnonymizationRunContext.cap(
+                    'Config warning: the parent lookup of ' + describe(sharing) + ' is broken, '
+                    + 'so By ID never reaches its ' + objectApiName + ' records: ' + problem
+                ));
+            }
+        }
+        return warnings;
+    }
+
+    // Follows a lookup path such as "AccountId" or "Parent.AccountId" through the describe and
+    // tells whether its last field references the parent object.
+    private static Boolean leadsTo(String objectApiName, String path, String parentObject) {
+        Set<String> currentObjects = new Set<String>{ objectApiName };
+        List<String> segments = path.split('\\.');
+        for (Integer i = 0; i < segments.size(); i++) {
+            Boolean last = i == segments.size() - 1;
+            Set<String> next = new Set<String>();
+            for (String obj : currentObjects) {
+                Map<String, Schema.SObjectField> fields = TEKCO_AnonymizationOrgConfigService.getFieldMap(obj);
+                if (fields == null) continue;
+                for (Schema.SObjectField f : fields.values()) {
+                    Schema.DescribeFieldResult d = f.getDescribe();
+                    Boolean matches = last
+                        ? d.getName().equalsIgnoreCase(segments[i])
+                        : segments[i].equalsIgnoreCase(d.getRelationshipName());
+                    if (!matches) continue;
+                    for (Schema.SObjectType target : d.getReferenceTo()) {
+                        next.add(target.getDescribe().getName());
+                    }
+                }
+            }
+            if (last) {
+                for (String target : next) {
+                    if (target.equalsIgnoreCase(parentObject)) return true;
+                }
+                return false;
+            }
+            currentObjects = next;
+        }
+        return false;
+    }
+
     private static String describe(List<TEKCO_AnonymizationFieldConfig__mdt> configs) {
         List<String> names = new List<String>();
         for (TEKCO_AnonymizationFieldConfig__mdt config : configs) {
@@ -210,7 +308,8 @@ public inherited sharing class TEKCO_AnonymizationGuard {
         List<TEKCO_AnonymizationFieldConfig__mdt> configs = [
             SELECT DeveloperName, MasterLabel, TEKCO_ObjectApiName__c, TEKCO_FieldApiName__c,
                    TEKCO_PatternType__c, TEKCO_RecordTypeDeveloperName__c,
-                   TEKCO_AdditionalFilter__c
+                   TEKCO_AdditionalFilter__c, TEKCO_ParentObjectApiName__c,
+                   TEKCO_ParentLookupFieldApiName__c
             FROM TEKCO_AnonymizationFieldConfig__mdt
             WHERE TEKCO_IsActive__c = true
         ];
@@ -253,6 +352,7 @@ public inherited sharing class TEKCO_AnonymizationGuard {
         findings.addAll(validatePatternTypes(configs));
         findings.addAll(validateAdditionalFilters(filterConfigs));
         findings.addAll(validateFilterDiscrimination(configs));
+        findings.addAll(validateParentLookups(configs));
         return findings;
     }
 

@@ -358,6 +358,74 @@ private class TEKCO_AnonymizationGuardTest {
         System.assertNotEquals(null, findings, 'Une liste est toujours renvoyée');
     }
 
+    // ─── validateParentLookups : le chemin By ID vers les enfants ─────────────────────────
+
+    private static TEKCO_AnonymizationFieldConfig__mdt childRule(
+        String devName, String objectApiName, String parentObject, String lookup
+    ) {
+        return new TEKCO_AnonymizationFieldConfig__mdt(
+            DeveloperName                     = devName,
+            MasterLabel                       = devName,
+            TEKCO_ObjectApiName__c            = objectApiName,
+            TEKCO_ParentObjectApiName__c      = parentObject,
+            TEKCO_ParentLookupFieldApiName__c = lookup
+        );
+    }
+
+    /** Le cas reel : EmailMessage n a pas d AccountId, By ID ne trouvait aucun email. */
+    @isTest
+    static void validateParentLookups_lookupMissingOnTheChild_isReported() {
+        List<String> warnings = TEKCO_AnonymizationGuard.validateParentLookups(
+            new List<TEKCO_AnonymizationFieldConfig__mdt>{
+                childRule('Case_EmailMessage', 'EmailMessage', 'Account', 'AccountId')
+            }
+        );
+
+        System.assertEquals(1, warnings.size(), 'Le lookup inexistant est signale : ' + warnings);
+        System.assert(warnings[0].contains('Case_EmailMessage'), 'Le message nomme la config : ' + warnings[0]);
+    }
+
+    /** Le chemin par relation qui corrige ce cas est accepte. */
+    @isTest
+    static void validateParentLookups_relationshipPathToTheParent_isSilent() {
+        System.assertEquals(0, TEKCO_AnonymizationGuard.validateParentLookups(
+            new List<TEKCO_AnonymizationFieldConfig__mdt>{
+                childRule('Case_EmailMessage', 'EmailMessage', 'Account', 'Parent.AccountId'),
+                childRule('Contact_Email', 'Contact', 'Account', 'AccountId')
+            }
+        ).size(), 'Deux lookups valides ne produisent rien');
+    }
+
+    /** Un lookup qui existe mais pointe ailleurs ne ramene pas les enfants du parent voulu. */
+    @isTest
+    static void validateParentLookups_lookupToAnotherObject_isReported() {
+        List<String> warnings = TEKCO_AnonymizationGuard.validateParentLookups(
+            new List<TEKCO_AnonymizationFieldConfig__mdt>{
+                childRule('Contact_Owner', 'Contact', 'Account', 'OwnerId')
+            }
+        );
+
+        System.assertEquals(1, warnings.size(), 'OwnerId ne mene pas a Account : ' + warnings);
+        System.assert(warnings[0].contains('does not point to Account'), warnings[0]);
+    }
+
+    @isTest
+    static void validateParentLookups_onlyOneOfTheTwoFields_isReported() {
+        System.assertEquals(1, TEKCO_AnonymizationGuard.validateParentLookups(
+            new List<TEKCO_AnonymizationFieldConfig__mdt>{
+                childRule('Half', 'Contact', 'Account', null)
+            }
+        ).size(), 'Un parent sans lookup est signale');
+    }
+
+    @isTest
+    static void validateParentLookups_noParentAndNull_returnEmpty() {
+        System.assertEquals(0, TEKCO_AnonymizationGuard.validateParentLookups(null).size());
+        System.assertEquals(0, TEKCO_AnonymizationGuard.validateParentLookups(
+            new List<TEKCO_AnonymizationFieldConfig__mdt>{ childRule('Plain', 'Contact', null, null) }
+        ).size(), 'Une config sans parent n est pas controlee');
+    }
+
     // ─── validateFilterDiscrimination : la forme que le moteur ne sait pas honorer ────────
 
     private static TEKCO_AnonymizationFieldConfig__mdt filterRule(
