@@ -82,11 +82,11 @@ rather than a list in a document: a list here would go stale, and one already di
 
 ### 2.2 Upgrading an org that carries an earlier version
 
-`destructiveChanges-architecture-v2.xml` lists everything earlier versions installed that
-version 2 no longer has: the superseded batch classes, renamed or dropped fields
-(`TEKCO_FieldsAnonymized__c`, `TEKCO_ParentRecordTypeDeveloperName__c`, …), the field-config and
-pattern records that were renamed or replaced, and the first prototype's objects. Deploy it with
-the package, in one deployment:
+`destructiveChanges-architecture-v2.xml` lists what an earlier version left in the mmedlej sandbox
+that version 2 no longer has: two superseded classes, three dropped fields
+(`TEKCO_FieldsAnonymized__c`, `TEKCO_ParentRecordTypeDeveloperName__c`, `TEKCO_BypassEnabled__c`),
+the old field-config records and one pattern record. Another org may carry other leftovers: check
+it before deploying. Deploy it with the package, in one deployment:
 
 ```bash
 sf project deploy start \
