@@ -3,5 +3,17 @@
     "**/node_modules": true,
     "**/bower_components": true,
     "**/.sfdx": true
+  },
+  "xml.preferences.showSchemaDocumentationType": "none",
+  "workbench.colorCustomizations": {
+    "statusBar.background": "#396547",
+    "statusBar.foreground": "#ffffff",
+    "statusBar.border": "#3ba755",
+    "statusBarItem.hoverBackground": "#5d8168",
+    "statusBarItem.remoteBackground": "#2f4e39",
+    "statusBarItem.remoteForeground": "#ffffff",
+    "activityBar.activeBorder": "#3ba755",
+    "activityBarBadge.background": "#3ba755",
+    "activityBarBadge.foreground": "#181818"
   }
 }
