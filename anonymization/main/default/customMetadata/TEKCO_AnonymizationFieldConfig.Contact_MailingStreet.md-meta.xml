@@ -31,10 +31,6 @@
         <value xsi:type="xsd:string">Account</value>
     </values>
     <values>
-        <field>TEKCO_ParentRecordTypeDeveloperName__c</field>
-        <value xsi:type="xsd:string">ACCCO_Patient</value>
-    </values>
-    <values>
         <field>TEKCO_PatternType__c</field>
         <value xsi:type="xsd:string">ADDRESS_STREET_RANDOM</value>
     </values>

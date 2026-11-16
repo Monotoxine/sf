@@ -50,7 +50,6 @@ Un record = un champ d'un objet à anonymiser.
 | `TEKCO_DeleteHistory__c` | Si true → Phase 3 supprime l'historique |
 | `TEKCO_ParentObjectApiName__c` | Pour les objets sans Brand (ex: `Account` pour `EmailMessage`) |
 | `TEKCO_ParentLookupFieldApiName__c` | Lookup vers le parent (ex: `ParentId`) |
-| `TEKCO_ParentRecordTypeDeveloperName__c` | Filtre RT côté parent |
 
 ### TEKCO_AnonymizationPattern__mdt — "comment anonymiser"
 

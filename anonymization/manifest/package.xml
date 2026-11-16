@@ -112,7 +112,6 @@
         <members>TEKCO_AnonymizationAuditLog__c.TEKCO_HistoryRecordsDeleted__c</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ParentObjectApiName__c</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ParentLookupFieldApiName__c</members>
-        <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ParentRecordTypeDeveloperName__c</members>
         <members>TEKCO_AnonymizationPattern__mdt.TEKCO_RegexFind__c</members>
         <members>TEKCO_AnonymizationPattern__mdt.TEKCO_RegexReplace__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_OrgDomain__c</members>

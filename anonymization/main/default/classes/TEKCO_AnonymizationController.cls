@@ -145,7 +145,6 @@ public with sharing class TEKCO_AnonymizationController {
                     TEKCO_DeleteHistory__c,
                     TEKCO_ParentObjectApiName__c,
                     TEKCO_ParentLookupFieldApiName__c,
-                    TEKCO_ParentRecordTypeDeveloperName__c,
                     TEKCO_AdditionalFilter__c
                 FROM TEKCO_AnonymizationFieldConfig__mdt
                 WHERE TEKCO_IsActive__c = true
@@ -164,7 +163,6 @@ public with sharing class TEKCO_AnonymizationController {
                     TEKCO_DeleteHistory__c,
                     TEKCO_ParentObjectApiName__c,
                     TEKCO_ParentLookupFieldApiName__c,
-                    TEKCO_ParentRecordTypeDeveloperName__c,
                     TEKCO_AdditionalFilter__c
                 FROM TEKCO_AnonymizationFieldConfig__mdt
                 WHERE TEKCO_IsActive__c = true
@@ -187,7 +185,6 @@ public with sharing class TEKCO_AnonymizationController {
             fieldConfigDto.deleteHistory                  = fieldConfig.TEKCO_DeleteHistory__c;
             fieldConfigDto.parentObjectApiName            = fieldConfig.TEKCO_ParentObjectApiName__c;
             fieldConfigDto.parentLookupFieldApiName       = fieldConfig.TEKCO_ParentLookupFieldApiName__c;
-            fieldConfigDto.parentRecordTypeDeveloperName  = fieldConfig.TEKCO_ParentRecordTypeDeveloperName__c;
             fieldConfigDto.additionalFilter               = fieldConfig.TEKCO_AdditionalFilter__c;
 
             TEKCO_AnonymizationPattern__mdt patternRecord = patternsByType.get(fieldConfig.TEKCO_PatternType__c);
@@ -411,7 +408,6 @@ public with sharing class TEKCO_AnonymizationController {
         @AuraEnabled public Boolean deleteHistory;
         @AuraEnabled public String  parentObjectApiName;
         @AuraEnabled public String  parentLookupFieldApiName;
-        @AuraEnabled public String  parentRecordTypeDeveloperName;
         @AuraEnabled public String  additionalFilter;
     }
 }

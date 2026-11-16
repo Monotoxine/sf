@@ -303,7 +303,6 @@ The tool's behavior is entirely driven by two Custom Metadata types, accessible 
 |---|---|
 | `TEKCO_ParentObjectApiName__c` | API name of the parent object. Used in By Criteria mode as a filter, and in By ID mode to discover child records. |
 | `TEKCO_ParentLookupFieldApiName__c` | API name of the lookup field on the child object pointing to the parent (e.g. `AccountId`). |
-| `TEKCO_ParentRecordTypeDeveloperName__c` | Record Type of the parent used as a filter (By Criteria mode only). |
 
 **History behavior:**
 

@@ -312,7 +312,6 @@ Field rules are defined in `TEKCO_AnonymizationFieldConfig__mdt`. Each record ma
 |---|---|
 | `TEKCO_ParentObjectApiName__c` | API name of the parent object. e.g. `Account`. Also used in By ID mode to discover child records from parent IDs. |
 | `TEKCO_ParentLookupFieldApiName__c` | API name of the lookup field on the child pointing to the parent. e.g. `AccountId`. |
-| `TEKCO_ParentRecordTypeDeveloperName__c` | Record Type of the parent used as a filter (By Criteria mode only). |
 
 **History behavior:**
 

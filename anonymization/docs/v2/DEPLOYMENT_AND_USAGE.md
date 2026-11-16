@@ -545,7 +545,6 @@ applying either rule to either population gives the same result.
 |---|---|
 | `TEKCO_ParentObjectApiName__c` | Parent object. Used as a filter in By Criteria, and to discover children in By ID. |
 | `TEKCO_ParentLookupFieldApiName__c` | Lookup field on the child pointing at the parent (`AccountId`, not `Account`). |
-| `TEKCO_ParentRecordTypeDeveloperName__c` | Parent Record Type used as a filter (By Criteria only). |
 
 **History:**
 

@@ -2,7 +2,7 @@
 <!-- Anonymization tool, complete package for a STANDARD TEKCO org.
 
      WHAT IT DEPLOYS: every piece of anonymization metadata for a TEKCO org. Apex, the LWC, the
-     four objects and all 38 of their fields, the four layouts, the tab, the permission set, the
+     four objects and all 37 of their fields, the four layouts, the tab, the permission set, the
      custom permission, the 14 shared pattern records, the org config record, and the 76
      TEKCO_AnonymizationFieldConfig records (Portugal's ALH_* configs are not included).
 
@@ -126,7 +126,6 @@
         <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ObjectApiName__c</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ParentLookupFieldApiName__c</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ParentObjectApiName__c</members>
-        <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ParentRecordTypeDeveloperName__c</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_PatternType__c</members>
         <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_RecordTypeDeveloperName__c</members>
         <members>TEKCO_AnonymizationOrgConfig__mdt.TEKCO_BrandCodeField__c</members>

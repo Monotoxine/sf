@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Removes TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ParentRecordTypeDeveloperName__c. It was
+     created for By Criteria in April 2026 to scope a child object through its parent's record
+     type; By Criteria stopped reading it in July (1912d8a), replaced by TEKCO_AdditionalFilter__c,
+     and By ID never read it. Configs still carried values that did nothing.
+
+     Deploy as a POST-destructive change with the controller, the layout and the field configs that
+     no longer reference it:
+
+       sf project deploy start ~-manifest anonymization/manifest/package-architecture-v2.xml
+           ~-post-destructive-changes anonymization/manifest/destructiveChanges-parent-record-type.xml
+           ~-target-org <alias>
+     (replace ~- with double dashes; XML comments cannot contain them)
+-->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>TEKCO_AnonymizationFieldConfig__mdt.TEKCO_ParentRecordTypeDeveloperName__c</members>
+        <name>CustomField</name>
+    </types>
+    <version>65.0</version>
+</Package>
