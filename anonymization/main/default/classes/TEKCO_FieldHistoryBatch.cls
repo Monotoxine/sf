@@ -100,6 +100,9 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
         ctx.addErrors(errors);
         ctx.addHistoryDeleted(recordsDeleted);
         ctx.addFailed(recordsFailed);
+        TEKCO_AnonymizationChainRunner.recordChunkFailures(
+            bc.getJobId(), 'Field history (' + objectApiName + ')', ctx
+        );
         TEKCO_AnonymizationChainRunner.startNext(ctx);
     }
 }

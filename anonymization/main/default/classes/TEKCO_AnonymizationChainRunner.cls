@@ -15,7 +15,7 @@ public without sharing class TEKCO_AnonymizationChainRunner {
                 Id jobId = startStep(phase, key, ctx);
                 if (jobId != null) {
                     TEKCO_AnonymizationAuditService.markRunning(
-                        ctx.auditLogId, ctx.recordsProcessed, ctx.recordsFailed, ctx.errors
+                        ctx.auditLogId, ctx.recordsProcessed, ctx.recordsFailed, ctx.errors, jobId
                     );
                     return jobId;
                 }
@@ -68,8 +68,22 @@ public without sharing class TEKCO_AnonymizationChainRunner {
         TEKCO_AnonymizationBypassService.restore(ctx.bypassSnapshot);
         TEKCO_AnonymizationAuditService.finalize(
             ctx.auditLogId, ctx.recordsProcessed, ctx.recordsFailed,
-            ctx.documentsDeleted, ctx.historyRecordsDeleted, ctx.errors
+            ctx.documentsDeleted, ctx.historyRecordsDeleted, ctx.chunksFailed, ctx.errors
         );
+    }
+
+    /** Counts the chunks of a finished batch that threw and were rolled back. */
+    public static void recordChunkFailures(Id jobId, String stepLabel, TEKCO_AnonymizationRunContext ctx) {
+        if (jobId == null || ctx == null) return;
+        List<AsyncApexJob> jobs = [
+            SELECT NumberOfErrors, ExtendedStatus FROM AsyncApexJob WHERE Id = :jobId LIMIT 1
+        ];
+        if (jobs.isEmpty() || jobs[0].NumberOfErrors == null || jobs[0].NumberOfErrors == 0) return;
+        ctx.addChunksFailed(jobs[0].NumberOfErrors);
+        ctx.addErrors(new List<String>{
+            stepLabel + ': ' + jobs[0].NumberOfErrors
+            + ' chunk(s) rolled back, their records left unchanged: ' + jobs[0].ExtendedStatus
+        });
     }
 
     private static void restoreBypassQuietly(TEKCO_AnonymizationRunContext ctx) {

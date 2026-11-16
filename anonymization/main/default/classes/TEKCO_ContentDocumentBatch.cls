@@ -81,6 +81,9 @@ public without sharing class TEKCO_ContentDocumentBatch implements Database.Batc
         ctx.addErrors(errors);
         ctx.addDocumentsDeleted(recordsDeleted);
         ctx.addFailed(recordsFailed);
+        TEKCO_AnonymizationChainRunner.recordChunkFailures(
+            bc.getJobId(), 'ContentDocument (' + configDevName + ')', ctx
+        );
         TEKCO_AnonymizationChainRunner.startNext(ctx);
     }
 }

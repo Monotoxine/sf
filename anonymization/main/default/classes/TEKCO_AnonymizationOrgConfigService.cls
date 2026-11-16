@@ -222,11 +222,18 @@ public inherited sharing class TEKCO_AnonymizationOrgConfigService {
             return 'TEKCO_Brand__c IN (' + toInClause(selectedBrands) + ')';
         }
         if (hasField(objectApiName, 'TEKCO_Country__c')) {
-            List<String> countries = getCountriesForBrands(selectedBrands);
-            if (countries.isEmpty()) return null;
-            return 'TEKCO_Country__c IN (' + toInClause(countries) + ')';
+            return countryCondition(getCountriesForBrands(selectedBrands));
         }
         return null;
+    }
+
+    public static final String NO_RECORD_CONDITION = 'Id = null';
+
+    /** A brand with no country selects nothing, never every country. */
+    @TestVisible
+    private static String countryCondition(List<String> countries) {
+        if (countries == null || countries.isEmpty()) return NO_RECORD_CONDITION;
+        return 'TEKCO_Country__c IN (' + toInClause(countries) + ')';
     }
 
     public static String toInClause(List<String> values) {

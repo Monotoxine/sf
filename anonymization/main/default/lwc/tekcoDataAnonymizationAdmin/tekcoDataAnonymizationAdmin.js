@@ -239,7 +239,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     }
 
     loadAuditLogs() {
-        getAuditLogs()
+        return getAuditLogs()
             .then(logs => {
                 this.auditLogs = logs.map(log => ({
                     ...log,
@@ -417,9 +417,11 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     }
 
     startAuditPoll() {
+        this.stopAuditPoll();
         this._auditTimer = setInterval(() => {
-            this.loadAuditLogs();
-            if (!this.auditLogs.some(log => log.TEKCO_Status__c === 'Running')) this.stopAuditPoll();
+            this.loadAuditLogs().then(() => {
+                if (!this.auditLogs.some(log => log.TEKCO_Status__c === 'Running')) this.stopAuditPoll();
+            });
         }, AUDIT_POLL_INTERVAL_MS);
     }
 
@@ -669,7 +671,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     }
 
     loadByIdAuditLogs() {
-        getAuditLogsByid()
+        return getAuditLogsByid()
             .then(logs => {
                 this.byIdAuditLogs = logs.map(log => ({
                     ...log,
@@ -683,9 +685,11 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     }
 
     startByIdAuditPoll() {
+        this.stopByIdAuditPoll();
         this._byIdAuditTimer = setInterval(() => {
-            this.loadByIdAuditLogs();
-            if (!this.byIdAuditLogs.some(log => log.TEKCO_Status__c === 'Running')) this.stopByIdAuditPoll();
+            this.loadByIdAuditLogs().then(() => {
+                if (!this.byIdAuditLogs.some(log => log.TEKCO_Status__c === 'Running')) this.stopByIdAuditPoll();
+            });
         }, AUDIT_POLL_INTERVAL_MS);
     }
 

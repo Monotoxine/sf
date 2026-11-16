@@ -246,4 +246,13 @@ private class TEKCO_AnonymizationOrgConfigServiceTest {
                 mappingObject, TEKCO_AnonymizationOrgConfigService.COUNTRY_BRAND_COUNTRY_FIELD),
             'COUNTRY_BRAND_COUNTRY_FIELD no longer matches ' + mappingObject);
     }
+
+    @isTest
+    static void countryCondition_brandWithNoCountry_selectsNothing() {
+        System.assertEquals(TEKCO_AnonymizationOrgConfigService.NO_RECORD_CONDITION,
+            TEKCO_AnonymizationOrgConfigService.countryCondition(new List<String>()),
+            'A brand with no country must not drop the brand filter');
+        System.assertEquals('TEKCO_Country__c IN (\'FR\')',
+            TEKCO_AnonymizationOrgConfigService.countryCondition(new List<String>{ 'FR' }));
+    }
 }

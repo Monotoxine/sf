@@ -127,11 +127,7 @@ public with sharing class TEKCO_AnonymizationLaunchService {
             );
             planSteps(ctx, fieldObjects, contentDocConfigs, historyDevNamesByObject);
 
-            Id batchJobId = TEKCO_AnonymizationChainRunner.startNext(ctx);
-            if (batchJobId != null) {
-                auditLog.TEKCO_JobId__c = String.valueOf(batchJobId);
-                update auditLog;
-            }
+            TEKCO_AnonymizationChainRunner.startNext(ctx);
             return auditLog.Id;
         } catch (Exception e) {
             restoreQuietly(bypassSnapshot);

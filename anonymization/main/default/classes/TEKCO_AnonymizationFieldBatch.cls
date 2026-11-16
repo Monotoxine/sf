@@ -37,7 +37,7 @@ public without sharing class TEKCO_AnonymizationFieldBatch implements Database.B
                 TEKCO_AnonymizationScopeQueryBuilder.buildFieldSelection(
                     objectApiName, startConfigs, TEKCO_AnonymizationConfigSelector.buildPatternMap()
                 );
-            errors.addAll(selection.errors);
+            addErrors(selection.errors);
             validFieldConfigDevNames = selection.validConfigDevNames;
 
             if (selection.validConfigs.isEmpty()) {
@@ -86,7 +86,13 @@ public without sharing class TEKCO_AnonymizationFieldBatch implements Database.B
             );
         recordsProcessed += result.recordsProcessed;
         recordsFailed    += result.recordsFailed;
-        errors.addAll(result.errors);
+        addErrors(result.errors);
+    }
+
+    private void addErrors(List<String> newErrors) {
+        for (String e : newErrors) {
+            if (errors.size() < TEKCO_AnonymizationRunContext.MAX_CAPTURED_ERRORS) errors.add(e);
+        }
     }
 
     public void finish(Database.BatchableContext bc) {
@@ -95,6 +101,7 @@ public without sharing class TEKCO_AnonymizationFieldBatch implements Database.B
         ctx.addErrors(errors);
         ctx.addProcessed(recordsProcessed);
         ctx.addFailed(recordsFailed);
+        TEKCO_AnonymizationChainRunner.recordChunkFailures(bc.getJobId(), objectApiName, ctx);
         TEKCO_AnonymizationChainRunner.startNext(ctx);
     }
 }

@@ -76,4 +76,24 @@ private class TEKCO_AnonymizationChainRunnerTest {
         Test.stopTest();
         System.assertEquals(null, jobId, 'A null context must not throw');
     }
+
+    @isTest
+    static void chainRunner_startedStep_recordsItsJobOnTheLog() {
+        TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
+        TEKCO_AnonymizationAuditLog__c log = newLog();
+
+        TEKCO_AnonymizationRunContext ctx = contextFor(log.Id, 0, 0);
+        ctx.addStep(TEKCO_AnonymizationRunContext.PHASE_FIELD, 'Account');
+
+        Test.startTest();
+        Id jobId = TEKCO_AnonymizationChainRunner.startNext(ctx);
+        TEKCO_AnonymizationAuditLog__c running = [
+            SELECT TEKCO_JobId__c FROM TEKCO_AnonymizationAuditLog__c WHERE Id = :log.Id
+        ];
+        Test.stopTest();
+
+        System.assertNotEquals(null, jobId, 'The step starts a batch');
+        System.assertEquals(String.valueOf(jobId), running.TEKCO_JobId__c,
+            'Each step records its job, so the concurrency guard sees the run as live');
+    }
 }

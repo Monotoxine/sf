@@ -104,4 +104,58 @@ private class TEKCO_AnonymizationAuditServiceTest {
 
         System.assert(true, 'Null audit log id handled without exception');
     }
+
+    @isTest
+    static void finalize_withFailedChunks_marksPartial() {
+        TEKCO_AnonymizationAuditLog__c log = newLog();
+
+        Test.startTest();
+        TEKCO_AnonymizationAuditService.finalize(log.Id, 10, 0, 0, 0, 1, new List<String>{ 'chunk' });
+        Test.stopTest();
+
+        TEKCO_AnonymizationAuditLog__c result = [
+            SELECT TEKCO_Status__c FROM TEKCO_AnonymizationAuditLog__c WHERE Id = :log.Id
+        ];
+        System.assertEquals('Partial', result.TEKCO_Status__c, 'A rolled-back chunk is not a Success');
+    }
+
+    @isTest
+    static void finalize_withMoreErrorsThanTheFieldHolds_stillClosesTheLog() {
+        TEKCO_AnonymizationAuditLog__c log = newLog();
+        List<String> errors = new List<String>();
+        for (Integer i = 0; i < TEKCO_AnonymizationRunContext.MAX_ACCUMULATED_ERRORS; i++) {
+            errors.add('x'.repeat(TEKCO_AnonymizationRunContext.MAX_ERROR_MSG_LENGTH));
+        }
+
+        Test.startTest();
+        TEKCO_AnonymizationAuditService.finalize(log.Id, 10, 1, 0, 0, errors);
+        Test.stopTest();
+
+        TEKCO_AnonymizationAuditLog__c result = [
+            SELECT TEKCO_Status__c, TEKCO_EndTime__c, TEKCO_ErrorMessage__c
+            FROM TEKCO_AnonymizationAuditLog__c WHERE Id = :log.Id
+        ];
+        System.assertEquals('Partial', result.TEKCO_Status__c, 'The log is closed, not left Running');
+        System.assertNotEquals(null, result.TEKCO_EndTime__c, 'End time stamped');
+        System.assertEquals(
+            TEKCO_AnonymizationAuditLog__c.TEKCO_ErrorMessage__c.getDescribe().getLength(),
+            result.TEKCO_ErrorMessage__c.length(),
+            'The message is cut to the field length'
+        );
+    }
+
+    @isTest
+    static void markRunning_withJobId_recordsIt() {
+        TEKCO_AnonymizationAuditLog__c log = newLog();
+        Id jobId = '707000000000001AAA';
+
+        Test.startTest();
+        TEKCO_AnonymizationAuditService.markRunning(log.Id, 0, 0, new List<String>(), jobId);
+        Test.stopTest();
+
+        TEKCO_AnonymizationAuditLog__c result = [
+            SELECT TEKCO_JobId__c FROM TEKCO_AnonymizationAuditLog__c WHERE Id = :log.Id
+        ];
+        System.assertEquals(String.valueOf(jobId), result.TEKCO_JobId__c, 'The running job is recorded');
+    }
 }

@@ -29,6 +29,7 @@ public class TEKCO_AnonymizationRunContext {
     public Integer recordsFailed         = 0;
     public Integer documentsDeleted      = 0;
     public Integer historyRecordsDeleted = 0;
+    public Integer chunksFailed          = 0;
     public List<String> errors           = new List<String>();
 
     public void addStep(String phase, String key) {
@@ -68,6 +69,10 @@ public class TEKCO_AnonymizationRunContext {
 
     public void addHistoryDeleted(Integer count) {
         if (count != null) historyRecordsDeleted += count;
+    }
+
+    public void addChunksFailed(Integer count) {
+        if (count != null) chunksFailed += count;
     }
 
     /** Truncates one message to MAX_ERROR_MSG_LENGTH. */
