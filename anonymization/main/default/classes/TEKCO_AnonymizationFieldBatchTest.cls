@@ -3,7 +3,7 @@
  * the counters carried by the run context, the By ID scope and the production guard.
  */
 @isTest
-private class TEKCO_AnonymizationBatchTest {
+private class TEKCO_AnonymizationFieldBatchTest {
 
     private static TEKCO_AnonymizationAuditLog__c newLog() {
         TEKCO_AnonymizationAuditLog__c log = new TEKCO_AnonymizationAuditLog__c(
@@ -140,28 +140,6 @@ private class TEKCO_AnonymizationBatchTest {
     }
 
     @isTest
-    static void chainRunner_byIdStepWithoutRecords_isSkippedAndRunStillFinalizes() {
-        TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
-        TEKCO_AnonymizationAuditLog__c log = newLog();
-
-        TEKCO_AnonymizationRunContext ctx = contextFor(log.Id, 0, 0);
-        ctx.byId = true;
-        ctx.addStep(TEKCO_AnonymizationRunContext.PHASE_FIELD, 'Account');  // no ids for Account
-
-        Test.startTest();
-        Id jobId = TEKCO_AnonymizationChainRunner.startNext(ctx);
-        Test.stopTest();
-
-        System.assertEquals(null, jobId, 'A By ID step with no resolved record starts no batch');
-
-        TEKCO_AnonymizationAuditLog__c result = [
-            SELECT TEKCO_Status__c FROM TEKCO_AnonymizationAuditLog__c WHERE Id = :log.Id
-        ];
-        System.assertEquals('Success', result.TEKCO_Status__c,
-            'Skipping the last step still closes the run instead of leaving it Running');
-    }
-
-    @isTest
     static void batch_onProduction_closesLogAsFailed() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = false;
         TEKCO_AnonymizationAuditLog__c log = newLog();
@@ -180,36 +158,5 @@ private class TEKCO_AnonymizationBatchTest {
             'Production guard closes the log instead of leaving it stuck on Running');
         System.assert(result.TEKCO_ErrorMessage__c.containsIgnoreCase('production'),
             'Reason recorded: ' + result.TEKCO_ErrorMessage__c);
-    }
-
-    @isTest
-    static void chainRunner_withNoStepLeft_finalizesTheRun() {
-        TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
-        TEKCO_AnonymizationAuditLog__c log = newLog();
-
-        TEKCO_AnonymizationRunContext ctx = contextFor(log.Id, 42, 0);
-
-        Test.startTest();
-        Id jobId = TEKCO_AnonymizationChainRunner.startNext(ctx);
-        Test.stopTest();
-
-        System.assertEquals(null, jobId, 'No batch is started when the plan is empty');
-
-        TEKCO_AnonymizationAuditLog__c result = [
-            SELECT TEKCO_Status__c, TEKCO_EndTime__c, TEKCO_RecordsProcessed__c
-            FROM TEKCO_AnonymizationAuditLog__c WHERE Id = :log.Id
-        ];
-        System.assertEquals('Success', result.TEKCO_Status__c, 'Run closed as Success');
-        System.assertNotEquals(null, result.TEKCO_EndTime__c, 'End time stamped');
-        System.assertEquals(42, result.TEKCO_RecordsProcessed__c,
-            'The context counters are what the audit log records');
-    }
-
-    @isTest
-    static void chainRunner_nullContext_isANoOp() {
-        Test.startTest();
-        Id jobId = TEKCO_AnonymizationChainRunner.startNext(null);
-        Test.stopTest();
-        System.assertEquals(null, jobId, 'A null context must not throw');
     }
 }

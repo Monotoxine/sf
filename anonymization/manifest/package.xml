@@ -3,7 +3,8 @@
     <types>
         <members>TEKCO_AnonymizationAuditService</members>
         <members>TEKCO_AnonymizationAuditServiceTest</members>
-        <members>TEKCO_AnonymizationBatchTest</members>
+        <members>TEKCO_AnonymizationFieldBatchTest</members>
+        <members>TEKCO_AnonymizationChainRunnerTest</members>
         <members>TEKCO_AnonymizationFieldBatch</members>
         <members>TEKCO_AnonymizationByIdController</members>
         <members>TEKCO_AnonymizationConfigSelector</members>

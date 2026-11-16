@@ -187,7 +187,7 @@ locator. A follow-up fix (found by the new tests) stops `finish()` from then re-
 same log as `Success`.
 
 **Test** — safest in a sandbox using the test class, since you should not run this against
-production. `TEKCO_AnonymizationBatchTest.batch_onProduction_closesLogAsFailed` covers it by
+production. `TEKCO_AnonymizationFieldBatchTest.batch_onProduction_closesLogAsFailed` covers it by
 stubbing `isSandboxCached = false`.
 
 **Expected**: status `Failed`, error message mentioning production, and — critically — the

@@ -49,7 +49,7 @@
 
         <!-- Tests -->
         <members>TEKCO_AnonymizationAuditServiceTest</members>
-        <members>TEKCO_AnonymizationBatchTest</members>
+        <members>TEKCO_AnonymizationFieldBatchTest</members>
         <members>TEKCO_AnonymizationBatchUtilsTest</members>
         <members>TEKCO_ContentDocumentDeleteServiceTest</members>
         <members>TEKCO_FieldHistoryDeleteServiceTest</members>
