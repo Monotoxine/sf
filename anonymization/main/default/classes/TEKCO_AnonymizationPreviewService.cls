@@ -36,7 +36,9 @@ public without sharing class TEKCO_AnonymizationPreviewService {
             filterConfigs(loadConfigs(safeObject), selectedRecordTypes, excludedFields);
 
         List<String> conditions = new List<String>();
-        conditions.add(TEKCO_AnonymizationOrgConfigService.buildBrandCondition(safeObject, selectedBrands));
+        conditions.add(TEKCO_AnonymizationScopeQueryBuilder.brandCondition(
+            safeObject, selectedBrands, TEKCO_AnonymizationScopeQueryBuilder.hasEmailMessageLorem(configs)
+        ));
         conditions.add(TEKCO_AnonymizationScopeQueryBuilder.recordTypeCondition(
             safeObject, selectedRecordTypes, configs
         ));

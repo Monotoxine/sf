@@ -228,7 +228,8 @@ public with sharing class TEKCO_AnonymizationController {
         Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>> configsByObject =
             new Map<String, List<TEKCO_AnonymizationFieldConfig__mdt>>();
 
-        for (TEKCO_AnonymizationFieldConfig__mdt fc : allConfigs) {
+        for (TEKCO_AnonymizationFieldConfig__mdt fc
+                : TEKCO_AnonymizationConfigSelector.filterByRecordTypes(allConfigs, selectedRecordTypes)) {
             String obj = fc.TEKCO_ObjectApiName__c;
             totalByObject.put(obj, (totalByObject.get(obj) != null ? totalByObject.get(obj) : 0) + 1);
             if (fc.TEKCO_PatternType__c == PATTERN_TYPE_DELETE_CONTENT_DOCUMENT) {
@@ -258,10 +259,17 @@ public with sharing class TEKCO_AnonymizationController {
             Integer contentDoc     = contentDocByObject.get(objectApiName) != null ? contentDocByObject.get(objectApiName) : 0;
             dto.isContentDocOnly   = total > 0 && total == contentDoc;
 
+            if (!configsByObject.containsKey(objectApiName)) {
+                dto.count = 0;
+                results.add(dto);
+                continue;
+            }
+
             try {
                 List<String> conditions = new List<String>();
-                String brandCondition = TEKCO_AnonymizationOrgConfigService.buildBrandCondition(
-                    objectApiName, selectedBrands
+                String brandCondition = TEKCO_AnonymizationScopeQueryBuilder.brandCondition(
+                    objectApiName, selectedBrands,
+                    TEKCO_AnonymizationScopeQueryBuilder.hasEmailMessageLorem(configsByObject.get(objectApiName))
                 );
                 if (brandCondition != null) {
                     conditions.add(brandCondition);

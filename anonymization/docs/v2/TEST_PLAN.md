@@ -287,6 +287,18 @@ keyed on `TEKCO_Country__c`. **Preview**.
 **Expected**: 0 records for that object. Then pick a brand that has a mapping: the count is the
 records of its countries only.
 
+## D7 — Preview counts follow the record-type selection
+
+**Intent**: the counts used to ignore which rules the record-type selection keeps, while the run
+drops them. An object whose rules all cover other record types was counted in full, and the run
+then processed none of it.
+
+**Steps**: select one record type, `ACCCO_Patient`, and an object whose rules all name other
+record types. **Preview**.
+
+**Expected**: 0 for that object. With an EmailMessage rule and a brand selected, the EmailMessage
+count is the emails of that brand's Cases only.
+
 ---
 
 # Group E — Before/after sample
@@ -437,6 +449,20 @@ Now use the table's own **Record Type** dropdown.
 **Expected**: it offers `ACCCO_IndividualPerson` and `ACCCO_Patient` as **two separate options**,
 not one combined `ACCCO_IndividualPerson,ACCCO_Patient` entry, and picking either keeps the
 merged rules.
+
+---
+
+## F7 — Unticked rules survive a selection change
+
+**Intent**: the field table is rebuilt when the objects or record types change. The unticked
+rules used to be forgotten, so the run anonymized fields the user had excluded.
+
+**Steps**: **Preview**, untick a rule and its **Del. History**. Change the record-type selection,
+then change it back. **Preview** again. Then change the selection once more and press **Start**
+without previewing.
+
+**Expected**: after the second Preview, the rule is still unticked. In the confirmation dialog,
+**Excluded Fields** and **History Disabled** name it.
 
 ---
 
@@ -641,6 +667,17 @@ Run, re-query.
 **Expected**: the run finishes `Partial`. The audit log error column carries *"We can't delete
 this file because it's an asset file…"*. Every other file was still deleted. This is a platform
 restriction, not a permissions problem.
+
+## H6 — History is deleted only where the field is anonymized
+
+**Intent**: history deletion used to cover every configured field on the object, for the
+record types of all its rules together. A field anonymized only on Hospital accounts lost its
+history on Patient accounts too.
+
+**Steps**: pick a field with history tracking whose rule names one record type. Edit that field
+on one record of the rule's record type and on one record of another record type. Run.
+
+**Expected**: the history row is deleted on the first record and **kept** on the second.
 
 ---
 
@@ -900,11 +937,11 @@ leaves nothing else to read.
 | A — Deployment | A1–A3 | | |
 | B — Access | B1–B2 | | |
 | C — Configuration check | C1–C6 | | |
-| D — Scope and preview | D1, D1b, D2, D2b, D3–D6 | | |
+| D — Scope and preview | D1, D1b, D2, D2b, D3–D7 | | |
 | E — Before/after sample | E1–E4 | | |
-| F — Field selection | F1–F6 | | |
+| F — Field selection | F1–F7 | | |
 | G — By Criteria run | G1–G11 | | |
-| H — History and files | H1–H5 | | |
+| H — History and files | H1–H6 | | |
 | I — By ID | I1–I7 | | |
 | J — One run at a time | J1–J6 | | |
 | K — Failure paths | K1–K6 | | |

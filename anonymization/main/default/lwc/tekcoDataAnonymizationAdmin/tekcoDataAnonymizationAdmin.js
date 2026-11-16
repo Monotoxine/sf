@@ -105,6 +105,8 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
 
     _pendingExcludedFields        = [];
     _pendingDisabledHistoryFields = [];
+    _untickedKeys                 = new Set();
+    _historyOffKeys               = new Set();
     _auditTimer   = null;
 
     @track configFindings   = [];
@@ -182,6 +184,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     }
 
     loadFieldConfigs() {
+        this.rememberChoices();
         this.isLoading = true;
         getFieldConfigs({ selectedObjects: this.selectedObjects.length > 0 ? this.selectedObjects : null })
             .then(configs => {
@@ -189,7 +192,8 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
                     ...cfg,
                     configKey:             cfg.developerName,
                     recordTypeLabel:       recordTypesOf(cfg).join(', '),
-                    enabled:               true,
+                    deleteHistory:         cfg.deleteHistory && !this._historyOffKeys.has(cfg.developerName),
+                    enabled:               !this._untickedKeys.has(cfg.developerName),
                     originalDeleteHistory: cfg.deleteHistory,
                     isContentDoc:          cfg.patternType === 'DELETE_CONTENT_DOCUMENT'
                 }));
@@ -256,7 +260,20 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         this.selectedBrands = event.detail.value;
         this.brandScopeNote = null;
     }
+    /** Keeps the user's ticks for rules the field table no longer shows. */
+    rememberChoices() {
+        this.fieldConfigs.forEach(cfg => {
+            if (cfg.enabled) this._untickedKeys.delete(cfg.configKey);
+            else this._untickedKeys.add(cfg.configKey);
+            if (cfg.originalDeleteHistory) {
+                if (cfg.deleteHistory) this._historyOffKeys.delete(cfg.configKey);
+                else this._historyOffKeys.add(cfg.configKey);
+            }
+        });
+    }
+
     handleObjectChange(event) {
+        this.rememberChoices();
         this.selectedObjects = event.detail.value;
         this.fieldConfigs    = [];
         this.previewByObject = [];
@@ -265,6 +282,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         this.loadRecordTypes(this.selectedObjects);
     }
     handleRecordTypeChange(event) {
+        this.rememberChoices();
         this.selectedRecordTypes = event.detail.value;
         this.fieldConfigs        = [];
         this.previewByObject     = [];
@@ -316,9 +334,8 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
         this.sampleSummary   = null;
         this.sampleWarnings  = [];
 
-        const excludedFields = this.fieldConfigs
-            .filter(cfg => cfg.objectApiName === this.sampleObject && !cfg.enabled)
-            .map(cfg => cfg.configKey);
+        this.rememberChoices();
+        const excludedFields = [...this._untickedKeys];
 
         previewSample({
             objectApiName:       this.sampleObject,
@@ -377,8 +394,9 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
             this.showToast('Permission Denied', 'You need the "TEKCO Anonymize Data" custom permission.', 'error');
             return;
         }
-        this._pendingExcludedFields = this.fieldConfigs.filter(cfg => !cfg.enabled).map(cfg => cfg.configKey);
-        this._pendingDisabledHistoryFields = this.fieldConfigs.filter(cfg => cfg.originalDeleteHistory && !cfg.deleteHistory).map(cfg => cfg.configKey);
+        this.rememberChoices();
+        this._pendingExcludedFields        = [...this._untickedKeys];
+        this._pendingDisabledHistoryFields = [...this._historyOffKeys];
         this.confirmSummaryLines = [
             { key: 'brands',      label: 'Brands',           value: this.selectedBrands.length ? this.selectedBrands.join(', ') : 'ALL' },
             { key: 'objects',     label: 'Objects',          value: this.selectedObjects.length ? this.selectedObjects.join(', ') : 'All configured objects' },

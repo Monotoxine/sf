@@ -147,22 +147,9 @@ public with sharing class TEKCO_AnonymizationLaunchService {
             WHERE TEKCO_IsActive__c = true AND TEKCO_ObjectApiName__c IN :objectApiNames
         ];
 
-        if (request.selectedRecordTypes == null || request.selectedRecordTypes.isEmpty()) {
-            return configs;
-        }
-        Set<String> recordTypeFilter = new Set<String>(request.selectedRecordTypes);
-        List<TEKCO_AnonymizationFieldConfig__mdt> kept =
-            new List<TEKCO_AnonymizationFieldConfig__mdt>();
-        for (TEKCO_AnonymizationFieldConfig__mdt config : configs) {
-            Set<String> covered = TEKCO_AnonymizationConfigSelector.recordTypesOf(config);
-            if (covered.isEmpty()) {
-                kept.add(config);
-                continue;
-            }
-            covered.retainAll(recordTypeFilter);
-            if (!covered.isEmpty()) kept.add(config);
-        }
-        return kept;
+        return TEKCO_AnonymizationConfigSelector.filterByRecordTypes(
+            configs, request.selectedRecordTypes
+        );
     }
 
     private static TEKCO_AnonymizationRunContext buildContext(

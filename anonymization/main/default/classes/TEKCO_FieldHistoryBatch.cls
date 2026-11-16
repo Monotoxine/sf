@@ -84,8 +84,14 @@ public without sharing class TEKCO_FieldHistoryBatch implements Database.Batchab
     }
 
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
+        List<SObject> covered = TEKCO_FieldHistoryDeleteService.rowsCoveredByConfigs(
+            scope,
+            objectApiName,
+            TEKCO_AnonymizationScopeQueryBuilder.historyParentIdFieldFor(objectApiName),
+            historyConfigs()
+        );
         TEKCO_FieldHistoryDeleteService.DeleteOutcome outcome =
-            TEKCO_FieldHistoryDeleteService.deleteHistoryRecords(scope);
+            TEKCO_FieldHistoryDeleteService.deleteHistoryRecords(covered);
 
         recordsDeleted += outcome.recordsDeleted;
         recordsFailed  += outcome.recordsFailed;

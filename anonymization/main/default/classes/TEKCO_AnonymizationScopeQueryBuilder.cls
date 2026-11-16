@@ -102,23 +102,39 @@ public inherited sharing class TEKCO_AnonymizationScopeQueryBuilder {
         Boolean hasEmailMessageLorem
     ) {
         List<String> conditions = new List<String>();
-
-        if (selectedBrands != null && !selectedBrands.isEmpty()) {
-            String brandCondition = TEKCO_AnonymizationOrgConfigService.buildBrandCondition(
-                objectApiName, selectedBrands
-            );
-            if (brandCondition != null) {
-                conditions.add(brandCondition);
-            } else if (hasEmailMessageLorem == true
-                    && TEKCO_AnonymizationOrgConfigService.hasField('Case', 'TEKCO_Brand__c')) {
-                conditions.add('Parent.TEKCO_Brand__c IN :selectedBrands');
-            }
-        }
+        conditions.add(brandCondition(objectApiName, selectedBrands, hasEmailMessageLorem));
         conditions.add(recordTypeCondition(objectApiName, selectedRecordTypes, configs));
         conditions.add(additionalFilter);
 
         return selectClause(fields) + ' FROM ' + objectApiName + whereClause(conditions);
     }
+
+    /** The brand condition of a run; an EmailMessage without one falls back on its Case. */
+    public static String brandCondition(
+        String objectApiName, List<String> selectedBrands, Boolean hasEmailMessageLorem
+    ) {
+        if (selectedBrands == null || selectedBrands.isEmpty()) return null;
+        String condition = TEKCO_AnonymizationOrgConfigService.buildBrandCondition(
+            objectApiName, selectedBrands
+        );
+        if (condition != null) return condition;
+        if (hasEmailMessageLorem == true
+                && TEKCO_AnonymizationOrgConfigService.hasField('Case', 'TEKCO_Brand__c')) {
+            return 'Parent.TEKCO_Brand__c IN ('
+                + TEKCO_AnonymizationOrgConfigService.toInClause(selectedBrands) + ')';
+        }
+        return null;
+    }
+
+    public static Boolean hasEmailMessageLorem(List<TEKCO_AnonymizationFieldConfig__mdt> configs) {
+        if (configs == null) return false;
+        for (TEKCO_AnonymizationFieldConfig__mdt config : configs) {
+            if (config.TEKCO_PatternType__c == PATTERN_EMAIL_MESSAGE_LOREM) return true;
+        }
+        return false;
+    }
+
+    private static final String PATTERN_EMAIL_MESSAGE_LOREM = 'EMAIL_MESSAGE_LOREM';
 
     public static String recordTypeCondition(
         String objectApiName,
@@ -233,7 +249,7 @@ public inherited sharing class TEKCO_AnonymizationScopeQueryBuilder {
         parentConditions.add(recordTypeCondition(objectApiName, selectedRecordTypes, configs));
         parentConditions.add(additionalFilter);
 
-        return 'SELECT Id FROM ' + historyObjectName
+        return 'SELECT Id, Field, ' + parentIdFieldName + ' FROM ' + historyObjectName
             + ' WHERE Field IN (' + fieldInClause + ')'
             + ' AND ' + parentIdFieldName
             + ' IN (SELECT Id FROM ' + objectApiName + whereClause(parentConditions) + ')';
@@ -248,7 +264,7 @@ public inherited sharing class TEKCO_AnonymizationScopeQueryBuilder {
         String fieldInClause = escapedInClause(historyFieldNames);
         if (fieldInClause == null) return null;
 
-        return 'SELECT Id FROM ' + historyObjectName
+        return 'SELECT Id, Field, ' + parentIdFieldName + ' FROM ' + historyObjectName
             + ' WHERE Field IN (' + fieldInClause + ')'
             + ' AND ' + parentIdFieldName + ' IN :' + idBindName;
     }

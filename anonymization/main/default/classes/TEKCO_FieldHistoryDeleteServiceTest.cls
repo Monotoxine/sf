@@ -60,4 +60,70 @@ private class TEKCO_FieldHistoryDeleteServiceTest {
 
         System.assertEquals(0, outcome.recordsDeleted, 'Null scope handled without exception');
     }
+
+    private static AccountHistory historyRow(String field, Id accountId) {
+        return (AccountHistory) JSON.deserialize(
+            JSON.serialize(new Map<String, Object>{
+                'attributes' => new Map<String, Object>{ 'type' => 'AccountHistory' },
+                'Field'      => field,
+                'AccountId'  => accountId
+            }),
+            AccountHistory.class
+        );
+    }
+
+    private static TEKCO_AnonymizationFieldConfig__mdt rule(String field, String recordTypes) {
+        return new TEKCO_AnonymizationFieldConfig__mdt(
+            TEKCO_FieldApiName__c = field, TEKCO_RecordTypeDeveloperName__c = recordTypes
+        );
+    }
+
+    @isTest
+    static void rowsCoveredByConfigs_keepsOnlyConfiguredFields() {
+        Account acc = new Account(Name = 'History Parent');
+        insert acc;
+
+        List<SObject> kept = TEKCO_FieldHistoryDeleteService.rowsCoveredByConfigs(
+            new List<SObject>{ historyRow('Phone', acc.Id), historyRow('Name', acc.Id) },
+            'Account', 'AccountId', new List<TEKCO_AnonymizationFieldConfig__mdt>{ rule('phone', null) }
+        );
+
+        System.assertEquals(1, kept.size(), 'Only the configured field is kept');
+        System.assertEquals('Phone', kept[0].get('Field'));
+    }
+
+    @isTest
+    static void rowsCoveredByConfigs_scopedRule_dropsOtherRecordTypes() {
+        Account acc = new Account(Name = 'History Parent');
+        insert acc;
+
+        List<SObject> kept = TEKCO_FieldHistoryDeleteService.rowsCoveredByConfigs(
+            new List<SObject>{ historyRow('Phone', acc.Id) },
+            'Account', 'AccountId',
+            new List<TEKCO_AnonymizationFieldConfig__mdt>{ rule('Phone', 'No_Such_RT_ZZZ') }
+        );
+
+        System.assert(kept.isEmpty(), 'A rule scoped to another record type deletes no history here');
+    }
+
+    @isTest
+    static void rowsCoveredByConfigs_scopedRule_keepsItsRecordType() {
+        List<RecordType> recordTypes = [
+            SELECT Id, DeveloperName FROM RecordType
+            WHERE SobjectType = 'Account' AND IsActive = true AND IsPersonType = false LIMIT 1
+        ];
+        if (recordTypes.isEmpty()) return;
+        Account acc = new Account(Name = 'History Parent', RecordTypeId = recordTypes[0].Id);
+        insert acc;
+
+        List<SObject> kept = TEKCO_FieldHistoryDeleteService.rowsCoveredByConfigs(
+            new List<SObject>{ historyRow('Phone', acc.Id) },
+            'Account', 'AccountId',
+            new List<TEKCO_AnonymizationFieldConfig__mdt>{
+                rule('Phone', 'No_Such_RT_ZZZ, ' + recordTypes[0].DeveloperName)
+            }
+        );
+
+        System.assertEquals(1, kept.size(), 'The rule covers the parent record type');
+    }
 }

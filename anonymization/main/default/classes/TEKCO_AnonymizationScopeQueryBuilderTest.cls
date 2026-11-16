@@ -227,7 +227,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
             TEKCO_AnonymizationOrgConfigService.hasField('EmailMessage', 'TEKCO_Brand__c');
 
         if (!emailHasBrand && caseHasBrand) {
-            System.assert(soql.contains('Parent.TEKCO_Brand__c IN :selectedBrands'),
+            System.assert(soql.contains('Parent.TEKCO_Brand__c IN (\'BRAND_A\')'),
                 'The parent Case carries the brand scope');
         } else {
             System.assertEquals(false, soql.contains('Parent.TEKCO_Brand__c'),
@@ -371,7 +371,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         );
 
         System.assertEquals(
-            'SELECT Id FROM AccountHistory WHERE Field IN (\'Name\', \'Phone\')'
+            'SELECT Id, Field, AccountId FROM AccountHistory WHERE Field IN (\'Name\', \'Phone\')'
             + ' AND AccountId IN (SELECT Id FROM Account WHERE IsDeleted = false)',
             soql,
             'History rows are targeted by field and scoped through the parent query'
@@ -402,7 +402,7 @@ private class TEKCO_AnonymizationScopeQueryBuilderTest {
         );
 
         System.assertEquals(
-            'SELECT Id FROM AccountHistory WHERE Field IN (\'Phone\') AND AccountId IN :recordIds',
+            'SELECT Id, Field, AccountId FROM AccountHistory WHERE Field IN (\'Phone\') AND AccountId IN :recordIds',
             soql,
             'The By ID history scope is the same shape without the parent subquery'
         );

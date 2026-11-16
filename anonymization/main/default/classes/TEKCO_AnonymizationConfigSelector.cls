@@ -71,6 +71,25 @@ public inherited sharing class TEKCO_AnonymizationConfigSelector {
         return config.DeveloperName;
     }
 
+    /** Drops the rules that cover none of the selected record types; no selection keeps all. */
+    public static List<TEKCO_AnonymizationFieldConfig__mdt> filterByRecordTypes(
+        List<TEKCO_AnonymizationFieldConfig__mdt> configs, List<String> selectedRecordTypes
+    ) {
+        if (selectedRecordTypes == null || selectedRecordTypes.isEmpty()) return configs;
+        Set<String> recordTypeFilter = new Set<String>(selectedRecordTypes);
+        List<TEKCO_AnonymizationFieldConfig__mdt> kept = new List<TEKCO_AnonymizationFieldConfig__mdt>();
+        for (TEKCO_AnonymizationFieldConfig__mdt config : configs) {
+            Set<String> covered = recordTypesOf(config);
+            if (covered.isEmpty()) {
+                kept.add(config);
+                continue;
+            }
+            covered.retainAll(recordTypeFilter);
+            if (!covered.isEmpty()) kept.add(config);
+        }
+        return kept;
+    }
+
     public static Set<String> recordTypesOf(TEKCO_AnonymizationFieldConfig__mdt config) {
         Set<String> recordTypes = new Set<String>();
         if (config == null || String.isBlank(config.TEKCO_RecordTypeDeveloperName__c)) {

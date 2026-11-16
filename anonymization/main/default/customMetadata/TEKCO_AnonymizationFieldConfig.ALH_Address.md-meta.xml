@@ -24,7 +24,7 @@
     </values>
     <values>
         <field>TEKCO_ParentLookupFieldApiName__c</field>
-        <value xsi:type="xsd:string">Patient__r</value>
+        <value xsi:type="xsd:string">Patient__c</value>
     </values>
     <values>
         <field>TEKCO_ParentObjectApiName__c</field>

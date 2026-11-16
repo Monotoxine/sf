@@ -134,4 +134,27 @@ private class TEKCO_AnonymizationConfigSelectorTest {
                 TEKCO_RecordTypeDeveloperName__c = 'Patient,Prescriber')),
             'Avec une liste, elle est scopee');
     }
+
+    @isTest
+    static void filterByRecordTypes_keepsUnscopedAndMatchingRules() {
+        TEKCO_AnonymizationFieldConfig__mdt unscoped = new TEKCO_AnonymizationFieldConfig__mdt(DeveloperName = 'Unscoped');
+        TEKCO_AnonymizationFieldConfig__mdt patient  = new TEKCO_AnonymizationFieldConfig__mdt(
+            DeveloperName = 'Patient', TEKCO_RecordTypeDeveloperName__c = 'ACCCO_Patient'
+        );
+        TEKCO_AnonymizationFieldConfig__mdt other    = new TEKCO_AnonymizationFieldConfig__mdt(
+            DeveloperName = 'Other', TEKCO_RecordTypeDeveloperName__c = 'ACCCO_Hospital'
+        );
+        List<TEKCO_AnonymizationFieldConfig__mdt> configs =
+            new List<TEKCO_AnonymizationFieldConfig__mdt>{ unscoped, patient, other };
+
+        List<TEKCO_AnonymizationFieldConfig__mdt> kept =
+            TEKCO_AnonymizationConfigSelector.filterByRecordTypes(configs, new List<String>{ 'ACCCO_Patient' });
+
+        System.assertEquals(2, kept.size(), 'The Hospital rule is dropped');
+        System.assertEquals('Unscoped', kept[0].DeveloperName);
+        System.assertEquals('Patient', kept[1].DeveloperName);
+        System.assertEquals(3,
+            TEKCO_AnonymizationConfigSelector.filterByRecordTypes(configs, null).size(),
+            'No selection keeps every rule');
+    }
 }
