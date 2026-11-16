@@ -856,7 +856,7 @@ export default class TekcoDataAnonymizationAdmin extends LightningElement {
     }
 
     computeStatusBadgeClass(status) {
-        const map = { 'Success': 'badge badge-success', 'Running': 'badge badge-running', 'Partial': 'badge badge-partial', 'Failed': 'badge badge-failed' };
+        const map = { 'Success': 'badge badge-success', 'Running': 'badge badge-running', 'Partial': 'badge badge-partial', 'Failed': 'badge badge-failed', 'Refused': 'badge badge-failed' };
         return map[status] || 'badge';
     }
 

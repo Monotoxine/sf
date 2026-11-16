@@ -1,7 +1,8 @@
 /**
  * Le scheduler avale volontairement toute exception : un Schedulable qui lève ne laisse rien
- * qu'un administrateur puisse relire. Ces tests vérifient donc qu'il se planifie et s'exécute
- * sans jamais faire échouer le job, quelle que soit la configuration de l'org.
+ * qu'un administrateur puisse relire. Un refus est donc écrit dans le journal d'audit, statut
+ * Refused, pour apparaître dans Recent Runs. Ces tests vérifient qu'il se planifie, s'exécute
+ * sans jamais faire échouer le job, et qu'un refus laisse une trace lisible et rien d'autre.
  */
 @isTest
 private class TEKCO_AnonymizationSchedulerTest {
@@ -18,20 +19,73 @@ private class TEKCO_AnonymizationSchedulerTest {
     }
 
     /**
-     * Sur une org de production, le lancement doit être refusé — et refusé silencieusement,
-     * sans faire échouer le job planifié.
+     * Sur une org de production le lancement est refusé : aucun run ouvert, mais une ligne
+     * Refused qui dit pourquoi, au lieu d'une simple ligne de debug que personne ne lit.
      */
     @isTest
-    static void scheduler_onProduction_isRefusedQuietly() {
+    static void scheduler_onProduction_isRefusedAndLogged() {
         TEKCO_AnonymizationOrgConfigService.isSandboxCached = false;
-        Integer logsBefore = [SELECT COUNT() FROM TEKCO_AnonymizationAuditLog__c];
 
         Test.startTest();
         new TEKCO_AnonymizationScheduler().execute(null);
         Test.stopTest();
 
-        System.assertEquals(logsBefore, [SELECT COUNT() FROM TEKCO_AnonymizationAuditLog__c],
-            'Aucun run ouvert sur une org de production');
+        System.assertEquals(0, [
+            SELECT COUNT() FROM TEKCO_AnonymizationAuditLog__c WHERE TEKCO_Status__c = 'Running'
+        ], 'Aucun run ouvert sur une org de production');
+        List<TEKCO_AnonymizationAuditLog__c> refused = [
+            SELECT TEKCO_ErrorMessage__c, TEKCO_RunMode__c, TEKCO_EndTime__c
+            FROM TEKCO_AnonymizationAuditLog__c
+            WHERE TEKCO_Status__c = :TEKCO_AnonymizationScheduler.STATUS_REFUSED
+        ];
+        System.assertEquals(1, refused.size(), 'Le refus est journalisé une fois');
+        System.assert(refused[0].TEKCO_ErrorMessage__c.startsWith('Scheduled run not started: '),
+            'La raison est lisible : ' + refused[0].TEKCO_ErrorMessage__c);
+        System.assertEquals('BY_CRITERIA', refused[0].TEKCO_RunMode__c,
+            'La ligne apparaît dans l onglet By Criteria');
+        System.assertNotEquals(null, refused[0].TEKCO_EndTime__c, 'Un refus est clos d emblée');
+    }
+
+    /** Un run déjà en cours : le scheduler est refusé, et le run en cours n'est pas touché. */
+    @isTest
+    static void scheduler_whileARunIsInProgress_isRefusedAndLogged() {
+        TEKCO_AnonymizationOrgConfigService.isSandboxCached = true;
+        TEKCO_AnonymizationAuditLog__c running = new TEKCO_AnonymizationAuditLog__c(
+            TEKCO_Status__c = 'Running', TEKCO_StartTime__c = Datetime.now(),
+            TEKCO_RunMode__c = 'BY_CRITERIA'
+        );
+        insert running;
+
+        Test.startTest();
+        new TEKCO_AnonymizationScheduler().execute(null);
+        Test.stopTest();
+
+        System.assertEquals(1, [
+            SELECT COUNT() FROM TEKCO_AnonymizationAuditLog__c WHERE TEKCO_Status__c = 'Running'
+        ], 'Seul le run déjà en cours est Running');
+        System.assertEquals(1, [
+            SELECT COUNT() FROM TEKCO_AnonymizationAuditLog__c
+            WHERE TEKCO_Status__c = :TEKCO_AnonymizationScheduler.STATUS_REFUSED
+        ], 'Le scheduler refusé laisse une ligne Refused');
+    }
+
+    /** La portée restreinte est portée par le job et reprise dans la ligne d'audit. */
+    @isTest
+    static void scheduler_narrowedScope_isCarriedToTheAuditLog() {
+        TEKCO_AnonymizationOrgConfigService.isSandboxCached = false;
+
+        Test.startTest();
+        new TEKCO_AnonymizationScheduler(
+            new List<String>{ 'ACCCO_Patient' }, new List<String>{ 'Account' }, new List<String>{ 'IT_VIT' }
+        ).execute(null);
+        Test.stopTest();
+
+        TEKCO_AnonymizationAuditLog__c log = [
+            SELECT TEKCO_ObjectApiName__c, TEKCO_BrandFilter__c FROM TEKCO_AnonymizationAuditLog__c
+            WHERE TEKCO_Status__c = :TEKCO_AnonymizationScheduler.STATUS_REFUSED
+        ];
+        System.assertEquals('Account', log.TEKCO_ObjectApiName__c, 'Les objets choisis sont tracés');
+        System.assertEquals('IT_VIT', log.TEKCO_BrandFilter__c, 'Les marques choisies sont tracées');
     }
 
     @isTest
