@@ -82,11 +82,15 @@ rather than a list in a document: a list here would go stale, and one already di
 
 ### 2.2 Upgrading an org that carries an earlier version
 
-`destructiveChanges-architecture-v2.xml` lists what an earlier version left in the mmedlej sandbox
-that version 2 no longer has: two superseded classes, three dropped fields
-(`TEKCO_FieldsAnonymized__c`, `TEKCO_ParentRecordTypeDeveloperName__c`, `TEKCO_BypassEnabled__c`),
-the old field-config records and one pattern record. Another org may carry other leftovers: check
-it before deploying. Deploy it with the package, in one deployment:
+`destructiveChanges-architecture-v2.xml` lists what the first version installed that version 2
+no longer has: the five classes merged into the single v2 chain (`TEKCO_AnonymizationBatch`,
+`TEKCO_AnonymizationByIdBatch`, `TEKCO_ContentDocumentByIdBatch`, `TEKCO_FieldHistoryByIdBatch`,
+`TEKCO_AnonymizationBatchUtils`) and three dropped fields (`TEKCO_FieldsAnonymized__c`,
+`TEKCO_ParentRecordTypeDeveloperName__c`, `TEKCO_BypassEnabled__c`). It was checked against EmeaUAT,
+which carries that first version. The first version's field configs and patterns all exist in
+version 2 under the same names, so the package overwrites them and none is deleted. The
+`Run_Team_Tools` app is left alone: the first version only added its tab to it. Deploy it with the
+package, in one deployment:
 
 ```bash
 sf project deploy start \
